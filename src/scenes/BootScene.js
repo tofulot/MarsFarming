@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 
 const keys = ['sites', 'crops', 'buildings', 'demo-events', 'seasons', 'difficulty', 'landers',
-  'objectives', 'facts', 'balance'];
+  'objectives', 'facts', 'balance', 'mutations'];
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }

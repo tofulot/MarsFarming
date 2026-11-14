@@ -8,7 +8,7 @@ import { solarLongitude } from '../src/sim/insolation.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}.json`, import.meta.url)));
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty',
-  'landers', 'objectives', 'facts', 'balance'].map((key) => [key, read(key)]));
+  'landers', 'objectives', 'facts', 'balance', 'mutations'].map((key) => [key, read(key)]));
 data.events = read('demo-events');
 const quietData = { ...data, events: [] };
 

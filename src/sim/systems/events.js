@@ -18,7 +18,10 @@ export function startEvent(ctx, id) {
   if (event.effects.unshieldedCropHealth && data.difficulty[state.difficulty].cropDeath) {
     for (const crop of state.crops) {
       const plot = state.buildings.find(({ uid }) => uid === crop.plotUid);
-      if (!ctx.near(plot, 'berm')) crop.health = Math.max(0, crop.health - event.effects.unshieldedCropHealth);
+      if (!ctx.near(plot, 'berm')) {
+        const rad = state.lineages[crop.lineageId]?.mods.rad ?? 0;
+        crop.health = Math.max(0, crop.health - event.effects.unshieldedCropHealth * (1 - rad));
+      }
     }
   }
   state.events.active.push(active);

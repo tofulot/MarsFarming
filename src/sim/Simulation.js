@@ -8,6 +8,7 @@ import { eventSystem, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { waterSystem } from './systems/water.js';
 import { cropSystem, harvestCrop } from './systems/crops.js';
+import { emptyStress, lineageForPlant } from './systems/mutations.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
@@ -127,13 +128,17 @@ export class Simulation {
         if (!unit || !buildings.get(unit.id).plot || crop) return fail('Choose an empty greenhouse or hydroponic bay.');
         if (!traits || state.res.sp < traits.unlockSP) return fail('This crop is unavailable.');
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
-        state.crops.push({ uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0 });
+        const lineage = data.mutations ? lineageForPlant(state, id) : null;
+        state.crops.push({
+          uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
+          ...(lineage ? { lineageId: lineage.id, stress: emptyStress() } : {}),
+        });
         this.#record(`Planted ${traits.name}.`, `Requires around ${traits.growthSols} healthy sols to mature.`);
         return ok(`Planted ${traits.name}.`);
       }
       case 'harvest': {
         if (!crop || crop.growth < 1) return fail('The plot has no mature crop.');
-        const result = harvestCrop(this.#ctx, crop, unit);
+        const result = harvestCrop(this.#ctx, crop, unit, { saveSeed: cmd.saveSeed === true });
         this.#record(result, 'Harvest added food and research.');
         rewardSystem(this.#ctx);
         return ok(result);

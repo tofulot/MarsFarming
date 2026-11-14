@@ -135,14 +135,16 @@ export class ColonyScene extends Phaser.Scene {
       say(695, 207, info.why, 15, { color: colors.muted, wordWrap: { width: 495 } });
       say(695, 245, unit.online ? 'ONLINE' : 'OFFLINE / POWER SHED', 13,
         { color: unit.online ? '#9bd8ae' : '#ff805a' });
-      const doForUnit = (type, id) => this.run({ type, id, uid: unit.uid });
+      const doForUnit = (type, id, extra = {}) => this.run({ type, id, uid: unit.uid, ...extra });
       if (crop) {
         const traits = this.dataSet.crops.find(({ id }) => id === crop.cropId);
-        say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health`, 18);
+        const generation = state.lineages[crop.lineageId]?.generation;
+        const gen = generation ? `  ·  gen ${generation}` : '';
+        say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health${gen}`, 18);
         say(695, 324, unit.watered ? 'Water supplied last sol' : 'Water unavailable or unmeasured', 15, { color: colors.muted });
         action(695, 367, 210, 41, 'Harvest', crop.growth === 1 ? () => doForUnit('harvest') : null);
         action(922, 367, 270, 41, 'Harvest and replant', crop.growth === 1 ? () => {
-          if (doForUnit('harvest').ok) doForUnit('plant', traits.id);
+          if (doForUnit('harvest', undefined, { saveSeed: true }).ok) doForUnit('plant', traits.id);
         } : null);
       } else if (info.plot) {
         say(695, 279, unit.treated ? 'Choose a crop' : 'Untreated soil. Run a Soil Washer batch.', 17);

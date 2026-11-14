@@ -16,5 +16,11 @@
     "text": "NASA’s orbital data identified areas on Mars with ice less than 30 centimeters underground.",
     "source": "S14",
     "url": "https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars/"
+  },
+  {
+    "id": "mutation-dose",
+    "text": "Curiosity measured about 0.67 mSv/day at Gale. Crop lineages count that dose. Mutation chance is a game value.",
+    "source": "S11",
+    "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-the-surface-of-mars"
   }
 ]
