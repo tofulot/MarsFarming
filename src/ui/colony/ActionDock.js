@@ -77,8 +77,5 @@ export function drawActionDock(scene, group) {
   [0, 1, 2, 4].forEach((speed, index) => action(scene, group, 920 + index * 61, 636, 55, 19,
     speed ? `${speed}×` : 'Pause', () => scene.run({ type: 'setSpeed', speed }, false), sim.state.speed === speed));
   action(scene, group, 1164, 636, 82, 19, '+1 sol', () => { scene.acc = 0; sim.step(); });
-  action(scene, group, 920, 611, 326, 20, sim.state.rescue ? 'Abandon mission' : 'Mission report', () => {
-    if (!sim.state.rescue || window.confirm('Abandon this rescue mission?')) scene.run({ type: 'endMission' });
-  });
   return previews;
 }

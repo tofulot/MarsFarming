@@ -19,6 +19,15 @@ function building(scene, group, unit, x, y, size, model) {
     graphic.lineBetween(x + 3, y + 18, x + size - 3, y + 18);
     graphic.lineBetween(x + 8, y + size - 7, x + 6, y + size - 2);
     graphic.lineBetween(x + size - 8, y + size - 7, x + size - 6, y + size - 2);
+    if ((unit.dust ?? 0) > 0.01) {
+      const dustAlpha = Math.min(0.72, unit.dust * 0.8);
+      graphic.fillStyle(0xd4a16a, dustAlpha).fillRect(x + 4, y + 6, (size - 8) * Math.min(1, unit.dust * 1.6), size - 15);
+      graphic.lineStyle(1, 0xf0c180, Math.min(0.7, unit.dust));
+      for (let mark = 0; mark < 3; mark++) {
+        const sx = x + 7 + mark * (size - 14) / 3;
+        graphic.lineBetween(sx, y + 9, sx + 3, y + 15);
+      }
+    }
   } else {
     graphic.fillStyle(color).fillRoundedRect(x + 7, y + 4, size - 14, size - 10, unit.id === 'hab' ? 10 : 4);
     graphic.fillStyle(0x78968d).fillRect(x + 11, y + 9, size - 22, 6);
@@ -55,8 +64,13 @@ export function drawColonyBoard(scene) {
       if (unit) building(scene, scene.tileLayer, unit, px + (tile - row) / 2, py, row - 1, definitions.get(unit.id));
       if (crop) {
         plants.push({ key: `crop-${crop.uid}`, id: crop.cropId, x: px + tile / 2, y: py + row - 7, size: 26, growth: crop.growth });
-        scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, (tile - 10) * crop.growth, 2,
-          crop.growth >= 1 ? 0xcce1ac : 0xbfa27c).setOrigin(0).setDepth(18));
+        scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, tile - 10, 4, 0x37251c, 0.9).setOrigin(0).setDepth(18));
+        scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, (tile - 10) * crop.growth, 4,
+          crop.growth >= 1 ? 0x9ed27c : 0xe0b36e).setOrigin(0).setDepth(19));
+        if (crop.growth >= 1) {
+          scene.tileLayer.add(scene.add.circle(px + tile - 7, py + 5, 5, 0x8fca6d).setDepth(19));
+          scene.tileLayer.add(scene.add.text(px + tile - 7, py + 5, '✓', { fontSize: 8, color: '#26351f', fontStyle: 'bold' }).setOrigin(0.5).setDepth(20));
+        }
       }
     }
   }

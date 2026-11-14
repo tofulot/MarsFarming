@@ -16,7 +16,18 @@ export function action(scene, group, x, y, width, height, copy, callback, select
   label(scene, group, x + width / 2, y + height / 2, copy, 12,
     { color: callback ? theme.ink : theme.muted, align: 'center' }).setOrigin(0.5);
   if (callback) box.setInteractive({ useHandCursor: true }).on('pointerdown', callback)
-    .on('pointerover', () => box.setFillStyle(0x80503b))
-    .on('pointerout', () => box.setFillStyle(selected ? 0x80503b : theme.panel));
+    .on('pointerover', (pointer) => {
+      box.setFillStyle(0x80503b);
+      scene.colonyTooltip?.destroy();
+      scene.colonyTooltip = scene.add.text(pointer.x + 12, pointer.y + 12, copy.replace(/\n/g, ' · '), {
+        fontFamily: 'Arial', fontSize: 11, color: '#fff1df', backgroundColor: '#38221d',
+        padding: { x: 7, y: 5 },
+      }).setDepth(250).setScrollFactor(0);
+    })
+    .on('pointerout', () => {
+      box.setFillStyle(selected ? 0x80503b : theme.panel);
+      scene.colonyTooltip?.destroy();
+      scene.colonyTooltip = null;
+    });
   return box;
 }
