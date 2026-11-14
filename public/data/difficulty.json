@@ -1,0 +1,32 @@
+{
+  "easy": {
+    "budget": 2000,
+    "eventMult": 0.5,
+    "units": "icons",
+    "cropDeath": false,
+    "startWater": 2800,
+    "startFood": 240,
+    "stressDamage": 0.012,
+    "_game": true
+  },
+  "medium": {
+    "budget": 1600,
+    "eventMult": 1,
+    "units": "rounded",
+    "cropDeath": true,
+    "startWater": 2400,
+    "startFood": 205,
+    "stressDamage": 0.027,
+    "_game": true
+  },
+  "hard": {
+    "budget": 1300,
+    "eventMult": 1.3,
+    "units": "units",
+    "cropDeath": true,
+    "startWater": 2000,
+    "startFood": 160,
+    "stressDamage": 0.045,
+    "_game": true
+  }
+}

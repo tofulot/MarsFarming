@@ -1,0 +1,40 @@
+[
+  {
+    "id": "feed",
+    "name": "Feed the Crew",
+    "description": "Grow at least 50% of the crew’s food for one Mars year.",
+    "weights": {
+      "food": 50,
+      "efficiency": 20,
+      "health": 20,
+      "science": 10
+    },
+    "target": 0.5,
+    "_game": true
+  },
+  {
+    "id": "science",
+    "name": "Crop Scientist",
+    "description": "Record and downlink 12 crop and season discoveries.",
+    "weights": {
+      "science": 50,
+      "comms": 20,
+      "food": 15,
+      "efficiency": 15
+    },
+    "target": 12,
+    "_game": true
+  },
+  {
+    "id": "storm",
+    "name": "Storm Survivor",
+    "description": "Keep the crew fed and life support powered through dust season.",
+    "weights": {
+      "survival": 50,
+      "power": 25,
+      "food": 25
+    },
+    "target": 1,
+    "_game": true
+  }
+]

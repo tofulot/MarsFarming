@@ -1,0 +1,104 @@
+{
+  "yearSols": 668.6,
+  "months": [
+    {
+      "month": 1,
+      "LsFrom": 0,
+      "LsTo": 30,
+      "solFrom": 0,
+      "solTo": 61.2
+    },
+    {
+      "month": 2,
+      "LsFrom": 30,
+      "LsTo": 60,
+      "solFrom": 61.2,
+      "solTo": 126.6
+    },
+    {
+      "month": 3,
+      "LsFrom": 60,
+      "LsTo": 90,
+      "solFrom": 126.6,
+      "solTo": 193.3
+    },
+    {
+      "month": 4,
+      "LsFrom": 90,
+      "LsTo": 120,
+      "solFrom": 193.3,
+      "solTo": 257.8
+    },
+    {
+      "month": 5,
+      "LsFrom": 120,
+      "LsTo": 150,
+      "solFrom": 257.8,
+      "solTo": 317.5
+    },
+    {
+      "month": 6,
+      "LsFrom": 150,
+      "LsTo": 180,
+      "solFrom": 317.5,
+      "solTo": 371.9
+    },
+    {
+      "month": 7,
+      "LsFrom": 180,
+      "LsTo": 210,
+      "solFrom": 371.9,
+      "solTo": 421.6
+    },
+    {
+      "month": 8,
+      "LsFrom": 210,
+      "LsTo": 240,
+      "solFrom": 421.6,
+      "solTo": 468.5
+    },
+    {
+      "month": 9,
+      "LsFrom": 240,
+      "LsTo": 270,
+      "solFrom": 468.5,
+      "solTo": 514.6
+    },
+    {
+      "month": 10,
+      "LsFrom": 270,
+      "LsTo": 300,
+      "solFrom": 514.6,
+      "solTo": 562
+    },
+    {
+      "month": 11,
+      "LsFrom": 300,
+      "LsTo": 330,
+      "solFrom": 562,
+      "solTo": 612.9
+    },
+    {
+      "month": 12,
+      "LsFrom": 330,
+      "LsTo": 360,
+      "solFrom": 612.9,
+      "solTo": 668.6
+    }
+  ],
+  "seasonNamesNorth": [
+    "Spring",
+    "Summer",
+    "Autumn",
+    "Winter"
+  ],
+  "_src": "S7",
+  "orbit": {
+    "obliquityDeg": 25.19,
+    "perihelionLs": 251,
+    "perihelionMkm": 206.65,
+    "aphelionMkm": 249.261,
+    "solHours": 24.6597,
+    "_src": "S4 / S6 / S7"
+  }
+}

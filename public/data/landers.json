@@ -1,0 +1,23 @@
+[
+  {
+    "id": "sparrow",
+    "name": "Sparrow",
+    "capacityKg": 1000,
+    "cost": 300,
+    "_game": true
+  },
+  {
+    "id": "condor",
+    "name": "Condor",
+    "capacityKg": 2500,
+    "cost": 600,
+    "_game": true
+  },
+  {
+    "id": "titan",
+    "name": "Titan",
+    "capacityKg": 5000,
+    "cost": 1100,
+    "_game": true
+  }
+]
