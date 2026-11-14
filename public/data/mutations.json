@@ -3,9 +3,9 @@
   "_doseNote": "Each sol adds balance.crewRadiationPerSol, the Curiosity surface figure of about 0.67 mSv/day (S11). That number is a dose counter. Alleles, dominance, and mutation chance are game rules.",
   "bermDoseFactor": 0.4,
   "speDoseMultiplier": 3,
-  "baseMutationPerAllele": 0.02,
-  "doseScale_mSv": 50,
-  "maxMutationPerAllele": 0.5,
+  "baseMutationPerAllele": 0.08,
+  "doseScale_mSv": 40,
+  "maxMutationPerAllele": 0.65,
   "difficultyMult": {
     "easy": 0.7,
     "medium": 1,
@@ -20,7 +20,7 @@
       "dominance": "complete",
       "dominant": "R",
       "phenotype": {
-        "dominant": { "rad": 0.3 },
+        "dominant": { "rad": 0.6 },
         "recessive": { "rad": 0 }
       }
     },
@@ -40,7 +40,7 @@
       "dominance": "complete",
       "dominant": "L",
       "phenotype": {
-        "dominant": { "ppf": 0.9 },
+        "dominant": { "ppf": 0.65 },
         "recessive": { "ppf": 1 }
       }
     },
@@ -50,7 +50,7 @@
       "dominance": "complete",
       "dominant": "C",
       "phenotype": {
-        "dominant": { "heat": 0.9 },
+        "dominant": { "heat": 0.65 },
         "recessive": { "heat": 1 }
       }
     },
@@ -59,8 +59,8 @@
       "alleles": ["Y", "y"],
       "dominance": "incomplete",
       "phenotype": {
-        "YY": { "yield": 1.1 },
-        "Yy": { "yield": 1 },
+        "YY": { "yield": 1.5 },
+        "Yy": { "yield": 1.1 },
         "yy": { "yield": 0.85 }
       }
     },
@@ -71,7 +71,7 @@
       "dominant": "G",
       "phenotype": {
         "dominant": { "growth": 1 },
-        "recessive": { "growth": 1.1 }
+        "recessive": { "growth": 1.4 }
       }
     }
   ]

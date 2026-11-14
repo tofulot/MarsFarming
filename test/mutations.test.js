@@ -44,8 +44,8 @@ test('incomplete dominance: Yy is intermediate yield', () => {
   const mid = { ...wildGenotype(rules), yield: ['Y', 'y'] };
   const high = { ...wildGenotype(rules), yield: ['Y', 'Y'] };
   const low = { ...wildGenotype(rules), yield: ['y', 'y'] };
-  assert.equal(phenotype(mid, rules).yield, 1);
-  assert.equal(phenotype(high, rules).yield, 1.1);
+  assert.equal(phenotype(mid, rules).yield, 1.1);
+  assert.equal(phenotype(high, rules).yield, 1.5);
   assert.equal(phenotype(low, rules).yield, 0.85);
 });
 
@@ -61,7 +61,7 @@ test('YY mother x yy father yields all Yy when mutation is off', () => {
     const child = crossGenotypes(mother, father, 0, 0, forced, () => 0.99, 'medium');
     assert.deepEqual(child.genotype.yield, ['Y', 'y']);
     assert.equal(child.mutation, null);
-    assert.equal(phenotype(child.genotype, rules).yield, 1);
+    assert.equal(phenotype(child.genotype, rules).yield, 1.1);
   }
 });
 
@@ -121,7 +121,11 @@ test('a berm lowers the crop dose counter', () => {
 });
 
 test('cross writes the seed vault and removes the mother; harvest does not', () => {
-  const sim = mission();
+  const stable = {
+    ...quiet,
+    mutations: { ...rules, baseMutationPerAllele: 0, maxMutationPerAllele: 0 },
+  };
+  const sim = new Simulation(stable, { difficulty: 'easy', siteId: 'gale' });
   sim.command({ type: 'build', id: 'plot', x: 0, y: 0 });
   sim.command({ type: 'build', id: 'plot', x: 2, y: 0 });
   sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
@@ -194,7 +198,7 @@ test('a shielded lineage takes a smaller particle-event hit', () => {
   sim.state.lineages[crop.lineageId].genotype.rad = ['R', 'r'];
   const before = crop.health;
   assert.equal(sim.command({ type: 'triggerEvent', id: 'spe' }).ok, true);
-  const hit = spe.effects.unshieldedCropHealth * (1 - 0.3);
+  const hit = spe.effects.unshieldedCropHealth * (1 - 0.6);
   assert.ok(Math.abs(before - crop.health - hit) < 1e-9);
 });
 
