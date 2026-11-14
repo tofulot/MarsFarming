@@ -23,7 +23,7 @@ The colony starts paused. Pack or build a Soil Washer and use it once before pla
 | Owner | Work | Integration point |
 |---|---|---|
 | Tolui | Core gameplay | Phaser scenes in `src/scenes/` call `Simulation.command()` and read `Simulation.state`. |
-| Kelton | Weather and events data | Put event definitions in `public/data/events.json`. See `public/data/demo-events.json` for the schema, with `id`, `name`, `durationSols`, `effects`, and optional probability and season scaling. `src/sim/systems/season.js` currently uses a simplified temperature model. |
+| Kelton | Shared weather API and source data | `sim.getWeather()`, `sim.forecastWeather(7)` and `sim.weather` supply weather, projections and crop/power effects. [API and integration guide](docs/weather.md). |
 | Edwin | Plant genetics and mutations | `public/data/crops.json` supplies baseline traits, and `src/sim/systems/crops.js` owns growth and harvest. A planted crop is tied to its plot with `plotUid`; mutation and inheritance logic can extend that state. |
 
 The [original playbook](Junior%20Astronaut%20Mars%20Farm%20README.md) describes the full project and source IDs. This implementation uses a schematic coordinate map, baseline crop traits, and simulated weather. The NASA baseline crop data comes from the [Life Support Baseline Values and Assumptions Document](https://ntrs.nasa.gov/citations/20210024855). The seasonal calendar uses the [LMD solar longitude table](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new). In-game payload costs, ratings, and resource tuning are game values.

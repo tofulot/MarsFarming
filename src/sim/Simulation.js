@@ -11,6 +11,7 @@ import { cropSystem, harvestCrop } from './systems/crops.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
+import { createRedHarvestWeather, gameWeatherInput, refreshGameWeather } from '../weather/redHarvest.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
@@ -32,7 +33,7 @@ export class Simulation {
     const site = data.sites.find(({ id }) => id === siteId);
     this.#demo = demo;
     this.#ctx = {
-      state, data, site, buildings: new Map(data.buildings.map((item) => [item.id, item])),
+      state, data, site, weather: createRedHarvestWeather(data, options.weather), buildings: new Map(data.buildings.map((item) => [item.id, item])),
       crops: new Map(data.crops.map((item) => [item.id, item])),
       random: mulberry32(seed), emit: this.#bus.emit,
       near: (plot, id, predicate = () => true) => state.buildings.some((unit) =>
@@ -54,6 +55,7 @@ export class Simulation {
       }
     }
     seasonSystem(state, data, site);
+    refreshGameWeather(this.#ctx);
     state.power.gen = launch.startPower;
     state.power.demand = state.buildings.reduce((load, unit) => {
       const model = this.#ctx.buildings.get(unit.id);
@@ -65,6 +67,9 @@ export class Simulation {
   }
 
   get state() { return this.#ctx.state; }
+  get weather() { return this.#ctx.weather; }
+  getWeather() { return this.#ctx.weather.current(gameWeatherInput(this.#ctx)); }
+  forecastWeather(sols = 7) { return this.#ctx.weather.forecast(gameWeatherInput(this.#ctx), { sols }); }
   on(event, fn) { return this.#bus.on(event, fn); }
   off(event, fn) { this.#bus.off(event, fn); }
 
@@ -91,6 +96,7 @@ export class Simulation {
     state.sol++;
     seasonSystem(state, data, site);
     eventSystem(this.#ctx);
+    refreshGameWeather(this.#ctx);
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
     cropSystem(this.#ctx);

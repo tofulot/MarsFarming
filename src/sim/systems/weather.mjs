@@ -202,13 +202,13 @@ export function plantingAdvice(crop, weather, config, availableClimateW) {
   const days = Math.ceil(duration);
   let exposed = 0;
   let logSurvival = 0;
-  const regional = config.events.find(event => event.id === 'dustRegional');
+  const regional = config.events.find(event => event.id === 'dustRegional' && event.difficulties.includes(weather.difficulty));
   for (let day = 0; day < days; day++) {
     const Ls = seasonAt(startSol + day, 0, config).Ls;
     const stormSeason = inStormSeason(Ls, config);
     if (stormSeason) exposed++;
-    const chance = clamp(regional.baseChancePerSol * config.difficulties[weather.difficulty].eventMult *
-      (stormSeason ? regional.seasonMultiplier : 1), 0, 1);
+    const chance = regional ? clamp(regional.baseChancePerSol * config.difficulties[weather.difficulty].eventMult *
+      (stormSeason ? regional.seasonMultiplier : 1), 0, 1) : 0;
     logSurvival += Math.log1p(-chance);
   }
   return {
