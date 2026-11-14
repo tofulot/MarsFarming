@@ -607,12 +607,11 @@ If an action fails, re-copy the workflow from https://vite.dev/guide/static-depl
 
 | Time | On screen | Say |
 |---|---|---|
-| 0:00–0:20 | Medium → objective **Feed the Crew** | "Real missions start with an objective: grow half the food for 4 crew for a Mars year." |
-| 0:20–0:50 | Hover Phoenix (ice ★★★★★, sun ★), then Gale (sun ★★★★★, ice ★); pick Utopia | "Phoenix found ice about 5 cm down, plus toxic perchlorate, and lost power as winter came. No perfect site, just trade-offs." |
-| 0:50–1:20 | Overpack → ❌ over Condor's capacity → remove a battery → ✅ | "Like a launch vehicle, our lander has a mass limit. Packing from Earth costs mass; building on Mars costs time." |
-| 1:20–2:00 | At 4×: solar, ice drill, soil washer, 2 plots; lettuce + potato; 🌟 Perfect Harvest | "Growth times and light needs come from NASA's life-support baseline data." |
-| 2:00–2:30 | Press `1`: dust storm → power shortage → greenhouse lights shed; battery saves life support | "Dust season runs Ls 180–360. In 2018 a storm like this silenced Opportunity." |
-| 2:30–3:00 | Press `R`: Report, 3 key decisions, Journal, Re-fly | "The game explains *why*, and you redesign and fly again. That's mission design." |
+| 0:00–0:30 | Open **Choose landing site**, compare the ice and sunlight layers, then return and choose **Start survival**. | "A landing site changes what you can produce. We’ll use Gale Crater for this run." |
+| 0:30–1:10 | Open **Base**. Place two Greenhouse Plots and one Soil Washer. Step one sol to treat the soil, then plant radishes in both plots. | "We have just enough rations to start farming. Treating soil uses power and water, and planting uses a little of our food reserve." |
+| 1:10–2:00 | Use **+1 sol** eight times, check crop growth, and harvest both plots. | "The first crop turns our starting supplies into food and credits for upgrades. Growth needs power, water, and treated soil." |
+| 2:00–2:30 | Press `1`, then step one sol and point out the storm timeline and power reading. | "We can see the storm on the forecast. Dust cuts incoming sunlight and builds up on the panels." |
+| 2:30–3:00 | Press `R` to end this demo run. Show the survival report, crop journal, and **Try another landing site**. | "The report records what we grew and achieved. We can change our landing site and try a different plan." |
 
 ---
 
