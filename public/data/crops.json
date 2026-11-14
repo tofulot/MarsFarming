@@ -11,8 +11,15 @@
     "yieldFresh_g_m2_d": 131.35,
     "value_cr_per_kg": 4,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 1500,
+      "protein_g_per_kg": 140,
+      "micronutrient": 0.85,
+      "_note": "Low calorie, high micronutrient leafy green. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "radish",
@@ -26,8 +33,15 @@
     "yieldFresh_g_m2_d": 91.67,
     "value_cr_per_kg": 5,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 1600,
+      "protein_g_per_kg": 100,
+      "micronutrient": 0.75,
+      "_note": "Quick salad crop. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "tomato",
@@ -41,8 +55,15 @@
     "yieldFresh_g_m2_d": 173.76,
     "value_cr_per_kg": 6,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 1800,
+      "protein_g_per_kg": 90,
+      "micronutrient": 0.9,
+      "_note": "Vitamin-forward fruit crop. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "potato",
@@ -56,8 +77,15 @@
     "yieldFresh_g_m2_d": 105.3,
     "value_cr_per_kg": 4,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 3500,
+      "protein_g_per_kg": 80,
+      "micronutrient": 0.45,
+      "_note": "Calorie staple. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "sweetPotato",
@@ -71,8 +99,15 @@
     "yieldFresh_g_m2_d": 51.72,
     "value_cr_per_kg": 5,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 3600,
+      "protein_g_per_kg": 70,
+      "micronutrient": 0.7,
+      "_note": "Calorie crop with better micronutrients than white potato. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "wheat",
@@ -86,8 +121,15 @@
     "yieldFresh_g_m2_d": 22.73,
     "value_cr_per_kg": 7,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 3400,
+      "protein_g_per_kg": 130,
+      "micronutrient": 0.4,
+      "_note": "Grain calories and moderate protein. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   },
   {
     "id": "soybean",
@@ -101,7 +143,14 @@
     "yieldFresh_g_m2_d": 5.04,
     "value_cr_per_kg": 9,
     "unlockSP": 0,
+    "nutrition": {
+      "kcal_per_kg": 4000,
+      "protein_g_per_kg": 360,
+      "micronutrient": 0.55,
+      "_note": "Protein crop. Game values."
+    },
     "_src": "S9 BVAD Tables 4-89 and 4-90",
-    "_game_value": true
+    "_game_value": true,
+    "_game_nutrition": true
   }
 ]

@@ -7,8 +7,10 @@ import { seasonSystem } from './systems/season.js';
 import { eventSystem, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { waterSystem } from './systems/water.js';
-import { cropSystem, harvestCrop } from './systems/crops.js';
-import { emptyStress, lineageForPlant } from './systems/mutations.js';
+import { cropSystem, harvestCrop, queueCrossDiscovery } from './systems/crops.js';
+import {
+  crossGenotypes, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
+} from './systems/mutations.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
@@ -128,7 +130,7 @@ export class Simulation {
         if (!unit || !buildings.get(unit.id).plot || crop) return fail('Choose an empty greenhouse or hydroponic bay.');
         if (!traits || state.res.sp < traits.unlockSP) return fail('This crop is unavailable.');
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
-        const lineage = data.mutations ? lineageForPlant(state, id) : null;
+        const lineage = data.mutations ? lineageForPlant(state, id, data.mutations) : null;
         state.crops.push({
           uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
           ...(lineage ? { lineageId: lineage.id, stress: emptyStress() } : {}),
@@ -138,10 +140,46 @@ export class Simulation {
       }
       case 'harvest': {
         if (!crop || crop.growth < 1) return fail('The plot has no mature crop.');
-        const result = harvestCrop(this.#ctx, crop, unit, { saveSeed: cmd.saveSeed === true });
+        const result = harvestCrop(this.#ctx, crop, unit);
         this.#record(result, 'Harvest added food and research.');
         rewardSystem(this.#ctx);
         return ok(result);
+      }
+      case 'cross': {
+        if (!data.mutations) return fail('Breeding is unavailable.');
+        const mother = state.crops.find(({ uid }) => uid === cmd.motherUid);
+        const father = state.crops.find(({ uid }) => uid === (cmd.fatherUid ?? cmd.motherUid));
+        if (!mother || !father) return fail('Select two mature crops of the same kind.');
+        if (mother.growth < 1 || father.growth < 1) return fail('Both parents must be mature.');
+        if (mother.cropId !== father.cropId) return fail('Crosses require the same crop.');
+        const motherPlot = state.buildings.find(({ uid }) => uid === mother.plotUid);
+        const traits = crops.get(mother.cropId);
+        const motherLine = state.lineages[mother.lineageId];
+        const fatherLine = state.lineages[father.lineageId];
+        if (!motherPlot || !traits || !motherLine || !fatherLine) return fail('Missing crop lineage.');
+        const result = crossGenotypes(
+          motherLine.genotype,
+          fatherLine.genotype,
+          mother.stress?.dose_mSv ?? 0,
+          father.stress?.dose_mSv ?? 0,
+          data.mutations,
+          this.#ctx.random,
+          state.difficulty,
+        );
+        const child = storeCrossChild(
+          state, mother.cropId, motherLine.id, fatherLine.id, result, data.mutations, state.sol,
+        );
+        const lab = state.buildings.some((entry) => entry.id === 'lab' && entry.online && entry.watered);
+        queueCrossDiscovery(this.#ctx, mother, traits, child, lab);
+        state.crops = state.crops.filter(({ uid }) => uid !== mother.uid);
+        const label = formatGenotype(child.genotype, data.mutations);
+        const note = result.mutation
+          ? ` New allele flip under dose (game).`
+          : '';
+        const text = `Crossed ${traits.name}. Seed vault holds generation ${child.generation}: ${label}.${note}`;
+        this.#record(text, 'Mendelian cross; mother harvested for seed.');
+        rewardSystem(this.#ctx);
+        return ok(text);
       }
       case 'wash':
         if (unit?.id !== 'washer') return fail('Select a Soil Washer.');

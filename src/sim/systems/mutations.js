@@ -1,10 +1,6 @@
 // AI-assisted (Cursor Grok)
-// Lineages change when harvested seed is saved. Each sol only adds stress.
-// Dose uses balance.crewRadiationPerSol (S11). Chances and clamps live in mutations.json.
-
-export function identityMods() {
-  return { ppf: 1, heat: 1, yield: 1, growth: 1, rad: 0, perchlorate: 0 };
-}
+// Diploid Mendelian loci. Phenotype is derived from genotype.
+// Dose uses balance.crewRadiationPerSol (S11). Allele flip rates are game values.
 
 export function emptyStress() {
   return { dose_mSv: 0, lowPowerSols: 0, coldSols: 0, drySols: 0, perchlorateSols: 0 };
@@ -14,14 +10,139 @@ function clamp(value, lo, hi) {
   return Math.min(hi, Math.max(lo, value));
 }
 
-export function createLineage(state, cropId) {
+function orderPair(a, b) {
+  return a === b ? [a, b] : (a < b ? [a, b] : [b, a]);
+}
+
+export function wildGenotype(rules) {
+  const genotype = {};
+  for (const locus of rules.loci) {
+    const recessive = locus.alleles.find((allele) => allele === allele.toLowerCase());
+    const wild = locus.id === 'growth' ? locus.dominant : recessive;
+    genotype[locus.id] = [wild, wild];
+  }
+  return genotype;
+}
+
+export function formatGenotype(genotype, rules) {
+  return rules.loci.map((locus) => {
+    const [a, b] = genotype[locus.id];
+    return `${a}${b}`;
+  }).join(' ');
+}
+
+export function phenotype(genotype, rules) {
+  const traits = { ppf: 1, heat: 1, yield: 1, growth: 1, rad: 0, perchlorate: 0 };
+  for (const locus of rules.loci) {
+    const [a, b] = genotype[locus.id];
+    let patch;
+    if (locus.dominance === 'incomplete') {
+      const key = `${a}${b}`;
+      const alt = `${b}${a}`;
+      patch = locus.phenotype[key] ?? locus.phenotype[alt];
+    } else {
+      const hasDominant = a === locus.dominant || b === locus.dominant;
+      patch = hasDominant ? locus.phenotype.dominant : locus.phenotype.recessive;
+    }
+    Object.assign(traits, patch);
+  }
+  return traits;
+}
+
+export function lineagePhenotype(state, crop, rules) {
+  const lineage = state.lineages[crop?.lineageId];
+  if (!lineage?.genotype || !rules) return { ppf: 1, heat: 1, yield: 1, growth: 1, rad: 0, perchlorate: 0 };
+  return phenotype(lineage.genotype, rules);
+}
+
+export function mutationChance(dose_mSv, rules, difficulty) {
+  const mult = rules.difficultyMult[difficulty] ?? 1;
+  return clamp(
+    rules.baseMutationPerAllele * mult * (1 + dose_mSv / rules.doseScale_mSv),
+    0,
+    rules.maxMutationPerAllele,
+  );
+}
+
+function flipAllele(allele, locus) {
+  return allele === locus.alleles[0] ? locus.alleles[1] : locus.alleles[0];
+}
+
+export function gamete(genotype, dose_mSv, rules, random, difficulty = 'medium') {
+  const chance = mutationChance(dose_mSv, rules, difficulty);
+  const haploid = {};
+  const flips = [];
+  for (const locus of rules.loci) {
+    const pair = genotype[locus.id];
+    let allele = pair[Math.floor(random() * 2)];
+    if (random() < chance) {
+      const before = allele;
+      allele = flipAllele(allele, locus);
+      flips.push({ locus: locus.id, from: before, to: allele });
+    }
+    haploid[locus.id] = allele;
+  }
+  return { haploid, flips };
+}
+
+export function crossGenotypes(mother, father, doseMother, doseFather, rules, random, difficulty = 'medium') {
+  const egg = gamete(mother, doseMother, rules, random, difficulty);
+  const pollen = gamete(father, doseFather, rules, random, difficulty);
+  const genotype = {};
+  for (const locus of rules.loci) {
+    genotype[locus.id] = orderPair(egg.haploid[locus.id], pollen.haploid[locus.id]);
+  }
+  const flips = [...egg.flips, ...pollen.flips];
+  return {
+    genotype,
+    mutation: flips.length ? { kind: 'alleleFlip', flips } : null,
+    segregation: { egg: egg.haploid, pollen: pollen.haploid },
+  };
+}
+
+export function createLineage(state, cropId, rules, extra = {}) {
   const id = `L${state.nextLineageId++}`;
-  state.lineages[id] = { id, cropId, generation: 1, parentId: null, mods: identityMods(), log: [] };
+  state.lineages[id] = {
+    id,
+    cropId,
+    generation: 1,
+    parentIds: [],
+    genotype: wildGenotype(rules),
+    log: [],
+    ...extra,
+  };
   return state.lineages[id];
 }
 
-export function lineageForPlant(state, cropId) {
-  return state.lineages[state.seedVault[cropId]] ?? createLineage(state, cropId);
+export function lineageForPlant(state, cropId, rules) {
+  return state.lineages[state.seedVault[cropId]] ?? createLineage(state, cropId, rules);
+}
+
+export function storeCrossChild(state, cropId, motherId, fatherId, result, rules, sol) {
+  const id = `L${state.nextLineageId++}`;
+  const mother = state.lineages[motherId];
+  const generation = Math.max(mother?.generation ?? 1, state.lineages[fatherId]?.generation ?? 1) + 1;
+  state.lineages[id] = {
+    id,
+    cropId,
+    generation,
+    parentIds: [motherId, fatherId],
+    genotype: result.genotype,
+    log: [
+      ...(mother?.log ?? []),
+      {
+        sol,
+        kind: result.mutation ? 'mutation' : 'cross',
+        motherId,
+        fatherId,
+        genotype: formatGenotype(result.genotype, rules),
+        flips: result.mutation?.flips ?? [],
+      },
+    ],
+    mutation: result.mutation,
+  };
+  state.seedVault[cropId] = id;
+  return state.lineages[id];
 }
 
 export function dominantStress(stress, rules, dosePerSol) {
@@ -57,58 +178,4 @@ export function accumulateStress(crop, plot, ctx) {
   if (active.some((event) => (event.effects.heatFactor ?? 1) > 1)) crop.stress.coldSols += 1;
   if (!plot.watered) crop.stress.drySols += 1;
   if (!plot.treated) crop.stress.perchlorateSols += 1;
-}
-
-function shiftMod(mods, key, delta, clamps) {
-  const [lo, hi] = clamps[key];
-  const before = mods[key];
-  mods[key] = clamp(before + delta, lo, hi);
-  return mods[key] - before;
-}
-
-export function resolveChild(parent, crop, ctx) {
-  const { state, data, random } = ctx;
-  const rules = data.mutations;
-  const mods = { ...parent.mods };
-  const born = [];
-  const dominant = dominantStress(crop.stress, rules, data.balance.crewRadiationPerSol);
-  const push = (key, delta, kind) => {
-    const applied = shiftMod(mods, key, delta, rules.clamps);
-    if (applied !== 0) born.push({ sol: state.sol, kind, trait: key, delta: applied });
-    return applied;
-  };
-  if (crop.health >= rules.selectionMinHealth && dominant.score > 0) {
-    const spec = rules.traits[dominant.key];
-    push(spec.mod, spec.beneficial * rules.selectionNudge, 'selection');
-    if (spec.mod !== rules.selectionYieldPrice.mod) {
-      push(rules.selectionYieldPrice.mod, rules.selectionYieldPrice.sign * rules.selectionNudge, 'selection');
-    }
-  }
-  let chance = rules.baseChancePerGeneration * rules.difficultyMult[state.difficulty]
-    * (1 + crop.stress.dose_mSv / rules.doseScale_mSv);
-  chance = clamp(chance, 0, rules.maxChance);
-  let mutation = null;
-  if (random() < chance) {
-    if (random() < rules.deleteriousFraction) {
-      const pick = rules.deleteriousMods[Math.floor(random() * rules.deleteriousMods.length)];
-      const applied = push(pick.mod, pick.sign * rules.deleteriousDelta, 'deleterious');
-      if (applied !== 0) mutation = { kind: 'deleterious', trait: pick.mod, delta: applied };
-    } else {
-      const spec = rules.traits[dominant.key];
-      const applied = push(spec.mod, spec.beneficial * rules.beneficialDelta, 'beneficial');
-      if (applied !== 0) mutation = { kind: 'beneficial', trait: spec.mod, delta: applied };
-    }
-  }
-  const child = {
-    id: `L${state.nextLineageId++}`,
-    cropId: parent.cropId,
-    generation: parent.generation + 1,
-    parentId: parent.id,
-    mods,
-    log: parent.log.concat(born),
-    mutation,
-  };
-  state.lineages[child.id] = child;
-  state.seedVault[parent.cropId] = child.id;
-  return child;
 }

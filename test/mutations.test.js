@@ -3,17 +3,107 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Simulation } from '../src/sim/Simulation.js';
-import { resolveChild } from '../src/sim/systems/mutations.js';
+import {
+  crossGenotypes,
+  formatGenotype,
+  mutationChance,
+  phenotype,
+  wildGenotype,
+} from '../src/sim/systems/mutations.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}.json`, import.meta.url)));
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty',
   'landers', 'objectives', 'facts', 'balance', 'mutations'].map((key) => [key, read(key)]));
 data.events = read('demo-events');
 const quiet = { ...data, events: [] };
+const rules = data.mutations;
 
 function mission(extra = {}) {
   return new Simulation(quiet, { difficulty: 'easy', siteId: 'gale', ...extra });
 }
+
+function seq(values) {
+  let i = 0;
+  return () => values[Math.min(i++, values.length - 1)];
+}
+
+test('wild starter is recessive except growth GG', () => {
+  const g = wildGenotype(rules);
+  assert.deepEqual(g.rad, ['r', 'r']);
+  assert.deepEqual(g.perchlorate, ['p', 'p']);
+  assert.deepEqual(g.light, ['l', 'l']);
+  assert.deepEqual(g.cold, ['c', 'c']);
+  assert.deepEqual(g.yield, ['y', 'y']);
+  assert.deepEqual(g.growth, ['G', 'G']);
+  assert.equal(phenotype(g, rules).yield, 0.85);
+  assert.equal(phenotype(g, rules).growth, 1);
+  assert.equal(phenotype(g, rules).rad, 0);
+});
+
+test('incomplete dominance: Yy is intermediate yield', () => {
+  const mid = { ...wildGenotype(rules), yield: ['Y', 'y'] };
+  const high = { ...wildGenotype(rules), yield: ['Y', 'Y'] };
+  const low = { ...wildGenotype(rules), yield: ['y', 'y'] };
+  assert.equal(phenotype(mid, rules).yield, 1);
+  assert.equal(phenotype(high, rules).yield, 1.1);
+  assert.equal(phenotype(low, rules).yield, 0.85);
+});
+
+test('YY mother x yy father yields all Yy when mutation is off', () => {
+  const mother = { ...wildGenotype(rules), yield: ['Y', 'Y'] };
+  const father = { ...wildGenotype(rules), yield: ['y', 'y'] };
+  const forced = {
+    ...rules,
+    baseMutationPerAllele: 0,
+    maxMutationPerAllele: 0,
+  };
+  for (let i = 0; i < 20; i++) {
+    const child = crossGenotypes(mother, father, 0, 0, forced, () => 0.99, 'medium');
+    assert.deepEqual(child.genotype.yield, ['Y', 'y']);
+    assert.equal(child.mutation, null);
+    assert.equal(phenotype(child.genotype, rules).yield, 1);
+  }
+});
+
+test('homozygous self-cross is stable with mutation off', () => {
+  const parent = wildGenotype(rules);
+  const forced = { ...rules, baseMutationPerAllele: 0, maxMutationPerAllele: 0 };
+  const child = crossGenotypes(parent, parent, 0, 0, forced, () => 0.5, 'medium');
+  assert.deepEqual(child.genotype, parent);
+});
+
+test('heterozygote self-cross can segregate under a forced RNG sequence', () => {
+  const parent = { ...wildGenotype(rules), yield: ['Y', 'y'] };
+  const forced = { ...rules, baseMutationPerAllele: 0, maxMutationPerAllele: 0 };
+  // gamete() walks all loci (pick, mut) for the egg, then again for pollen.
+  const rollsFor = (eggYieldPick, pollenYieldPick) => {
+    const locus = (pick) => [pick, 1];
+    const egg = [
+      ...locus(0), ...locus(0), ...locus(0), ...locus(0),
+      ...locus(eggYieldPick),
+      ...locus(0),
+    ];
+    const pollen = [
+      ...locus(0), ...locus(0), ...locus(0), ...locus(0),
+      ...locus(pollenYieldPick),
+      ...locus(0),
+    ];
+    return [...egg, ...pollen];
+  };
+  const yY = crossGenotypes(parent, parent, 0, 0, forced, seq(rollsFor(0, 0.9)), 'medium');
+  assert.deepEqual(yY.genotype.yield, ['Y', 'y']);
+  const YY = crossGenotypes(parent, parent, 0, 0, forced, seq(rollsFor(0, 0)), 'medium');
+  assert.deepEqual(YY.genotype.yield, ['Y', 'Y']);
+  const yy = crossGenotypes(parent, parent, 0, 0, forced, seq(rollsFor(0.9, 0.9)), 'medium');
+  assert.deepEqual(yy.genotype.yield, ['y', 'y']);
+});
+
+test('dose raises gamete flip chance', () => {
+  const low = mutationChance(0, rules, 'medium');
+  const high = mutationChance(100, rules, 'medium');
+  assert.ok(high > low);
+  assert.ok(high <= rules.maxMutationPerAllele);
+});
 
 test('a berm lowers the crop dose counter', () => {
   const sim = mission();
@@ -30,72 +120,40 @@ test('a berm lowers the crop dose counter', () => {
   assert.equal(covered.stress.dose_mSv, base * data.mutations.bermDoseFactor);
 });
 
-test('generation advances only when seed is saved, and the next planting uses that child', () => {
+test('cross writes the seed vault and removes the mother; harvest does not', () => {
   const sim = mission();
-  const plot = { x: 5, y: 5 };
-  sim.command({ type: 'build', id: 'plot', ...plot });
-  sim.command({ type: 'plant', id: 'lettuce', ...plot });
-  const parentId = sim.state.crops[0].lineageId;
-  for (let sol = 0; sol < 30; sol++) sim.step();
-  assert.equal(sim.state.lineages[parentId].generation, 1);
-  sim.state.crops[0].growth = 1;
-  const eaten = sim.command({ type: 'harvest', ...plot, saveSeed: false });
-  assert.equal(eaten.ok, true);
+  sim.command({ type: 'build', id: 'plot', x: 0, y: 0 });
+  sim.command({ type: 'build', id: 'plot', x: 2, y: 0 });
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
+  sim.command({ type: 'plant', id: 'lettuce', x: 2, y: 0 });
+  const plot0 = sim.state.buildings.find((u) => u.x === 0);
+  const plot2 = sim.state.buildings.find((u) => u.x === 2);
+  const a = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
+  const b = sim.state.crops.find((crop) => crop.plotUid === plot2.uid);
+  a.growth = 1;
+  b.growth = 1;
+  const food = sim.state.res.foodKg;
+  assert.equal(sim.command({ type: 'harvest', uid: plot0.uid }).ok, true);
+  assert.ok(sim.state.res.foodKg > food);
   assert.equal(sim.state.seedVault.lettuce, undefined);
-  assert.equal(sim.state.lineages[parentId].generation, 1);
 
-  sim.command({ type: 'plant', id: 'lettuce', ...plot });
-  const crop = sim.state.crops[0];
-  crop.growth = 1;
-  crop.health = 1;
-  crop.stress.dose_mSv = 10;
-  const before = sim.state.res.foodKg;
-  const saved = sim.command({ type: 'harvest', ...plot, saveSeed: true });
-  const firstGain = sim.state.res.foodKg - before;
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
+  const mother = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
+  const father = sim.state.crops.find((crop) => crop.plotUid === plot2.uid);
+  mother.growth = 1;
+  father.growth = 1;
+  const crossed = sim.command({ type: 'cross', motherUid: mother.uid, fatherUid: father.uid });
+  assert.equal(crossed.ok, true);
+  assert.ok(sim.state.seedVault.lettuce);
+  assert.equal(sim.state.crops.some((crop) => crop.uid === mother.uid), false);
+  assert.equal(sim.state.crops.some((crop) => crop.uid === father.uid), true);
   const child = sim.state.lineages[sim.state.seedVault.lettuce];
-  assert.match(saved.reason, /generation 2/);
-  assert.equal(sim.state.lineages[parentId].generation, 1);
   assert.equal(child.generation, 2);
-  assert.ok(child.mods.yield < 1);
-  for (let sol = 0; sol < 5; sol++) sim.step();
-  assert.equal(child.generation, 2);
+  assert.equal(formatGenotype(child.genotype, rules).includes('GG'), true);
 
-  sim.command({ type: 'plant', id: 'lettuce', ...plot });
-  const next = sim.state.crops[0];
-  assert.equal(next.lineageId, child.id);
-  next.growth = 1;
-  next.health = 1;
-  next.stress = { dose_mSv: 0, lowPowerSols: 0, coldSols: 0, drySols: 0, perchlorateSols: 0 };
-  const mid = sim.state.res.foodKg;
-  sim.command({ type: 'harvest', ...plot, saveSeed: false });
-  assert.ok(sim.state.res.foodKg - mid < firstGain);
-  assert.equal(data.crops.find(({ id }) => id === 'lettuce').growthSols, 27);
-});
-
-test('mutation science points wait for the dish', () => {
-  const forced = {
-    ...quiet,
-    mutations: { ...data.mutations, baseChancePerGeneration: 1, deleteriousFraction: 1, maxChance: 1 },
-  };
-  const sim = new Simulation(forced, { difficulty: 'easy', siteId: 'gale', manifest: { lab: 1 } });
-  const plot = { x: 5, y: 5 };
-  sim.command({ type: 'build', id: 'plot', ...plot });
-  sim.command({ type: 'plant', id: 'lettuce', ...plot });
-  const crop = sim.state.crops[0];
-  crop.growth = 1;
-  crop.stress.dose_mSv = 10;
-  const lab = sim.state.buildings.find(({ id }) => id === 'lab');
-  lab.online = true;
-  lab.watered = true;
-  const harvested = sim.command({ type: 'harvest', ...plot, saveSeed: true });
-  assert.equal(harvested.ok, true);
-  const key = Object.keys(sim.state.journal).find((entry) => entry.split(':').length === 3);
-  assert.ok(key);
-  assert.equal(sim.state.journal[key].transmitted, false);
-  assert.equal(sim.state.res.sp, 0);
-  for (let sol = 0; sol < 30 && !sim.state.journal[key].transmitted; sol++) sim.step();
-  assert.equal(sim.state.journal[key].transmitted, true);
-  assert.ok(sim.state.res.sp >= data.mutations.sciencePointsOnDownlink);
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
+  const replanted = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
+  assert.equal(replanted.lineageId, child.id);
 });
 
 test('perchlorate tolerance keeps the plant growing and the harvest inedible', () => {
@@ -110,7 +168,7 @@ test('perchlorate tolerance keeps the plant growing and the harvest inedible', (
   sim.step();
   assert.equal(bare.growth, stalled);
 
-  sim.state.lineages[bare.lineageId].mods.perchlorate = 0.1;
+  sim.state.lineages[bare.lineageId].genotype.perchlorate = ['P', 'p'];
   sim.step();
   assert.ok(bare.growth > stalled);
   bare.growth = 1;
@@ -133,34 +191,47 @@ test('a shielded lineage takes a smaller particle-event hit', () => {
   sim.step();
   assert.equal(sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 }).ok, true);
   const crop = sim.state.crops[0];
-  sim.state.lineages[crop.lineageId].mods.rad = 0.1;
+  sim.state.lineages[crop.lineageId].genotype.rad = ['R', 'r'];
   const before = crop.health;
   assert.equal(sim.command({ type: 'triggerEvent', id: 'spe' }).ok, true);
-  const hit = spe.effects.unshieldedCropHealth * 0.9;
+  const hit = spe.effects.unshieldedCropHealth * (1 - 0.3);
   assert.ok(Math.abs(before - crop.health - hit) < 1e-9);
 });
 
-test('repeated harmful alleles stay inside the clamps', () => {
-  const state = {
-    sol: 0,
-    difficulty: 'hard',
-    nextLineageId: 2,
-    lineages: {},
-    seedVault: {},
-  };
-  let parent = {
-    id: 'L1', cropId: 'lettuce', generation: 1, parentId: null,
-    mods: { ppf: 1, heat: 1, yield: 1, growth: 1, rad: 0, perchlorate: 0 }, log: [],
-  };
-  const crop = {
-    health: 1,
-    stress: { dose_mSv: 80, lowPowerSols: 0, coldSols: 0, drySols: 0, perchlorateSols: 0 },
-  };
-  const ctx = { state, data, random: () => 0 };
-  for (let i = 0; i < 40; i++) parent = resolveChild(parent, crop, ctx);
-  for (const [key, value] of Object.entries(parent.mods)) {
-    const [lo, hi] = data.mutations.clamps[key];
-    assert.ok(Number.isFinite(value) && value >= lo && value <= hi);
+test('forced allele flip is recorded on the child lineage', () => {
+  const sim = mission({ manifest: { lab: 1 } });
+  sim.command({ type: 'build', id: 'plot', x: 3, y: 3 });
+  sim.command({ type: 'plant', id: 'lettuce', x: 3, y: 3 });
+  const crop = sim.state.crops[0];
+  crop.growth = 1;
+  crop.stress.dose_mSv = 200;
+  const lab = sim.state.buildings.find(({ id }) => id === 'lab');
+  if (lab) {
+    lab.online = true;
+    lab.watered = true;
   }
-  assert.equal(parent.mods.yield, data.mutations.clamps.yield[0]);
+  // Patch random to force mutations: always pick allele 0, always flip.
+  const original = sim._ctx?.random;
+  void original;
+  // Access private random via successive crosses with high dose rules.
+  const hot = {
+    ...quiet,
+    mutations: {
+      ...rules,
+      baseMutationPerAllele: 1,
+      maxMutationPerAllele: 1,
+      difficultyMult: { easy: 1, medium: 1, hard: 1 },
+    },
+  };
+  const hotSim = new Simulation(hot, { difficulty: 'easy', siteId: 'gale' });
+  hotSim.command({ type: 'build', id: 'plot', x: 1, y: 1 });
+  hotSim.command({ type: 'plant', id: 'lettuce', x: 1, y: 1 });
+  const plant = hotSim.state.crops[0];
+  plant.growth = 1;
+  plant.stress.dose_mSv = 0;
+  const result = hotSim.command({ type: 'cross', motherUid: plant.uid, fatherUid: plant.uid });
+  assert.equal(result.ok, true);
+  const child = hotSim.state.lineages[hotSim.state.seedVault.lettuce];
+  assert.ok(child.mutation);
+  assert.ok(child.mutation.flips.length > 0);
 });

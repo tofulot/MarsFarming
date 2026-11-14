@@ -1,4 +1,6 @@
 // AI-assisted (OpenAI Codex)
+import { lineagePhenotype } from './mutations.js';
+
 export function powerSystem({ state, data, buildings, crops, emit }) {
   const { balance } = data;
   const active = state.events.active;
@@ -25,7 +27,7 @@ export function powerSystem({ state, data, buildings, crops, emit }) {
     } else if (config.powerW < 0) {
       const crop = state.crops.find(({ plotUid }) => plotUid === unit.uid);
       const traits = crops.get(crop?.cropId);
-      const mods = crop && state.lineages[crop.lineageId]?.mods;
+      const mods = lineagePhenotype(state, crop, data.mutations);
       const extra = traits ? Math.max(0, traits.ppf * (mods?.ppf ?? 1) - 28) * balance.wheatExtraWattsPerPpf +
         Math.max(0, traits.tempDayC - state.outsideTempC) * balance.heatWattsPerDegree * (mods?.heat ?? 1) * heat : 0;
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;

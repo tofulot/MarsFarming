@@ -1,20 +1,11 @@
 {
   "_game": true,
-  "_doseNote": "Each sol adds balance.crewRadiationPerSol, the Curiosity surface figure of about 0.67 mSv/day (S11). That number is a dose counter. Every other value in this file is a game rule.",
+  "_doseNote": "Each sol adds balance.crewRadiationPerSol, the Curiosity surface figure of about 0.67 mSv/day (S11). That number is a dose counter. Alleles, dominance, and mutation chance are game rules.",
   "bermDoseFactor": 0.4,
   "speDoseMultiplier": 3,
-  "selectionMinHealth": 0.5,
-  "selectionNudge": 0.005,
-  "selectionYieldPrice": {
-    "mod": "yield",
-    "sign": -1
-  },
-  "baseChancePerGeneration": 0.2,
-  "deleteriousFraction": 0.75,
+  "baseMutationPerAllele": 0.02,
   "doseScale_mSv": 50,
-  "maxChance": 0.8,
-  "beneficialDelta": 0.03,
-  "deleteriousDelta": 0.04,
+  "maxMutationPerAllele": 0.5,
   "difficultyMult": {
     "easy": 0.7,
     "medium": 1,
@@ -22,23 +13,66 @@
   },
   "sciencePointsOnDownlink": 15,
   "stressPriority": ["dose", "cold", "lowPower", "dry", "perchlorate"],
-  "traits": {
-    "lowPower": { "mod": "ppf", "beneficial": -1 },
-    "cold": { "mod": "heat", "beneficial": -1 },
-    "dose": { "mod": "rad", "beneficial": 1 },
-    "dry": { "mod": "growth", "beneficial": -1 },
-    "perchlorate": { "mod": "perchlorate", "beneficial": 1 }
-  },
-  "deleteriousMods": [
-    { "mod": "yield", "sign": -1 },
-    { "mod": "growth", "sign": 1 }
-  ],
-  "clamps": {
-    "ppf": [0.85, 1.15],
-    "heat": [0.85, 1.15],
-    "yield": [0.85, 1.15],
-    "growth": [0.85, 1.15],
-    "rad": [0, 0.15],
-    "perchlorate": [0, 0.15]
-  }
+  "loci": [
+    {
+      "id": "rad",
+      "alleles": ["R", "r"],
+      "dominance": "complete",
+      "dominant": "R",
+      "phenotype": {
+        "dominant": { "rad": 0.3 },
+        "recessive": { "rad": 0 }
+      }
+    },
+    {
+      "id": "perchlorate",
+      "alleles": ["P", "p"],
+      "dominance": "complete",
+      "dominant": "P",
+      "phenotype": {
+        "dominant": { "perchlorate": 0.1 },
+        "recessive": { "perchlorate": 0 }
+      }
+    },
+    {
+      "id": "light",
+      "alleles": ["L", "l"],
+      "dominance": "complete",
+      "dominant": "L",
+      "phenotype": {
+        "dominant": { "ppf": 0.9 },
+        "recessive": { "ppf": 1 }
+      }
+    },
+    {
+      "id": "cold",
+      "alleles": ["C", "c"],
+      "dominance": "complete",
+      "dominant": "C",
+      "phenotype": {
+        "dominant": { "heat": 0.9 },
+        "recessive": { "heat": 1 }
+      }
+    },
+    {
+      "id": "yield",
+      "alleles": ["Y", "y"],
+      "dominance": "incomplete",
+      "phenotype": {
+        "YY": { "yield": 1.1 },
+        "Yy": { "yield": 1 },
+        "yy": { "yield": 0.85 }
+      }
+    },
+    {
+      "id": "growth",
+      "alleles": ["G", "g"],
+      "dominance": "complete",
+      "dominant": "G",
+      "phenotype": {
+        "dominant": { "growth": 1 },
+        "recessive": { "growth": 1.1 }
+      }
+    }
+  ]
 }

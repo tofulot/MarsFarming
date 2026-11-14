@@ -19,8 +19,14 @@
   },
   {
     "id": "mutation-dose",
-    "text": "Curiosity measured about 0.67 mSv/day at Gale. Crop lineages count that dose. Mutation chance is a game value.",
+    "text": "Curiosity measured about 0.67 mSv/day at Gale. Dose raises allele-flip chance in crosses. Alleles themselves are game rules.",
     "source": "S11",
     "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-the-surface-of-mars"
+  },
+  {
+    "id": "crew-food",
+    "text": "NASA’s life-support baseline budgets about 0.8 kg dry food solids per crew member per day.",
+    "source": "S9",
+    "url": "https://ntrs.nasa.gov/citations/20210024855"
   }
 ]

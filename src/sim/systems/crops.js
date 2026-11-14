@@ -1,6 +1,7 @@
 // AI-assisted (OpenAI Codex)
-// Lineage growth and stress log: AI-assisted (Cursor Grok)
-import { accumulateStress, resolveChild } from './mutations.js';
+// Lineage phenotype from Mendelian genotype: AI-assisted (Cursor Grok)
+import { accumulateStress, lineagePhenotype } from './mutations.js';
+import { addToPantry } from './nutrition.js';
 
 export function cropSystem(ctx) {
   const { state, data, crops, emit } = ctx;
@@ -8,9 +9,9 @@ export function cropSystem(ctx) {
   for (const crop of state.crops) {
     const plot = state.buildings.find(({ uid }) => uid === crop.plotUid);
     const traits = crops.get(crop.cropId);
-    const mods = state.lineages[crop.lineageId]?.mods;
-    const growthSols = traits.growthSols * (mods?.growth ?? 1);
-    const soilOk = plot.treated || (mods?.perchlorate ?? 0) > 0;
+    const pheno = lineagePhenotype(state, crop, data.mutations);
+    const growthSols = traits.growthSols * pheno.growth;
+    const soilOk = plot.treated || pheno.perchlorate > 0;
     if (plot.online && plot.watered && soilOk) {
       const multiplier = plot.id === 'hydroponic' ? data.balance.hydroGrowth : 1;
       crop.growth = Math.min(1, crop.growth + multiplier / growthSols + 1e-12);
@@ -24,17 +25,17 @@ export function cropSystem(ctx) {
   state.crops = state.crops.filter(({ health }) => health > 0);
 }
 
-export function harvestCrop(ctx, crop, plot, { saveSeed = false } = {}) {
+export function harvestCrop(ctx, crop, plot) {
   const { state, data, crops, emit } = ctx;
   const traits = crops.get(crop.cropId);
-  const mods = state.lineages[crop.lineageId]?.mods;
+  const pheno = lineagePhenotype(state, crop, data.mutations);
   const fertilized = ctx.near(plot, 'fertilizer', (building) => building.online && building.watered);
   const multiplier = fertilized ? data.balance.fertilizerYield : 1;
   const unsafe = !plot.treated;
-  const kg = unsafe ? 0 : traits.yieldDry_g_m2_d * (mods?.yield ?? 1) * traits.growthDays
+  const kg = unsafe ? 0 : traits.yieldDry_g_m2_d * pheno.yield * traits.growthDays
     * data.balance.plotAreaM2 * crop.health * multiplier / 1000;
   const credits = Math.round(kg * traits.value_cr_per_kg);
-  state.res.foodKg += kg;
+  if (kg > 0) addToPantry(state, crop.cropId, kg);
   state.res.credits += credits;
   state.metrics.grownKg += kg;
   const lab = state.buildings.some((unit) => unit.id === 'lab' && unit.online && unit.watered);
@@ -48,28 +49,23 @@ export function harvestCrop(ctx, crop, plot, { saveSeed = false } = {}) {
   }
   state.res.data += research;
   state.metrics.packets.push({ amount: research, discovery });
-  let saved = '';
-  const parent = state.lineages[crop.lineageId];
-  if (saveSeed && parent && data.mutations) {
-    const child = resolveChild(parent, crop, ctx);
-    saved = ` Saved seed, generation ${child.generation}.`;
-    queueMutation(ctx, crop, traits, child.mutation, lab);
-  } else if (state.seedVault[crop.cropId] === crop.lineageId) {
-    delete state.seedVault[crop.cropId];
+  if (state.seedVault[crop.cropId] === crop.lineageId) {
+    // Food harvest does not write the vault; leave existing vault seed alone.
   }
   state.crops = state.crops.filter(({ uid }) => uid !== crop.uid);
   emit('harvest', { name: traits.name, kg, credits, unsafe });
-  if (unsafe) return `Harvested ${traits.name}, flagged unsafe until the soil is treated.${saved}`;
-  return `Harvested ${kg.toFixed(1)} kg of ${traits.name} (+${credits} cr).${saved}`;
+  if (unsafe) return `Harvested ${traits.name}, flagged unsafe until the soil is treated.`;
+  return `Harvested ${kg.toFixed(1)} kg of ${traits.name} (+${credits} cr).`;
 }
 
-function queueMutation(ctx, crop, traits, mutation, lab) {
-  if (!mutation || !lab) return;
+export function queueCrossDiscovery(ctx, crop, traits, child, lab) {
+  if (!lab || !child.mutation) return;
   const { state, data } = ctx;
-  const key = `${crop.cropId}:${state.seasonIdx}:${mutation.trait}`;
+  const trait = child.mutation.flips[0]?.locus ?? 'allele';
+  const key = `${crop.cropId}:${state.seasonIdx}:${trait}`;
   if (state.journal[key]) return;
   state.journal[key] = {
-    name: `${traits.name} ${mutation.trait}`, season: state.season, transmitted: false, mutation: mutation.kind,
+    name: `${traits.name} ${trait}`, season: state.season, transmitted: false, mutation: child.mutation.kind,
   };
   const points = data.mutations.sciencePointsOnDownlink;
   state.res.data += points;

@@ -1,4 +1,6 @@
 // AI-assisted (OpenAI Codex)
+import { lineagePhenotype } from './mutations.js';
+
 export function startEvent(ctx, id) {
   const { state, data, random, emit } = ctx;
   const event = data.events.find((entry) => entry.id === id);
@@ -19,7 +21,7 @@ export function startEvent(ctx, id) {
     for (const crop of state.crops) {
       const plot = state.buildings.find(({ uid }) => uid === crop.plotUid);
       if (!ctx.near(plot, 'berm')) {
-        const rad = state.lineages[crop.lineageId]?.mods.rad ?? 0;
+        const rad = lineagePhenotype(state, crop, data.mutations).rad;
         crop.health = Math.max(0, crop.health - event.effects.unshieldedCropHealth * (1 - rad));
       }
     }
