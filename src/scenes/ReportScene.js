@@ -1,5 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { advancements } from '../sim/advancements.js';
 import { button, colors, heading, panel, targetBackground, text } from '../ui/controls.js';
 
 export class ReportScene extends Phaser.Scene {
@@ -25,6 +26,30 @@ export class ReportScene extends Phaser.Scene {
         }
       });
       button(this, 56, 636, 176, 48, 'Back to report', () => this.scene.restart(report));
+      return;
+    }
+    if (state.rescue) {
+      const { outcome, colonyName, arrivalSol, earned } = state.rescue;
+      const title = outcome === 'rescued' ? 'Rescue successful' : outcome === 'abandoned' ? 'Mission abandoned' : 'Rescue missed';
+      heading(this, 'SURVIVAL REPORT', title, state.endReason);
+      panel(this, 56, 196, 445, 397);
+      text(this, 78, 220, colonyName || 'Unnamed colony', 30,
+        { fontStyle: 'bold', wordWrap: { width: 400 } });
+      text(this, 78, 305, `Sols survived    ${state.sol} / ${arrivalSol}
+Health    ${Math.round(state.crew.health * 100)}%
+Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
+        19, { lineSpacing: 12 });
+      panel(this, 521, 196, 703, 397);
+      text(this, 547, 220, 'ACHIEVEMENTS', 16, { color: '#ff805a', fontStyle: 'bold' });
+      const awards = advancements.filter(({ id }) => Object.hasOwn(earned, id));
+      if (!awards.length) text(this, 547, 265, 'No achievements earned.', 17, { color: colors.muted });
+      awards.forEach(({ id, name }, i) => {
+        text(this, 547, 263 + 38 * i, `${name}  ·  Sol ${earned[id]}`, 18);
+      });
+      button(this, 56, 636, 139, 48, 'Main menu', () => this.scene.start('Title'));
+      button(this, 221, 636, 187, 48, 'Crop journal', () => this.scene.restart({ ...report, journal: true }));
+      button(this, 950, 636, 274, 48, 'Try another landing site →',
+        () => this.scene.start('Map', options), { selected: true });
       return;
     }
     heading(this, 'MISSION REPORT', objective.name, `${state.endReason}  ${result.completed ? 'Objective met.' : 'Objective incomplete.'}`);

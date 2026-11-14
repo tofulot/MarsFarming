@@ -162,3 +162,40 @@ test('the dust climatology varies across longitude and season and wraps at the m
   assert.ok(dustOpacity(autumn, -2.5, 0) > 2 * dustOpacity(spring, -2.5, 0));
   assert.equal(dustOpacity(autumn, 35, -180), dustOpacity(autumn, 35, 180));
 });
+
+test('a stranded farmer can plant, name their colony, harvest and survive until rescue', () => {
+  const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  const build = (id, x, y) => sim.command({ type: 'build', id, x, y });
+  const plot = { x: 0, y: 0 };
+  assert.equal(sim.state.crew.n, 1);
+  assert.equal(sim.state.rescue.arrivalSol, 120);
+  assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
+  assert.ok(build('plot', 0, 0).ok);
+  assert.ok(build('washer', 1, 0).ok);
+  assert.ok(build('iceDrill', 2, 0).ok);
+  assert.ok(sim.command({ type: 'wash', x: 1, y: 0 }).ok);
+  sim.step();
+  assert.ok(sim.command({ type: 'plant', id: 'lettuce', ...plot }).ok);
+  assert.equal(sim.state.rescue.earned.botanist, 1);
+  assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
+  assert.equal(sim.state.rescue.colonyName, 'Ares');
+  for (let sol = 2; sol <= sim.state.solLimit; sol++) {
+    sim.step();
+    if (sim.state.crops[0]?.growth === 1) {
+      assert.ok(sim.command({ type: 'harvest', ...plot }).ok);
+      assert.ok(sim.command({ type: 'plant', id: 'lettuce', ...plot }).ok);
+    }
+  }
+  assert.equal(sim.state.rescue.outcome, 'rescued');
+  assert.equal(sim.state.rescue.earned.rescue, 120);
+  assert.equal(sim.state.rescue.earned.botanist, 1);
+  assert.ok(sim.state.metrics.grownKg > 0);
+});
+
+test('running out of rations can end survival before the rescue deadline', () => {
+  const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  while (sim.state.status === 'active') sim.step();
+  assert.equal(sim.state.rescue.outcome, 'lost');
+  assert.ok(sim.state.sol < sim.state.rescue.arrivalSol);
+  assert.equal(Object.hasOwn(sim.state.rescue.earned, 'rescue'), false);
+});

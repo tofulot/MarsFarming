@@ -12,7 +12,7 @@ export function waterSystem({ state, data, site, buildings, emit }) {
     state.res.waterL -= liters;
     return true;
   };
-  const crewWater = -buildings.get('hab').waterLPerSol;
+  const crewWater = -buildings.get('hab').waterLPerSol * state.crew.n / balance.crew;
   const recycled = live.some(({ id }) => id === 'recycler') ? balance.recycleFraction : 0;
   state.crew.hydrated = draw(crewWater * (1 - recycled));
   if (!state.crew.hydrated) state.metrics.lowWaterSols++;

@@ -15,13 +15,17 @@ export class TitleScene extends Phaser.Scene {
     graphics.fillEllipse(1126, 385, 189, 70);
     graphics.fillStyle(0xe27f5a, .55).fillEllipse(960, 376, 215, 91);
     graphics.lineStyle(1, colors.line).lineBetween(68, 628, 1210, 628);
-    text(this, 68, 117, 'MARS GREENHOUSE MISSION', 18, { color: '#ff805a', fontStyle: 'bold' });
+    text(this, 68, 117, 'MARS SURVIVAL', 18, { color: '#ff805a', fontStyle: 'bold' });
     text(this, 65, 152, 'Red\nHarvest', 112, { fontStyle: 'bold', lineSpacing: -22 });
-    text(this, 69, 412, 'Pick a landing site. Grow food on Mars.\nKeep four crew alive through dust season.', 25,
+    text(this, 69, 412, 'You’re stranded on Mars.\nGrow enough food to make it to rescue.', 25,
       { color: colors.muted, lineSpacing: 7 });
     const demo = new URLSearchParams(location.search).get('demo') === '1';
-    button(this, 69, 532, 243, 55, demo ? 'Launch demo' : 'Design a mission',
-      () => this.scene.start('Brief', { demo, difficulty: 'medium', objectiveId: 'feed' }), { selected: true });
-    text(this, 69, 650, 'MISSION DESIGN  /  SURFACE OPERATIONS  /  DEBRIEF', 14, { color: colors.muted });
+    const options = { demo, difficulty: 'medium', rescue: true };
+    button(this, 69, 532, 243, 55, 'Start survival', () => {
+      const data = this.registry.get('missionData');
+      const seed = demo ? data.balance.demoSeed : Math.floor(Math.random() * 2 ** 32);
+      this.scene.start('Colony', { ...options, siteId: 'gale', seed });
+    }, { selected: true });
+    button(this, 327, 532, 215, 55, 'Choose landing site', () => this.scene.start('Map', options));
   }
 }

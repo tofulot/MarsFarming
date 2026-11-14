@@ -1,7 +1,7 @@
 <!-- AI-assisted (OpenAI Codex) -->
 # Red Harvest
 
-Choose a landing site on Mars, establish a greenhouse outpost, and keep four crew alive through dust season.
+You’re stranded alone on Mars. Farm enough food and keep your habitat running until rescue arrives.
 
 ## Run the game
 
@@ -16,7 +16,7 @@ npm run build
 
 Open the URL Vite prints. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report.
 
-The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Soil treatment takes one sol with power and water. In Medium and Hard, use the washer before planting. Select a plot to see its growth progress and the number of growing sols until harvest. Open **Timers** to track active events, equipment outages, and research downlinks.
+Start Survival to spawn in Gale Crater, or choose a landing site on the map. You have 120 sols until rescue and 30 sols of rations. The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Open **Achievements** for farming clues. Plant your first crop to earn **Botanist** and unlock colony naming. Soil treatment takes one sol with power and water. Open **Timers** to track active events, equipment outages, and research downlinks.
 
 ## Landing map data
 

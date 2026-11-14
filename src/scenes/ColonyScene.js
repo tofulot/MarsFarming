@@ -1,5 +1,7 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
+import { nextAdvancement } from '../sim/advancements.js';
 import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation, playbackSpeeds } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
@@ -31,10 +33,30 @@ export class ColonyScene extends Phaser.Scene {
     this.timerPage = 0;
     this.showTimers = false;
     this.showWeather = false;
+    this.showAdvancements = false;
+    this.achievementSelection = null;
     this.tool = null;
-    this.message = 'Use the base shop to equip the outpost. Press 1× to advance time.';
+    const { rescue } = this.sim.state;
+    this.message = rescue
+      ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Build a greenhouse first.`
+      : 'Use the base shop to equip the outpost. Press 1× to advance time.';
     this.finished = false;
-    this.events.once('shutdown', () => this.scene.stop('UI'));
+    this.events.once('shutdown', () => {
+      this.nameDialog?.remove();
+      this.scene.stop('UI');
+    });
+    this.sim.on('advancement', (award) => {
+      this.awardNotice?.remove();
+      this.awardLabel.setText(`Achievement unlocked · ${award.name}`);
+      this.awardNotice = this.time.delayedCall(6000, () => this.awardLabel.setText(''));
+      if (award.id === 'botanist') {
+        this.sim.command({ type: 'setSpeed', speed: 0 });
+        this.achievementSelection = 'botanist';
+        this.showAdvancements = true;
+        this.showWeather = false;
+        this.showTimers = false;
+      }
+    });
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
@@ -46,7 +68,16 @@ export class ColonyScene extends Phaser.Scene {
       this.finished = true;
       this.scene.start('Report', { state, options });
     });
-    text(this, 48, 95, this.sim.state.site.name, 29, { fontStyle: 'bold' });
+    this.colonyTitle = text(this, 48, 95, rescue ? 'Unnamed colony' : this.sim.state.site.name, 29, { fontStyle: 'bold' });
+    this.awardNotice = null;
+    this.awardLabel = text(this, 48, 605, '', 13, { color: '#9bd8ae', fontStyle: 'bold' });
+    if (rescue) button(this, 1092, 114, 133, 31, 'Achievements', () => {
+      this.showAdvancements = !this.showAdvancements;
+      this.showTimers = false;
+      this.showWeather = false;
+      this.achievementSelection = null;
+      this.drawSide();
+    }, { size: 14 });
     text(this, 739, 116, 'SURFACE OPERATIONS', 15, { color: '#ff805a', fontStyle: 'bold' });
     text(this, 48, 133, 'NEXT SOL', 12, { color: colors.muted, fontStyle: 'bold' });
     this.solProgress = progressBar(this, null, 123, 137, 180, 6, 0);
@@ -57,7 +88,7 @@ export class ColonyScene extends Phaser.Scene {
     text(this, 48, 676, 'MODELED WEATHER  /  GAME VALUES', 12, { color: colors.muted });
     this.refreshGrid();
     this.drawSide();
-    this.scene.launch('UI', { sim: this.sim });
+    this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
     if (options.demo) {
       this.input.keyboard.on('keydown-ONE', () => this.run({ type: 'triggerEvent', id: 'dustRegional' }, false));
       this.input.keyboard.on('keydown-TWO', () => this.run({ type: 'triggerEvent', id: 'spe' }, false));
@@ -72,12 +103,12 @@ export class ColonyScene extends Phaser.Scene {
     const { speed } = this.sim.state;
     const tick = this.dataSet.balance.solMs;
     this.acc += Math.min(delta, tick) * speed;
-    while (this.acc >= tick && !this.finished) {
+    while (this.acc >= tick && !this.finished && this.sim.state.speed) {
       this.acc -= tick;
       this.sim.step();
     }
-    this.solProgress.scaleX = this.acc / tick;
-    this.solStatus.setText(speed ? `${speed}×` : 'Paused');
+    this.solProgress.scaleX = Math.min(1, this.acc / tick);
+    this.solStatus.setText(this.sim.state.speed ? `${this.sim.state.speed}×` : 'Paused');
     if (this.runningWasherBar) this.runningWasherBar.scaleX = this.acc / tick;
   }
 
@@ -98,6 +129,7 @@ export class ColonyScene extends Phaser.Scene {
   select(x, y) {
     this.showTimers = false;
     this.showWeather = false;
+    this.showAdvancements = false;
     this.selected = { x, y };
     if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
       const result = this.run({ type: 'build', id: this.tool, x, y });
@@ -156,15 +188,33 @@ export class ColonyScene extends Phaser.Scene {
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
     add(panel(this, 675, 154, 550, 449));
     const activeTimers = state.events.active.length + Number(state.res.data > 0);
-    say(695, 169, this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
+    say(695, 169, this.showAdvancements ? 'Achievement tree' : this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
     action(950, 166, 116, 31, this.showWeather ? 'Back to base' : 'Weather', () => {
       this.showWeather = !this.showWeather;
+      this.showAdvancements = false;
       this.showTimers = false;
       this.drawSide();
     }, { selected: this.showWeather, size: 14 });
     action(1078, 166, 130, 31, this.showTimers ? 'Back to base' : `Timers${activeTimers ? ` · ${activeTimers}` : ''}`,
-      () => { this.showTimers = !this.showTimers; this.showWeather = false; this.drawSide(); }, { selected: this.showTimers, size: 14 });
-    if (this.showWeather) {
+      () => { this.showTimers = !this.showTimers; this.showWeather = false; this.showAdvancements = false; this.drawSide(); }, { selected: this.showTimers, size: 14 });
+    if (this.showAdvancements) {
+      const selected = this.achievementSelection ?? nextAdvancement(state.rescue)?.id ?? 'rescue';
+      drawAdvancementTree(this, this.sideLayer, state.rescue, selected, (id) => {
+        this.achievementSelection = id;
+        this.drawSide();
+      });
+      const canName = Object.hasOwn(state.rescue.earned, 'botanist');
+      action(695, 548, 272, 36, canName ? (state.rescue.colonyName ? 'Rename colony' : 'Name colony') : 'Colony naming unlocks with Botanist', canName ? () => {
+        this.run({ type: 'setSpeed', speed: 0 }, false);
+        this.nameDialog = openColonyNameDialog(state.rescue.colonyName, (name) => {
+          this.achievementSelection = null;
+          const result = this.run({ type: 'nameColony', name });
+          if (result.ok) this.colonyTitle.setText(state.rescue.colonyName);
+          return result;
+        });
+      } : null, { size: 14 });
+      action(979, 548, 214, 36, 'Back to base', () => { this.showAdvancements = false; this.drawSide(); });
+    } else if (this.showWeather) {
       drawColonyWeather(this, this.sideLayer, this.sim);
     } else if (this.showTimers) {
       const timers = state.events.active.map((event) => {
@@ -250,12 +300,22 @@ export class ColonyScene extends Phaser.Scene {
       const entries = this.dataSet.buildings.filter(({ id }) => id !== 'hab');
       const pageSize = 10;
       const pages = Math.ceil(entries.length / pageSize);
-      say(695, 207, 'Choose a structure, then click an empty tile to buy and build.', 16, { color: colors.muted });
+      say(695, 207, cell ? `Tile ${cell.x + 1}, ${cell.y + 1} selected. Choose a structure to build here.`
+        : 'Select an empty tile, or choose a structure first.', 16, { color: colors.muted });
       entries.slice(this.buildPage * pageSize, (this.buildPage + 1) * pageSize).forEach((item, i) => {
         const active = this.tool === item.id;
         const cost = state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : `${item.cost} cr`;
         action(695 + i % 2 * 252, 252 + Math.floor(i / 2) * 49, 238, 41, `${item.name} · ${cost}`,
-          () => { this.tool = active ? null : item.id; this.notify(item.why); this.drawSide(); }, { selected: active, size: 15 });
+          () => {
+            if (cell) {
+              this.tool = null;
+              this.run({ type: 'build', id: item.id, ...cell });
+            } else {
+              this.tool = active ? null : item.id;
+              this.notify(item.why);
+              this.drawSide();
+            }
+          }, { selected: active, size: 15 });
       });
       action(695, 507, 59, 34, '←', this.buildPage > 0 ? () => { this.buildPage--; this.drawSide(); } : null);
       say(772, 514, `${this.buildPage + 1}/${pages}`, 14, { color: colors.muted });
@@ -274,6 +334,7 @@ export class ColonyScene extends Phaser.Scene {
         () => this.run({ type: 'setSpeed', speed }, false), { selected: state.speed === speed, size: 14 });
     }
     action(973, 633, 86, 42, '+1 sol', () => { this.acc = 0; this.sim.step(); }, { size: 14 });
-    action(1067, 633, 157, 42, 'End and report', () => this.run({ type: 'endMission' }), { size: 14 });
+    action(1067, 633, 157, 42, state.rescue ? 'Abandon mission' : 'End and report',
+      () => { if (!state.rescue || window.confirm('Abandon this rescue mission?')) this.run({ type: 'endMission' }); }, { size: 14 });
   }
 }

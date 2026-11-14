@@ -1,6 +1,7 @@
 {
   "_game": true,
   "crew": 4,
+  "rescue": { "arrivalSol": 120, "rationSols": 30 },
   "foodPerCrew": 0.8,
   "waterCapacity": 5000,
   "plotAreaM2": 42,

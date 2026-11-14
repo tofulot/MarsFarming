@@ -99,7 +99,7 @@ export class MapScene extends Phaser.Scene {
     this.drawLayers(options);
     this.drawSite(options);
     this.drawMap();
-    button(this, 56, 645, 116, 40, 'Back', () => this.scene.start('Brief', { ...options, site: this.site }));
+    button(this, 56, 645, 116, 40, 'Back', () => this.scene.start('Title'));
     text(this, 192, 655, 'Terrain: NASA MOLA · Hydrogen: NASA HEND · Dust: LMD / Montabone et al. (CC BY-SA 3.0)',
       13, { color: colors.muted });
   }
