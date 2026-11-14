@@ -31,6 +31,15 @@ try {
   await page.route(`${origin}${config.base}**`, async (route) => {
     const file = new URL(route.request().url()).pathname.slice(config.base.length) || 'index.html';
     const local = join(output, file);
+    // The game falls back to demo-events.json when the optional event pack is absent.
+    if (file === 'data/events.json') {
+      try {
+        return await route.fulfill({ path: local });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        return route.fulfill({ status: 404 });
+      }
+    }
     if (file !== 'data/balance.json') return route.fulfill({ path: local });
     const balance = JSON.parse(await readFile(local, 'utf8'));
     // Use the real end-of-sol rules with a short rescue deadline.
