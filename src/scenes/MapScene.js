@@ -236,10 +236,12 @@ export class MapScene extends Phaser.Scene {
 
     toggle('weather', 'Weather difficulty', 374);
     say(984, 413, 'Longer marks · More dust, less sunlight', 12, { color: colors.muted });
+    say(984, 435, 'North', 11, { color: colors.muted, fontStyle: 'bold' });
+    say(984, 449, 'South', 11, { color: colors.muted, fontStyle: 'bold' });
     const seasons = this.dataSet.seasons.seasonNamesNorth;
     this.dataSet.dustClimatology.frames.forEach((_, i) => {
       const label = `${seasons[i]}\n${seasons[(i + 2) % 4]}`;
-      const control = button(this, 984 + i * 56, 431, 52, 35, label, () => {
+      const control = button(this, 1021 + i * 47, 431, 44, 35, label, () => {
         this.dustSeason = i;
         this.layers.weather = true;
         this.drawLayers(options);
@@ -248,7 +250,7 @@ export class MapScene extends Phaser.Scene {
       }, { selected: this.layers.weather && i === this.dustSeason, size: 11 });
       group.addMultiple([control.box, control.copy]);
     });
-    say(984, 469, 'North on top · South below', 11, { color: colors.muted });
+    say(984, 469, 'Each column shows both seasons at once.', 11, { color: colors.muted });
     group.add(this.add.rectangle(984, 485, 220, 1, colors.line).setOrigin(0));
   }
 
