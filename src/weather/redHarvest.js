@@ -30,7 +30,7 @@ export function createRedHarvestWeather(data, options = {}) {
   const mappedConfig = configureWeather(config, { balance: {
       panelLossPerSol: balance.solarDustLoss,
       minimumPanelCleanliness: balance.solarDustFloor,
-      dustMode: 'additive', stormDustMultiplier: 3,
+      dustMode: 'additive', stormDustMultiplier: balance.stormDustMultiplier ?? 3,
       lightWattsPerPpf: balance.wheatExtraWattsPerPpf,
       heatWattsPerDegree: balance.heatWattsPerDegree,
     } });
@@ -49,10 +49,10 @@ export function createRedHarvestWeather(data, options = {}) {
   });
 }
 
-export function gameWeatherInput({ state, site }) {
+export function gameWeatherInput({ state, site }, forecastEvents = []) {
   return {
     sol: state.sol, Ls: state.Ls, site: { id: 'landing', ...site }, seed: state.seed, difficulty: state.difficulty,
-    events: state.events.active.map((event) => ({
+    events: [...state.events.active, ...forecastEvents].map((event) => ({
       ...event, startSol: event.startedSol, endSol: event.until,
       effects: { ...event.effects, heatingFactor: event.effects.heatingFactor ?? event.effects.heatFactor },
     })),
