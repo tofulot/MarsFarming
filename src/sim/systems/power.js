@@ -15,10 +15,10 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }) {
     if (!unit.online) continue;
     if (config.capacityWh) capacityWh += config.capacityWh;
     if (unit.id === 'solar') {
-      const effects = weather.powerEffects({ weather: state.weather, ratedW: config.powerW,
-        dust: unit.dust ?? 0, advanceDust: true });
-      unit.dust = effects.dust;
-      state.power.gen += effects.generationW;
+      const { generationW, dust } = weather.powerEffects({ weather: state.weather, ratedW: config.powerW,
+        dust: unit.dust, advanceDust: true });
+      unit.dust = dust;
+      state.power.gen += generationW;
     } else if (config.powerW > 0) {
       state.power.gen += config.powerW;
     } else if (config.powerW < 0) {

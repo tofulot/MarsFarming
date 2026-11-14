@@ -4,7 +4,7 @@ export function startEvent(ctx, id) {
   const event = data.events.find((entry) => entry.id === id);
   if (!event || state.events.active.some((entry) => entry.id === id)) return false;
   const [min, max] = event.durationSols;
-  const active = { ...event, until: state.sol + min + Math.floor(random() * (max - min + 1)) };
+  const active = { ...event, startedSol: state.sol, until: state.sol + min + Math.floor(random() * (max - min + 1)) };
   if (event.effects.equipmentFailure) {
     const machines = state.buildings.filter((b) => !['hab', 'berm'].includes(b.id) &&
       !state.events.active.some((other) => other.targetUid === b.uid));
@@ -31,7 +31,9 @@ export function eventSystem(ctx) {
   const { state, data, random, emit } = ctx;
   for (const event of state.events.active.filter(({ until }) => until <= state.sol)) emit('event:end', event);
   state.events.active = state.events.active.filter(({ until }) => until > state.sol);
+  if (state.rescue && state.sol <= data.balance.rescue.rationSols) return;
   for (const event of data.events) {
+    if (event.difficulties && !event.difficulties.includes(state.difficulty)) continue;
     if (event.hardOnly && state.difficulty !== 'hard') continue;
     if (event.once && state.events.log.some(({ id }) => id === event.id)) continue;
     const season = event.seasonMultiplier;

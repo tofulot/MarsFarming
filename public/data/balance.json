@@ -1,6 +1,22 @@
 {
   "_game": true,
   "crew": 4,
+  "rescue": {
+    "arrivalSol": 120,
+    "rationSols": 11,
+    "startingCredits": 180,
+    "priceMultiplier": 1.15,
+    "starvationDamage": 0.05,
+    "crops": {
+      "radish": { "growthSols": 8, "harvestKg": 4.8 },
+      "lettuce": { "growthSols": 9, "harvestKg": 5.2 },
+      "tomato": { "growthSols": 14, "harvestKg": 9 },
+      "potato": { "growthSols": 16, "harvestKg": 12 },
+      "sweetPotato": { "growthSols": 15, "harvestKg": 11 },
+      "wheat": { "growthSols": 17, "harvestKg": 13 },
+      "soybean": { "growthSols": 13, "harvestKg": 8.5 }
+    }
+  },
   "foodPerCrew": 0.8,
   "waterCapacity": 5000,
   "plotAreaM2": 42,
@@ -64,5 +80,5 @@
     "seasonSwingC": 18
   },
   "demoSeed": 42,
-  "solMs": 500
+  "solMs": 15000
 }
