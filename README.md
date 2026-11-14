@@ -16,7 +16,12 @@ npm run build
 
 Open the URL Vite prints. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report.
 
-Start Survival to spawn in Gale Crater, or choose a landing site on the map. You have 120 sols until rescue, 11 sols of rations, and 180 credits. Start with two Greenhouse Plots and a Soil Washer. Radishes mature in eight healthy sols. Random hazards begin after the starting ration window. Harvest milestones pay credit bonuses and unlock upgrades. Each purchase raises the next price of that item by 15%. The colony starts paused. Press **+1 sol** to step or run at **1×–4×**. One sol takes 15 seconds at 1×. Open **Achievements** for farming clues. Plant your first crop to earn **Botanist** and unlock colony naming. Soil treatment takes one sol with power and water. Open **Timers** to track active events, equipment outages, and research downlinks.
+Choose **Start survival** to land in Gale Crater, or **Choose landing site** to compare terrain, ice, solar potential, and weather on the map. You have 120 sols until rescue, 11 sols of rations, and 180 credits. The colony starts paused.
+
+1. Open **Base** under the vital statistics. Buy two Greenhouse Plots and a Soil Washer. Press **+1 sol** to treat the plots. The washer starts automatically when it has power and water.
+2. Select each treated plot and plant radishes from the seed dock. Each planting uses 0.2 kg of food. Radishes mature in eight healthy sols. Harvest and replant to keep food available. Seed supply drops bring new crops at 15-sol intervals, and some crops also require a harvest milestone.
+3. Watch the resource readings and forecast. Use **+1 sol** for precise steps or **1×–4×** for continuous play. One sol takes 15 seconds at 1×. Open **Ops** for event, outage, and downlink timers and **Awards** for progression clues. Your first planting unlocks colony naming.
+4. Reach the rescue sol to open the report. You can read the crop journal, return to the main menu, or try another landing site. **Abandon** ends the current run after confirmation. In demo mode, **R** also ends the run and opens the report.
 
 ## Landing map data
 
@@ -30,7 +35,7 @@ The terrain and hydrogen assets ship with the game. To rebuild them on macOS, ru
 
 ## Weather
 
-Open **Weather** at the base for the next seven sols. The projection uses Kelton’s seasonal temperature model and ongoing events. Archived NASA observations are shown as historical context. The landing map’s **Weather difficulty** layer shows regional airborne dust. Longer pink marks mean higher infrared dust optical depth, a measure of how strongly dust absorbs infrared light. Compare snapshots at four solar longitudes (Lₛ) to see how the pattern moves through the Martian year. Site details also show Kelton’s modeled cold-season low. The colony uses its own storm odds and event effects.
+The forecast timeline shows upcoming conditions. Storm sols are highlighted in orange, and a warning appears when a storm is due within 10 sols. Solar panels collect dust during normal operations and accumulate it faster in a storm. Select a solar array to clean it and recover output. The landing map’s **Weather difficulty** layer shows regional airborne dust. Longer pink marks mean higher infrared dust optical depth, a measure of how strongly dust absorbs infrared light. Compare snapshots at four solar longitudes (Lₛ) to see how the pattern moves through the Martian year. Site details also show Kelton’s modeled cold-season low.
 
 | Event | Gameplay effect |
 |---|---|
