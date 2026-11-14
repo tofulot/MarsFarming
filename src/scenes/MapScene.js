@@ -1,5 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { landingWeatherDifficulty } from '../weather/redHarvest.js';
 import { button, colors, panel, text, targetBackground } from '../ui/controls.js';
 import { clearSolarFactor } from '../sim/insolation.js';
 import { landingSite, normalizedNeutronFlux } from '../sim/marsMap.js';
@@ -31,7 +32,7 @@ export class MapScene extends Phaser.Scene {
     targetBackground(this);
     this.dataSet = this.registry.get('missionData');
     this.flux = this.dataSet['neutron-flux'];
-    this.layers = { hydrogen: false, solar: false };
+    this.layers = { hydrogen: false, solar: false, weather: false };
     this.view = { zoom: 1, x: .5, y: .5 };
     this.site = options.site ?? null;
     this.drag = null;
@@ -133,6 +134,21 @@ export class MapScene extends Phaser.Scene {
         for (let x = y % 16 ? 4 : 0; x < map.w; x += 8) ctx.fillRect(x, y, size, size);
       }
     }
+    if (this.layers.weather) {
+      ctx.strokeStyle = '#ff9ac8';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let y = 7; y < map.h - 7; y += 12) {
+        const lat = 90 - (top + y / (map.h * view.zoom)) * 180;
+        const { severity } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, lat);
+        const size = severity * 5;
+        for (let x = 7; x < map.w - 7; x += 12) {
+          ctx.moveTo(x - size, y + size);
+          ctx.lineTo(x + size, y - size);
+        }
+      }
+      ctx.stroke();
+    }
     ctx.font = '11px monospace';
     ctx.fillStyle = '#ffe8d4';
     ctx.strokeStyle = '#ffe8d442';
@@ -193,45 +209,45 @@ export class MapScene extends Phaser.Scene {
     say(984, 188, 'MAP LAYERS & KEY', 14, { color: '#ff9f7c', fontStyle: 'bold' });
     const toggle = (id, label, y) => {
       const on = this.layers[id];
-      const control = button(this, 984, y, 220, 33, `${label}   ·   ${on ? 'ON' : 'OFF'}`, () => {
+      const control = button(this, 984, y, 220, 33, `${label} · ${on ? 'ON' : 'OFF'}`, () => {
         this.layers[id] = !on;
         this.drawLayers();
         this.drawMap();
-      }, { selected: on, size: 15 });
+      }, { selected: on, size: id === 'hydrogen' ? 13 : 14 });
       group.addMultiple([control.box, control.copy]);
     };
-    toggle('hydrogen', 'Hydrogen signal', 219);
+    toggle('hydrogen', 'Hydrogen (possible water)', 214);
     for (let i = 0; i < 44; i++) {
       const [r, g, b] = hydrogenColor(1 - .85 * i / 43);
-      group.add(this.add.rectangle(984 + 5 * i, 262, 5, 7, (r << 16) | (g << 8) | b).setOrigin(0));
+      group.add(this.add.rectangle(984 + 5 * i, 253, 5, 7, (r << 16) | (g << 8) | b).setOrigin(0));
     }
-    say(984, 274, 'Weak', 12, { color: colors.muted });
-    say(1204, 274, 'Strong', 12, { color: colors.muted }).setOrigin(1, 0);
-    say(984, 294, 'Brighter cyan suggests more hydrogen. Neutron data spans 4° cells.', 13,
-      { color: colors.muted, wordWrap: { width: 220 } });
+    say(984, 266, 'Bright cyan · Stronger hydrogen signal', 12, { color: colors.muted });
 
-    toggle('solar', 'Solar potential', 341);
+    toggle('solar', 'Solar potential', 295);
     for (let i = 0; i < 28; i++) {
       const size = .4 + 2.1 * i / 27;
-      group.add(this.add.rectangle(986 + 8 * i, 389, size, size, sunlight));
+      group.add(this.add.rectangle(986 + 8 * i, 337, size, size, sunlight));
     }
-    say(984, 398, 'Low', 12, { color: colors.muted });
-    say(1204, 398, 'High', 12, { color: colors.muted }).setOrigin(1, 0);
-    say(984, 419, 'Denser gold shows more modeled clear-sky sunlight at equinox.', 13,
-      { color: colors.muted, wordWrap: { width: 220 } });
-    group.add(this.add.rectangle(984, 465, 220, 1, colors.line).setOrigin(0));
+    say(984, 346, 'Denser gold · More equinox sunlight', 12, { color: colors.muted });
+
+    toggle('weather', 'Weather difficulty', 374);
+    say(984, 414, 'Longer pink marks · Colder seasonal lows and more heating demand.', 12,
+      { color: colors.muted, wordWrap: { width: 222 } });
+    say(984, 448, 'Storm odds vary by season and mode.', 12, { color: colors.muted });
+    group.add(this.add.rectangle(984, 474, 220, 1, colors.line).setOrigin(0));
   }
 
   drawSite(options) {
     const group = this.siteUi;
     group.clear(true, true);
-    group.add(text(this, 984, 482, 'LANDING TARGET', 14, { color: '#ff9f7c', fontStyle: 'bold' }));
-    group.add(text(this, 984, 508, this.site ? coordinates(this.site) : 'Select a point on Mars', 18, { fontStyle: 'bold' }));
+    group.add(text(this, 984, 486, 'LANDING TARGET', 14, { color: '#ff9f7c', fontStyle: 'bold' }));
+    group.add(text(this, 984, 510, this.site ? coordinates(this.site) : 'Select a point on Mars', 18, { fontStyle: 'bold' }));
     if (this.site) {
       const flux = normalizedNeutronFlux(this.flux, this.site.lat, this.site.lon);
       const sun = clearSolarFactor(this.site.lat, 0, this.dataSet.seasons.orbit);
       const equator = clearSolarFactor(0, 0, this.dataSet.seasons.orbit);
-      group.add(text(this, 984, 540, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSolar potential    ${Math.round(100 * sun / equator)}% of equator`, 13,
+      const { seasonalLow } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, this.site.lat);
+      group.add(text(this, 984, 538, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSolar potential    ${Math.round(100 * sun / equator)}% of equator\nModeled cold-season low    ~${Math.round(seasonalLow)} °C`, 13,
         { color: colors.muted, lineSpacing: 5 }));
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {

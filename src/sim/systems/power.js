@@ -1,12 +1,9 @@
 // AI-assisted (OpenAI Codex)
-export function powerSystem({ state, data, buildings, crops, emit }) {
-  const { balance } = data;
+export function powerSystem({ state, data, buildings, crops, emit, weather }) {
   const active = state.events.active;
-  const dust = active.reduce((factor, event) => Math.min(factor, event.effects.solarFactor ?? 1), 1);
-  const heat = active.reduce((factor, event) => Math.max(factor, event.effects.heatFactor ?? 1), 1);
   const hours = data.seasons.orbit.solHours;
   const before = state.power.shed.length;
-  state.power.solarFactor = state.power.clearSolarFactor * dust;
+  state.power.solarFactor = state.weather.solarFactor;
   state.power.gen = 0;
   state.power.demand = 0;
   state.power.shed = [];
@@ -18,17 +15,19 @@ export function powerSystem({ state, data, buildings, crops, emit }) {
     if (!unit.online) continue;
     if (config.capacityWh) capacityWh += config.capacityWh;
     if (unit.id === 'solar') {
-      unit.dust = Math.min(1 - balance.solarDustFloor, unit.dust + balance.solarDustLoss * (dust < 1 ? 3 : 1));
-      state.power.gen += config.powerW * state.power.solarFactor * (1 - unit.dust);
+      const { generationW, dust } = weather.powerEffects({ weather: state.weather, ratedW: config.powerW,
+        dust: unit.dust, advanceDust: true });
+      unit.dust = dust;
+      state.power.gen += generationW;
     } else if (config.powerW > 0) {
       state.power.gen += config.powerW;
     } else if (config.powerW < 0) {
       const crop = state.crops.find(({ plotUid }) => plotUid === unit.uid);
       const traits = crops.get(crop?.cropId);
-      const extra = traits ? Math.max(0, traits.ppf - 28) * balance.wheatExtraWattsPerPpf +
-        Math.max(0, traits.tempDayC - state.outsideTempC) * balance.heatWattsPerDegree * heat : 0;
+      const watts = traits ? weather.cropEffects(traits, state.weather,
+        { basePowerW: -config.powerW, includedPpf: 28 }).totalW : -config.powerW;
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;
-      loads.push({ unit, watts: -config.powerW + extra });
+      loads.push({ unit, watts });
     }
   }
   const priority = (unit) => {

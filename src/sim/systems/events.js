@@ -32,6 +32,7 @@ export function eventSystem(ctx) {
   for (const event of state.events.active.filter(({ until }) => until <= state.sol)) emit('event:end', event);
   state.events.active = state.events.active.filter(({ until }) => until > state.sol);
   for (const event of data.events) {
+    if (event.difficulties && !event.difficulties.includes(state.difficulty)) continue;
     if (event.hardOnly && state.difficulty !== 'hard') continue;
     if (event.once && state.events.log.some(({ id }) => id === event.id)) continue;
     const season = event.seasonMultiplier;

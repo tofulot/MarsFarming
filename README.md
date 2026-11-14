@@ -26,12 +26,24 @@ The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Soil
 
 The map assets ship with the game. To rebuild them on macOS, run `python3 scripts/prepare-mars-map.py MOLA_cylin.jpg hend_epithermal_020917.tab` with the two source files.
 
+## Weather
+
+Open **Weather** at the base for the next seven sols. The projection uses Kelton’s seasonal temperature model and ongoing events. Archived NASA observations are shown as historical context. The landing map’s **Weather difficulty** layer shows modeled cold and heating demand. Storm odds are set by the season and mission difficulty.
+
+| Event | Gameplay effect |
+|---|---|
+| Regional dust storm | Solar output ×0.4 and comms capacity ×0.75 for 10–30 sols |
+| Global dust storm | Solar output ×0.05 and comms capacity ×0.5 for 40–60 sols on Hard |
+| Cold snap | Crop heating demand ×1.5 for 5 sols |
+
+The weather API and datasets come from [Kelton’s weather integration](https://github.com/tofulot/MarsFarming/commit/1be471dffc18742c303763812de8a0cff23b5f8c). The model, event settings and source links are in `public/data/weather.json`. Archived observations are in `public/data/weather-observations.json`.
+
 ## Team handoff
 
 | Owner | Work | Integration point |
 |---|---|---|
 | Tolui | Core gameplay | Phaser scenes in `src/scenes/` call `Simulation.command()` and read `Simulation.state`. |
-| Kelton | Weather and events data | Put event definitions in `public/data/events.json`. See `public/data/demo-events.json` for the schema, with `id`, `name`, `durationSols`, `effects`, and optional probability and season scaling. `src/sim/systems/season.js` currently uses a simplified temperature model. |
+| Kelton | Weather and events data | `public/data/weather.json` supplies the model and natural events. `sim.getWeather()` and `sim.forecastWeather()` expose current and predicted conditions. |
 | Edwin | Plant genetics and mutations | `public/data/crops.json` supplies baseline traits, and `src/sim/systems/crops.js` owns growth and harvest. A planted crop is tied to its plot with `plotUid`; mutation and inheritance logic can extend that state. |
 
 The [original playbook](Junior%20Astronaut%20Mars%20Farm%20README.md) describes the full project and source IDs. This implementation uses baseline crop traits and simulated weather. The NASA baseline crop data comes from the [Life Support Baseline Values and Assumptions Document](https://ntrs.nasa.gov/citations/20210024855). The seasonal calendar uses the [LMD solar longitude table](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new). Prices and resource tuning are game values.

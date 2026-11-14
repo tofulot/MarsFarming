@@ -1,7 +1,7 @@
 // AI-assisted (OpenAI Codex)
 export function economySystem({ state, data }) {
   state.power.comms = state.buildings.filter((unit) => unit.id === 'comms' && unit.online).length
-    * data.balance.commsThroughput;
+    * data.balance.commsThroughput * (state.weather?.commsFactor ?? 1);
   let capacity = state.power.comms;
   while (capacity > 0 && state.metrics.packets.length) {
     const packet = state.metrics.packets[0];

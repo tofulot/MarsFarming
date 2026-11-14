@@ -1,8 +1,9 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { gameEvents } from '../weather/redHarvest.js';
 
 const keys = ['sites', 'crops', 'buildings', 'demo-events', 'seasons', 'difficulty', 'landers',
-  'objectives', 'facts', 'balance'];
+  'objectives', 'facts', 'balance', 'weather', 'weather-observations'];
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -34,8 +35,8 @@ export class BootScene extends Phaser.Scene {
       typeof event?.id === 'string' && Array.isArray(event.durationSols) && event.durationSols.length === 2 &&
       event.durationSols.every((sols) => Number.isInteger(sols) && sols > 0) &&
       event.durationSols[0] <= event.durationSols[1] && event.effects && typeof event.name === 'string');
-    data.events = hasEventData ? events : data['demo-events'];
-    data.demoWeather = !hasEventData;
+    data.weatherObservations = data['weather-observations'];
+    data.events = gameEvents(data.weather, hasEventData ? events : data['demo-events']);
     message.remove();
     this.registry.set('missionData', data);
     this.scene.start('Title');

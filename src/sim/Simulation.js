@@ -1,4 +1,5 @@
 // AI-assisted (OpenAI Codex)
+import { createRedHarvestWeather, gameWeatherInput } from '../weather/redHarvest.js';
 import { createBus } from './bus.js';
 import { checkManifest } from './design.js';
 import { landingSite } from './marsMap.js';
@@ -43,7 +44,7 @@ export class Simulation {
     state.site = site;
     this.#demo = demo;
     this.#ctx = {
-      state, data, site, buildings: new Map(data.buildings.map((item) => [item.id, item])),
+      state, data, site, weather: createRedHarvestWeather(data), buildings: new Map(data.buildings.map((item) => [item.id, item])),
       crops: new Map(data.crops.map((item) => [item.id, item])),
       random: mulberry32(seed), emit: this.#bus.emit,
       near: (plot, id, predicate = () => true) => state.buildings.some((unit) =>
@@ -52,6 +53,10 @@ export class Simulation {
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
     if (packed) this.#unpack(manifest);
     seasonSystem(state, data, site);
+    state.weather = this.getWeather();
+    state.outsideTempC = state.weather.outsideTempC;
+    state.power.clearSolarFactor = state.weather.clearSolarFactor;
+    state.power.solarFactor = state.weather.solarFactor;
     state.power.gen = launch.startPower ?? state.buildings.reduce((total, unit) => {
       const power = this.#ctx.buildings.get(unit.id).powerW;
       const factor = unit.id === 'solar' ? state.power.clearSolarFactor : 1;
@@ -85,6 +90,9 @@ export class Simulation {
   }
 
   get state() { return this.#ctx.state; }
+  get weather() { return this.#ctx.weather; }
+  getWeather() { return this.weather.current(gameWeatherInput(this.#ctx)); }
+  forecastWeather(sols = 7) { return this.weather.forecast(gameWeatherInput(this.#ctx), { sols }); }
   on(event, fn) { return this.#bus.on(event, fn); }
   off(event, fn) { this.#bus.off(event, fn); }
 
@@ -111,6 +119,9 @@ export class Simulation {
     state.sol++;
     seasonSystem(state, data, site);
     eventSystem(this.#ctx);
+    state.weather = this.getWeather();
+    state.outsideTempC = state.weather.outsideTempC;
+    state.power.clearSolarFactor = state.weather.clearSolarFactor;
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
     cropSystem(this.#ctx);

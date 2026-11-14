@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Simulation } from '../src/sim/Simulation.js';
+import { gameEvents, landingWeatherDifficulty } from '../src/weather/redHarvest.js';
 import { checkManifest } from '../src/sim/design.js';
 import { solarLongitude } from '../src/sim/insolation.js';
 
@@ -126,4 +127,26 @@ test('map landings start with the full base budget and buy equipment on the surf
   assert.equal(polar.state.res.spares, 1);
   assert.equal(polar.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok, true);
   assert.equal(polar.state.res.credits, data.difficulty.medium.budget - 60);
+});
+
+test('Kelton weather drives the forecast and live storm penalties', () => {
+  const weather = read('weather');
+  const events = gameEvents(weather, data.events).map((event) => ({ ...event, baseChancePerSol: 0 }));
+  assert.ok(events.some(({ id }) => id === 'spe'));
+  assert.ok(events.some(({ id }) => id === 'coldSnap'));
+  const sim = new Simulation({ ...data, weather, events, weatherObservations: read('weather-observations') },
+    { siteId: 'gale', demo: true });
+  assert.equal(sim.weather.getObservations('jezero')[0].pressurePa, 718);
+  assert.equal(sim.command({ type: 'triggerEvent', id: 'dustRegional' }).ok, true);
+  const snapshot = structuredClone(sim.state);
+  const days = sim.forecastWeather(65).days;
+  assert.deepEqual(sim.state, snapshot);
+  assert.equal(days[0].dustFactor, 0.4);
+  assert.equal(days[0].commsFactor, 0.75);
+  assert.equal(days.at(-1).dustFactor, 1);
+  sim.step();
+  assert.equal(sim.state.outsideTempC, days[0].outsideTempC);
+  assert.equal(sim.state.power.solarFactor, days[0].solarFactor);
+  assert.ok(landingWeatherDifficulty(weather.temperatureModel, 80).seasonalLow <
+    landingWeatherDifficulty(weather.temperatureModel, 0).seasonalLow);
 });

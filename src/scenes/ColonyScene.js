@@ -1,5 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation, playbackSpeeds } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
@@ -29,6 +30,7 @@ export class ColonyScene extends Phaser.Scene {
     this.buildPage = 0;
     this.timerPage = 0;
     this.showTimers = false;
+    this.showWeather = false;
     this.tool = null;
     this.message = 'Use the base shop to equip the outpost. Press 1× to advance time.';
     this.finished = false;
@@ -52,7 +54,7 @@ export class ColonyScene extends Phaser.Scene {
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
     this.feedback = text(this, 48, 620, this.message, 17, { color: '#ffc7a8', wordWrap: { width: 610 } });
-    text(this, 48, 676, this.dataSet.demoWeather ? 'SIMULATED WEATHER  /  GAME VALUES' : 'GAME VALUES', 12, { color: colors.muted });
+    text(this, 48, 676, 'MODELED WEATHER  /  GAME VALUES', 12, { color: colors.muted });
     this.refreshGrid();
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim });
@@ -95,6 +97,7 @@ export class ColonyScene extends Phaser.Scene {
 
   select(x, y) {
     this.showTimers = false;
+    this.showWeather = false;
     this.selected = { x, y };
     if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
       const result = this.run({ type: 'build', id: this.tool, x, y });
@@ -153,10 +156,17 @@ export class ColonyScene extends Phaser.Scene {
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
     add(panel(this, 675, 154, 550, 449));
     const activeTimers = state.events.active.length + Number(state.res.data > 0);
-    say(695, 169, this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
-    action(1060, 166, 148, 31, this.showTimers ? 'Back to base' : `Timers${activeTimers ? ` · ${activeTimers}` : ''}`,
-      () => { this.showTimers = !this.showTimers; this.drawSide(); }, { selected: this.showTimers, size: 14 });
-    if (this.showTimers) {
+    say(695, 169, this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
+    action(950, 166, 116, 31, this.showWeather ? 'Back to base' : 'Weather', () => {
+      this.showWeather = !this.showWeather;
+      this.showTimers = false;
+      this.drawSide();
+    }, { selected: this.showWeather, size: 14 });
+    action(1078, 166, 130, 31, this.showTimers ? 'Back to base' : `Timers${activeTimers ? ` · ${activeTimers}` : ''}`,
+      () => { this.showTimers = !this.showTimers; this.showWeather = false; this.drawSide(); }, { selected: this.showTimers, size: 14 });
+    if (this.showWeather) {
+      drawColonyWeather(this, this.sideLayer, this.sim);
+    } else if (this.showTimers) {
       const timers = state.events.active.map((event) => {
         const total = event.until - event.startedSol;
         const remaining = event.until - state.sol;
