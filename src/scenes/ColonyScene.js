@@ -19,6 +19,13 @@ const washerMessages = {
   complete: 'Batch complete · Soil is ready to plant',
 };
 
+const shopCategories = [
+  { name: 'Farming', items: ['plot', 'washer', 'fertilizer', 'hydroponic'] },
+  { name: 'Power', items: ['solar', 'battery', 'nuclear'] },
+  { name: 'Water', items: ['iceDrill', 'recycler', 'harvester'] },
+  { name: 'Support', items: ['berm', 'shelter', 'comms', 'lab'] },
+];
+
 export class ColonyScene extends Phaser.Scene {
   constructor() { super('Colony'); }
 
@@ -30,7 +37,7 @@ export class ColonyScene extends Phaser.Scene {
     this.sim.command({ type: 'setSpeed', speed: 0 });
     this.acc = 0;
     this.selected = null;
-    this.buildPage = 0;
+    this.shopCategory = shopCategories[0];
     this.timerPage = 0;
     this.showTimers = false;
     this.showWeather = false;
@@ -123,12 +130,16 @@ export class ColonyScene extends Phaser.Scene {
     this.showAdvancements = false;
     this.selected = { x, y };
     if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
-      const result = this.run({ type: 'build', id: this.tool, x, y });
-      if (result.ok) this.tool = null;
+      this.placeStructure(this.tool, this.selected);
       return;
     }
     this.refreshGrid();
     this.drawSide();
+  }
+
+  placeStructure(id, cell) {
+    this.tool = null;
+    this.run({ type: 'build', id, ...cell });
   }
 
   refreshGrid() {
@@ -291,41 +302,7 @@ export class ColonyScene extends Phaser.Scene {
       action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.refreshGrid(); this.drawSide(); });
       action(979, 548, 214, 36, 'Remove structure', unit.id === 'hab' ? null : () => doForUnit('demolish'));
     } else {
-      const entries = this.dataSet.buildings.filter(({ id }) => id !== 'hab');
-      const pageSize = 10;
-      const pages = Math.ceil(entries.length / pageSize);
-      say(695, 207, cell ? `Tile ${cell.x + 1}, ${cell.y + 1} selected. Choose a structure to build here.`
-        : 'Select an empty tile, or choose a structure first.', 16, { color: colors.muted });
-      entries.slice(this.buildPage * pageSize, (this.buildPage + 1) * pageSize).forEach((item, i) => {
-        const active = this.tool === item.id;
-        const requirement = this.sim.unlockRequirement(item);
-        const price = this.sim.purchasePrice(item);
-        const label = requirement ? `${item.name}\nRequires ${requirement}` : `${item.name} · ${price} cr`;
-        action(695 + i % 2 * 252, 252 + Math.floor(i / 2) * 49, 238, 41, label,
-          !requirement && state.res.credits >= price ?
-          () => {
-            if (cell) {
-              this.tool = null;
-              this.run({ type: 'build', id: item.id, ...cell });
-            } else {
-              this.tool = active ? null : item.id;
-              this.notify(item.why);
-              this.drawSide();
-            }
-          } : null, { selected: active, size: 15 });
-      });
-      action(695, 507, 59, 34, '←', this.buildPage > 0 ? () => { this.buildPage--; this.drawSide(); } : null);
-      say(772, 514, `${this.buildPage + 1}/${pages}`, 14, { color: colors.muted });
-      action(820, 507, 59, 34, '→', this.buildPage < pages - 1 ? () => { this.buildPage++; this.drawSide(); } : null);
-      action(911, 507, 274, 34,
-        state.power.priority[0] === 'iceDrill' ? 'Power order · Water first' : 'Power order · Farm first',
-        () => this.run({ type: 'setPriority', priority: state.power.priority[0] === 'iceDrill'
-          ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
-      const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
-      const sparePrice = this.sim.purchasePrice(spares);
-      action(695, 550, 220, 35, `Buy spare part · ${sparePrice} cr`,
-        state.res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
-      say(933, 558, `Spares in storage: ${state.res.spares}`, 14, { color: colors.muted });
+      this.drawBaseShop(cell);
     }
     for (const [i, speed] of playbackSpeeds.entries()) {
       action(678 + i * 58, 633, 52, 42, speed ? `${speed}×` : 'Pause',
@@ -334,5 +311,80 @@ export class ColonyScene extends Phaser.Scene {
     action(915, 633, 86, 42, '+1 sol', () => { this.acc = 0; this.sim.step(); }, { size: 14 });
     action(1067, 633, 157, 42, state.rescue ? 'Abandon mission' : 'End and report',
       () => { if (!state.rescue || window.confirm('Abandon this rescue mission?')) this.run({ type: 'endMission' }); }, { size: 14 });
+  }
+
+  drawBaseShop(cell) {
+    const { res, power } = this.sim.state;
+    const group = this.sideLayer;
+    const say = (...args) => {
+      const label = text(this, ...args);
+      group.add(label);
+      return label;
+    };
+    const action = (...args) => {
+      const { box, copy } = button(this, ...args);
+      group.addMultiple([box, copy]);
+    };
+
+    const placing = this.dataSet.buildings.find(({ id }) => id === this.tool);
+    const instruction = cell ? `Tile ${cell.x + 1}, ${cell.y + 1} selected. Choose what to build.`
+      : placing ? `Select an empty tile for ${placing.name}. Click the item again to cancel.`
+        : 'Select an empty tile or choose what to build.';
+    say(695, 207, instruction, 14, { color: colors.muted });
+
+    shopCategories.forEach((category, i) => {
+      action(695 + i * 130, 235, 123, 34, category.name, () => {
+        this.shopCategory = category;
+        this.tool = null;
+        this.drawSide();
+      }, { selected: category === this.shopCategory, size: 15 });
+    });
+
+    this.shopCategory.items.forEach((id, i) => {
+      const item = this.dataSet.buildings.find((entry) => entry.id === id);
+      const requirement = this.sim.unlockRequirement(item);
+      const price = this.sim.purchasePrice(item);
+      const shortfall = price - res.credits;
+      const active = this.tool === id;
+      const canBuild = !requirement && shortfall <= 0;
+      const y = 280 + i * 56;
+      const fill = canBuild ? 0x382830 : 0x211a20;
+      const row = panel(this, 695, y, 513, 50, fill);
+      if (active) row.setStrokeStyle(2, colors.accent);
+      group.add(row);
+      if (canBuild) {
+        row.setInteractive({ useHandCursor: true });
+        row.on('pointerover', () => row.setFillStyle(0x4c343e));
+        row.on('pointerout', () => row.setFillStyle(fill));
+        row.on('pointerdown', () => {
+          if (cell) {
+            this.placeStructure(id, cell);
+          } else {
+            this.tool = active ? null : id;
+            this.drawSide();
+          }
+        });
+      }
+      say(708, y + 6, item.name, 17, { fontStyle: 'bold', color: canBuild ? colors.ink : colors.muted });
+      say(708, y + 28, item.why, 12, { color: colors.muted });
+      say(1195, y + 6, `${price.toLocaleString('en-US')} cr`, 16, {
+        color: canBuild ? colors.ink : colors.muted, fontStyle: 'bold',
+      }).setOrigin(1, 0);
+      const status = requirement ? `Requires ${requirement}`
+        : shortfall > 0 ? `Need ${shortfall} more cr`
+          : active ? 'Ready to place' : '';
+      if (status) say(1195, y + 28, status, 12, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
+    });
+
+    group.add(this.add.rectangle(695, 515, 513, 1, colors.line).setOrigin(0));
+    const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
+    const sparePrice = this.sim.purchasePrice(spares);
+    const waterFirst = power.priority[0] === 'iceDrill';
+    action(695, 529, 244, 34, `Buy spare part · ${sparePrice} cr`,
+      res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
+    say(695, 572, `${res.spares} in storage`, 13, { color: colors.muted });
+    action(949, 529, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
+      () => this.run({ type: 'setPriority', priority: waterFirst
+        ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
   }
 }
