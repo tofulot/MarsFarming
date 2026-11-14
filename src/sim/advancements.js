@@ -4,7 +4,7 @@ export const advancements = [
   { id: 'greenhouse', name: 'First Greenhouse', requires: ['stranded'], position: [0, 1],
     hint: 'Select an empty tile and buy a Greenhouse Plot. Build two plots to grow enough food between harvests.' },
   { id: 'soil', name: 'Ready to Grow', requires: ['greenhouse'], position: [0, 2],
-    hint: 'Build a Soil Washer. Queue Treat soil and advance one sol with power and water.' },
+    hint: 'Build a Soil Washer and advance one sol. It treats soil automatically with power and water.' },
   { id: 'botanist', name: 'Botanist', requires: ['soil'], position: [0, 3],
     hint: 'Plant both plots. Radishes mature in 8 healthy sols. Unlocks colony naming and the Ice Drill.' },
   { id: 'harvest', name: 'First Harvest', requires: ['botanist'], position: [0, 4], credits: 70,
@@ -32,6 +32,7 @@ export const advancements = [
 const rewards = {
   iceDrill: 'botanist',
   fertilizer: 'repeatHarvest',
+  autoHarvester: 'repeatHarvest',
   tomato: 'repeatHarvest',
   potato: 'repeatHarvest',
   sweetPotato: 'repeatHarvest',

@@ -7,6 +7,8 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
   const position = ({ position: [column, row] }) =>
     ({ x: 695 + column * 129, y: 208 + row * 41 });
   const earned = (id) => Object.hasOwn(rescue.earned, id);
+  const starColor = (entry) => entry.id === 'rescue' ? 0xf08c3c
+    : ['stranded', 'greenhouse', 'soil', 'botanist'].includes(entry.id) ? 0x70bd79 : 0xa87be5;
   const links = scene.add.graphics();
   group.add(links);
 
@@ -18,7 +20,7 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
       const toX = target.x + width / 2;
       const fromY = start.y + height;
       const between = (fromY + target.y) / 2;
-      links.lineStyle(2, earned(entry.id) ? colors.mint : earned(parent) ? colors.accent : colors.line);
+      links.lineStyle(2, earned(entry.id) ? starColor(entry) : earned(parent) ? colors.accent : colors.line);
       links.beginPath().moveTo(fromX, fromY).lineTo(fromX, between)
         .lineTo(toX, between).lineTo(toX, target.y).strokePath();
     }
@@ -28,10 +30,12 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
     const { x, y } = position(entry);
     const done = earned(entry.id);
     const ready = advancementAvailable(rescue, entry);
+    const tier = starColor(entry);
     const card = panel(scene, x, y, width, height, done ? 0x294238 : ready ? 0x492e2c : 0x211b21);
-    if (selected === entry.id) card.setStrokeStyle(2, colors.accent);
+    card.setStrokeStyle(selected === entry.id ? 2 : 1, done ? tier : selected === entry.id ? colors.accent : colors.line);
     card.setInteractive({ useHandCursor: true }).on('pointerdown', () => choose(entry.id));
     group.addMultiple([card,
+      scene.add.star(x + 108, y + 17, 5, 3, 7, tier).setDepth(10),
       text(scene, x + 6, y + 3, entry.name, 12, { fontStyle: 'bold', color: done || ready ? colors.ink : colors.muted }),
       text(scene, x + 6, y + 17, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 11,
         { color: done ? '#9bd8ae' : ready ? '#ffc7a8' : colors.muted }),

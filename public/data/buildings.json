@@ -58,6 +58,7 @@
     "powerW": -1200,
     "waterLPerSol": -12,
     "why": "Grows crops without treated soil.",
+    "materialCost": { "regolith": 8, "metal": 4 },
     "unlockSP": 30,
     "_game": true,
     "plot": true
@@ -70,7 +71,20 @@
     "massKg": 300,
     "powerW": -500,
     "waterLPerSol": 0,
-    "why": "Treats up to four soil plots per batch.",
+    "why": "Automatically treats up to four soil plots per sol with power and water.",
+    "unlockSP": 0,
+    "_game": true
+  },
+  {
+    "id": "autoHarvester",
+    "name": "Auto-Harvester",
+    "sprite": "AHV",
+    "cost": 95,
+    "massKg": 160,
+    "powerW": -350,
+    "waterLPerSol": 0,
+    "why": "Harvests mature crops in adjacent plots when powered.",
+    "materialCost": { "metal": 4 },
     "unlockSP": 0,
     "_game": true
   },
@@ -180,6 +194,7 @@
     "powerW": 10000,
     "waterLPerSol": 0,
     "why": "Produces stable power through dust storms.",
+    "materialCost": { "regolith": 12, "metal": 8 },
     "unlockSP": 80,
     "_game": true
   }

@@ -30,17 +30,38 @@ export function cropSystem(ctx) {
   state.crops = state.crops.filter(({ health }) => health > 0);
 }
 
+function harvestYield(ctx, crop, plot) {
+  const { state, data: { balance }, crops } = ctx;
+  const traits = crops.get(crop.cropId);
+  const pheno = lineagePhenotype(state, crop, ctx.data.mutations);
+  const fertilized = ctx.near(plot, 'fertilizer', (building) => building.online && building.watered);
+  const multiplier = fertilized ? balance.fertilizerYield : 1;
+  if (!plot.treated) return 0;
+  const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * balance.plotAreaM2 / 1000;
+  return fullYieldKg * pheno.yield * crop.health * multiplier;
+}
+
+export function harvestPreview(ctx, crop, plot) {
+  const kg = harvestYield(ctx, crop, plot);
+  const credits = Math.round(kg * ctx.crops.get(crop.cropId).value_cr_per_kg);
+  return { kg, credits, unsafe: !plot.treated };
+}
+
+export function expectedFoodPerSol(ctx) {
+  const { state, crops, data: { balance } } = ctx;
+  return state.crops.reduce((supply, crop) => {
+    const plot = state.buildings.find(({ uid }) => uid === crop.plotUid);
+    if (!plot.online || (!plot.watered && crop.plantedSol < state.sol)) return supply;
+    return supply + harvestYield(ctx, crop, plot) / cropSolsRemaining(crops.get(crop.cropId), plot, balance);
+  }, 0);
+}
+
 export function harvestCrop(ctx, crop, plot) {
   const { state, data, crops, emit } = ctx;
   const traits = crops.get(crop.cropId);
-  const pheno = lineagePhenotype(state, crop, data.mutations);
-  const fertilized = ctx.near(plot, 'fertilizer', (building) => building.online && building.watered);
-  const multiplier = fertilized ? data.balance.fertilizerYield : 1;
-  const unsafe = !plot.treated;
-  const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * data.balance.plotAreaM2 / 1000;
-  const kg = unsafe ? 0 : fullYieldKg * pheno.yield * crop.health * multiplier;
-  const credits = Math.round(kg * traits.value_cr_per_kg);
+  const { kg, credits, unsafe } = harvestPreview(ctx, crop, plot);
   if (kg > 0) addToPantry(state, crop.cropId, kg);
+  else state.res.foodKg += kg;
   state.res.credits += credits;
   state.metrics.grownKg += kg;
   const lab = state.buildings.some((unit) => unit.id === 'lab' && unit.online && unit.watered);

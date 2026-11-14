@@ -5,8 +5,28 @@
     "arrivalSol": 120,
     "rationSols": 11,
     "startingCredits": 180,
+    "startingWaterL": 500,
+    "greenhouseRecovery": 0.8,
+    "richIceBonus": 0.15,
     "priceMultiplier": 1.15,
     "starvationDamage": 0.05,
+    "plantingFoodKg": 0.2,
+    "seedDropIntervalSols": 15,
+    "seedDropTiers": [
+      ["radish", "lettuce"],
+      ["tomato", "soybean"],
+      ["potato", "sweetPotato"],
+      ["wheat"]
+    ],
+    "surface": {
+      "regolithNodes": 5,
+      "metalNodes": 4,
+      "regolithPerNode": 30,
+      "metalPerNode": 16,
+      "miningBatch": 4,
+      "rocketBurnSols": 3,
+      "rocketSalvage": { "regolith": 0, "metal": 12 }
+    },
     "crops": {
       "radish": { "growthSols": 8, "harvestKg": 4.8 },
       "lettuce": { "growthSols": 9, "harvestKg": 5.2 },
@@ -53,6 +73,7 @@
   "healthLoss": 0.012,
   "healthRecovery": 0.003,
   "solarDustLoss": 0.001,
+  "stormDustMultiplier": 4,
   "solarDustFloor": 0.2,
   "fertilizerYield": 1.2,
   "shelterDoseMultiplier": 0.2,
