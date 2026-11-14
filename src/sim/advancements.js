@@ -14,7 +14,7 @@ export const advancements = [
   { id: 'farm', name: 'A Growing Farm', requires: ['repeatHarvest'], position: [0, 6], credits: 85,
     hint: 'Harvest from three different plots. Unlocks Hydroponic Bays.' },
   { id: 'water', name: 'Water on Mars', requires: ['botanist'], position: [1, 4], credits: 35,
-    hint: 'Power an Ice Drill for one sol. Dry sites may need several drills. Unlocks Water Recyclers and Air Harvesters.' },
+    hint: 'Power an Ice Drill. Greenhouses recycle irrigation water, but crops and crew still need a steady supply. Unlocks Water Recyclers and Air Harvesters.' },
   { id: 'colony', name: 'Colony Named', requires: ['botanist'], position: [2, 4],
     hint: 'Choose Name colony in Achievements after planting your first crop.' },
   { id: 'power', name: 'Backup Power', requires: ['stranded'], position: [2, 1],

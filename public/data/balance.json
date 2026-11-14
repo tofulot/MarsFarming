@@ -5,6 +5,9 @@
     "arrivalSol": 120,
     "rationSols": 11,
     "startingCredits": 180,
+    "startingWaterL": 500,
+    "greenhouseRecovery": 0.8,
+    "richIceBonus": 0.15,
     "priceMultiplier": 1.15,
     "starvationDamage": 0.05,
     "crops": {

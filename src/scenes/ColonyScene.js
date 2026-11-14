@@ -9,6 +9,7 @@ import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
+import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 
 const washerMessages = {
@@ -229,7 +230,11 @@ export class ColonyScene extends Phaser.Scene {
         action(811, 535, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
       }
     } else if (info) {
-      say(695, 207, info.why, 15, { color: colors.muted, wordWrap: { width: 495 } });
+      const irrigation = state.rescue && info.plot
+        ? irrigationMakeup(-info.waterLPerSol, this.dataSet.balance, state.rescue) : null;
+      const description = irrigation == null ? info.why
+        : `${info.why}\nCondensate recovery keeps tank use to ${Number(irrigation.toFixed(1))} L per planted sol.`;
+      say(695, 207, description, 14, { color: colors.muted, wordWrap: { width: 495 } });
       say(695, 245, unit.online ? 'ONLINE' : 'OFFLINE / POWER SHED', 13,
         { color: unit.online ? '#9bd8ae' : '#ff805a' });
       const doForUnit = (type, id) => this.run({ type, id, uid: unit.uid });
@@ -284,7 +289,7 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   drawBaseShop(cell) {
-    const { res, power } = this.sim.state;
+    const { res, power, site, rescue } = this.sim.state;
     const group = this.sideLayer;
     const say = (...args) => {
       const label = text(this, ...args);
@@ -336,7 +341,10 @@ export class ColonyScene extends Phaser.Scene {
         });
       }
       say(708, y + 6, item.name, 17, { fontStyle: 'bold', color: canBuild ? colors.ink : colors.muted });
-      say(708, y + 28, item.why, 12, { color: colors.muted });
+      const description = id === 'iceDrill'
+        ? `Produces ${waterOutput(item, site, this.dataSet.balance, rescue).toFixed(1)} L per sol here when powered.`
+        : item.why;
+      say(708, y + 28, description, 12, { color: colors.muted });
       say(1195, y + 6, `${price.toLocaleString('en-US')} cr`, 16, {
         color: canBuild ? colors.ink : colors.muted, fontStyle: 'bold',
       }).setOrigin(1, 0);
