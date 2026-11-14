@@ -52,6 +52,7 @@ export class Simulation {
       state.crew.n = 1;
       state.res.foodKg = rationSols * data.balance.foodPerCrew;
       state.res.credits = budget - launch.cost;
+      state.res.waterL = data.balance.rescue.startingWaterL;
     }
     this.#demo = demo;
     this.#ctx = {

@@ -175,6 +175,7 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.state.rescue.arrivalSol, 120);
   assert.equal(sim.state.res.foodKg, 11 * data.balance.foodPerCrew);
   assert.equal(sim.state.res.credits, 180);
+  assert.equal(sim.state.res.waterL, 500);
   assert.deepEqual(sim.state.rescue.earned, { stranded: 0 });
   assert.equal(sim.command({ type: 'setSpeed', speed: 4 }).ok, true);
   assert.equal(sim.command({ type: 'setSpeed', speed: 8 }).ok, false);
@@ -200,7 +201,9 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.state.rescue.colonyName, 'Ares');
   assert.equal(sim.state.rescue.earned.colony, 1);
 
+  const waterAfterTreatment = sim.state.res.waterL;
   while (sim.state.sol < 8) sim.step();
+  assert.ok(Math.abs(sim.state.res.waterL - (waterAfterTreatment - 7 * 11.25)) < 1e-9);
   assert.equal(harvest(plots[0]).ok, false);
   sim.step();
   assert.ok(harvest(plots[0]).ok);
@@ -229,6 +232,8 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.state.rescue.earned.water, 10);
   assert.ok(sim.state.rescue.earned.downlink > 9);
   assert.equal(sim.state.metrics.consumedKg.toFixed(1), '96.0');
+  assert.equal(sim.state.metrics.lowWaterSols, 0);
+  assert.ok(sim.state.res.waterL > 500);
 });
 
 test('running out of rations can end survival before the rescue deadline', () => {
@@ -242,4 +247,16 @@ test('running out of rations can end survival before the rescue deadline', () =>
   assert.equal(sim.state.rescue.outcome, 'lost');
   assert.ok(sim.state.sol < sim.state.rescue.arrivalSol);
   assert.equal(Object.hasOwn(sim.state.rescue.earned, 'rescue'), false);
+});
+
+test('an ice drill has higher output at an ice-rich survival site', () => {
+  for (const [siteId, output] of [['gale', 13.2], ['utopia', 46.0512]]) {
+    const sim = new Simulation(quietData, { rescue: true, siteId, difficulty: 'easy' });
+    assert.ok(sim.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok);
+    assert.ok(sim.command({ type: 'plant', id: 'radish', x: 0, y: 0 }).ok);
+    assert.ok(sim.command({ type: 'build', id: 'iceDrill', x: 1, y: 0 }).ok);
+    assert.ok(sim.command({ type: 'demolish', x: 0, y: 0 }).ok);
+    sim.step();
+    assert.ok(Math.abs(sim.state.res.waterL - (500 + output - 3.25)) < 1e-9);
+  }
 });

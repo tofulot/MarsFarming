@@ -1,5 +1,6 @@
 import { action, label, plate } from './widgets.js';
 import { cropSolsRemaining } from '../../sim/systems/crops.js';
+import { waterOutput } from '../../sim/systems/water.js';
 import { shopCategories } from './catalog.js';
 
 export function drawActionDock(scene, group) {
@@ -41,8 +42,12 @@ export function drawActionDock(scene, group) {
       if (!item) return;
       const price = sim.purchasePrice(item);
       const requirement = sim.unlockRequirement(item);
+      const detail = requirement ? `Requires ${requirement}` : `${price} cr`;
+      const { site, rescue } = sim.state;
+      const name = id === 'iceDrill'
+        ? `${item.name} · ${waterOutput(item, site, scene.dataSet.balance, rescue).toFixed(1)} L/sol` : item.name;
       action(scene, group, 32 + index * 210, 585, 200, 43,
-        `${item.name}\n${requirement ? `Requires ${requirement}` : `${price} cr`}`, () => {
+        `${name}\n${detail}`, () => {
           if (requirement) { scene.notify(`${item.name} requires ${requirement}.`); return; }
           if (sim.state.res.credits < price) { scene.notify(`Need ${price - sim.state.res.credits} more credits.`); return; }
           scene.seedTool = null;

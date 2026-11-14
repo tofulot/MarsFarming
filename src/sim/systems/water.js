@@ -1,11 +1,21 @@
 // AI-assisted (OpenAI Codex)
+export function irrigationMakeup(grossLiters, balance, rescue) {
+  return grossLiters * (rescue ? 1 - balance.rescue.greenhouseRecovery : 1);
+}
+
+export function waterOutput(building, site, balance, rescue) {
+  const output = Math.max(0, building.waterLPerSol);
+  if (building.scalesWith !== 'site.iceFactor') return output;
+  const richness = Math.max(0, (site.iceFactor - 0.5) / 0.5);
+  const bonus = rescue ? balance.rescue.richIceBonus * richness : 0;
+  return output * site.iceFactor * (1 + bonus);
+}
+
 export function waterSystem({ state, data, site, buildings, emit }) {
   const { balance } = data;
   const live = state.buildings.filter(({ online }) => online);
-  const production = live.reduce((sum, unit) => {
-    const config = buildings.get(unit.id);
-    return sum + Math.max(0, config.waterLPerSol) * (config.scalesWith ? site.iceFactor : 1);
-  }, 0);
+  const production = live.reduce((sum, unit) =>
+    sum + waterOutput(buildings.get(unit.id), site, balance, state.rescue), 0);
   state.res.waterL = Math.min(balance.waterCapacity, state.res.waterL + production);
   const draw = (liters) => {
     if (state.res.waterL < liters) return false;
@@ -40,7 +50,8 @@ export function waterSystem({ state, data, site, buildings, emit }) {
     if (!unit.online || unit.id === 'hab') continue;
     const config = buildings.get(unit.id);
     if (!config.plot || state.crops.some(({ plotUid }) => plotUid === unit.uid)) {
-      unit.watered = draw(Math.max(0, -config.waterLPerSol));
+      const liters = Math.max(0, -config.waterLPerSol);
+      unit.watered = draw(config.plot ? irrigationMakeup(liters, balance, state.rescue) : liters);
     }
   }
 }
