@@ -38,6 +38,7 @@ test('build, plant, grow, harvest, and downlink lettuce', () => {
   assert.ok(sim.state.res.credits > credits);
   assert.ok(sim.state.metrics.grownKg > 0);
   assert.equal(sim.state.res.sp, 0);
+  assert.equal(sim.state.metrics.packets[0].total, data.balance.harvestResearch);
   sim.step();
   assert.ok(sim.state.res.sp > 0);
 });
@@ -51,8 +52,12 @@ test('soil treatment requires the washer to run for a sol', () => {
   const plant = { type: 'plant', id: 'lettuce', ...plot };
   assert.equal(sim.command(plant).ok, false);
   assert.equal(sim.command({ type: 'wash', ...washer }).ok, true);
+  const unit = sim.state.buildings.find(({ id }) => id === 'washer');
+  assert.equal(unit.washStatus, 'queued');
+  assert.equal(sim.command({ type: 'wash', ...washer }).ok, false);
   assert.equal(sim.command(plant).ok, false);
   sim.step();
+  assert.equal(unit.washStatus, 'complete');
   assert.equal(sim.command(plant).ok, true);
 });
 
@@ -64,6 +69,7 @@ test('a regional dust storm sheds greenhouse load before life support', () => {
   sim.step();
   assert.ok(sim.state.crops[0].growth > 0);
   assert.equal(sim.command({ type: 'triggerEvent', id: 'dustRegional' }).ok, true);
+  assert.equal(sim.state.events.active[0].startedSol, sim.state.sol);
   sim.step();
   assert.ok(sim.state.buildings.find(({ id }) => id === 'hab').online);
   assert.ok(sim.state.power.shed.includes(sim.state.crops[0].plotUid));

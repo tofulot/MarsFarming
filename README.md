@@ -16,7 +16,7 @@ npm run build
 
 Open the URL Vite prints. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report.
 
-The colony starts paused. Buy and build a Soil Washer from the base shop and use it once before planting in Medium or Hard. Select an empty greenhouse to plant and select it again when the crop is ready to harvest. A powered dish automatically downlinks research.
+The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Soil treatment takes one sol with power and water. In Medium and Hard, use the washer before planting. Select a plot to see its growth progress and the number of growing sols until harvest. Open **Timers** to track active events, equipment outages, and research downlinks.
 
 ## Landing map data
 

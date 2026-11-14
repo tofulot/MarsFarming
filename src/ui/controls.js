@@ -12,6 +12,14 @@ export function panel(scene, x, y, width, height, fill = colors.panel) {
   return scene.add.rectangle(x, y, width, height, fill).setOrigin(0).setStrokeStyle(1, colors.line);
 }
 
+export function progressBar(scene, group, x, y, width, height, fraction, color = colors.accent) {
+  const track = scene.add.rectangle(x, y, width, height, 0x422f37).setOrigin(0);
+  const fill = scene.add.rectangle(x, y, width, height, color).setOrigin(0);
+  fill.scaleX = Math.min(1, Math.max(0, fraction));
+  if (group) group.addMultiple([track, fill]);
+  return fill;
+}
+
 export function button(scene, x, y, width, height, label, callback, { selected = false, size = 17 } = {}) {
   const enabled = Boolean(callback);
   const base = selected ? colors.accent : enabled ? 0x3b2932 : 0x201a1f;

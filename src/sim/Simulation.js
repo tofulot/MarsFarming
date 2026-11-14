@@ -8,13 +8,14 @@ import { seasonSystem } from './systems/season.js';
 import { eventSystem, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { waterSystem } from './systems/water.js';
-import { cropSystem, harvestCrop } from './systems/crops.js';
+import { cropSolsRemaining, cropSystem, harvestCrop } from './systems/crops.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
+export const playbackSpeeds = [0, 1, 2, 4, 8];
 
 export class Simulation {
   #ctx;
@@ -157,7 +158,8 @@ export class Simulation {
         if (!traits || state.res.sp < traits.unlockSP) return fail('This crop is unavailable.');
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
         state.crops.push({ uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0 });
-        this.#record(`Planted ${traits.name}.`, `Requires around ${traits.growthSols} healthy sols to mature.`);
+        const sols = cropSolsRemaining(traits, unit, data.balance);
+        this.#record(`Planted ${traits.name}.`, `Requires ${sols} healthy sols to mature.`);
         return ok(`Planted ${traits.name}.`);
       }
       case 'harvest': {
@@ -169,10 +171,12 @@ export class Simulation {
       }
       case 'wash':
         if (unit?.id !== 'washer') return fail('Select a Soil Washer.');
+        if (unit.pending) return fail('A soil treatment batch is already queued.');
         if (!state.buildings.some((entry) => entry.id === 'plot' && !entry.treated)) return fail('No plots need treatment.');
         unit.pending = true;
+        unit.washStatus = 'queued';
         this.#record('Started a soil treatment batch.', 'Requires power and water next sol.');
-        return ok('Soil treatment queued.');
+        return ok('Soil treatment takes 1 sol with power and water. Press +1 sol to run it now.');
       case 'clean':
         if (unit?.id !== 'solar') return fail('Select a solar array.');
         unit.dust = 0;
@@ -200,7 +204,7 @@ export class Simulation {
         this.#record('Changed load-shedding priorities.', 'Life support always gets first allocation.');
         return ok('Power priorities updated.');
       case 'setSpeed':
-        if (![0, 1, 2, 4].includes(cmd.speed)) return fail('Invalid playback speed.');
+        if (!playbackSpeeds.includes(cmd.speed)) return fail('Invalid playback speed.');
         state.speed = cmd.speed;
         return ok('Speed updated.');
       case 'triggerEvent':

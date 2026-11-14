@@ -4,7 +4,7 @@ export function startEvent(ctx, id) {
   const event = data.events.find((entry) => entry.id === id);
   if (!event || state.events.active.some((entry) => entry.id === id)) return false;
   const [min, max] = event.durationSols;
-  const active = { ...event, until: state.sol + min + Math.floor(random() * (max - min + 1)) };
+  const active = { ...event, startedSol: state.sol, until: state.sol + min + Math.floor(random() * (max - min + 1)) };
   if (event.effects.equipmentFailure) {
     const machines = state.buildings.filter((b) => !['hab', 'berm'].includes(b.id) &&
       !state.events.active.some((other) => other.targetUid === b.uid));
