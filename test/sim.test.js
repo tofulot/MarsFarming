@@ -63,6 +63,105 @@ test('soil treatment requires the washer to run for a sol', () => {
   assert.equal(sim.command(plant).ok, true);
 });
 
+test('a powered washer treats new plots without a manual command', () => {
+  const sim = new Simulation(quietData, { siteId: 'gale' });
+  assert.ok(sim.command({ type: 'build', id: 'washer', x: 1, y: 0 }).ok);
+  sim.step();
+  assert.ok(sim.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok);
+  const plot = sim.state.buildings.find(({ id }) => id === 'plot');
+  assert.equal(plot.treated, false);
+  sim.step();
+  assert.equal(plot.treated, true);
+  assert.equal(sim.state.buildings.find(({ id }) => id === 'washer').washStatus, 'complete');
+});
+
+test('two auto-harvesters collect each adjacent mature crop only once', () => {
+  const sim = new Simulation(quietData, { siteId: 'gale', difficulty: 'easy' });
+  assert.ok(sim.command({ type: 'build', id: 'plot', x: 1, y: 0 }).ok);
+  for (const x of [0, 2]) {
+    assert.ok(sim.command({ type: 'build', id: 'autoHarvester', x, y: 0 }).ok);
+  }
+  assert.ok(sim.command({ type: 'plant', id: 'lettuce', x: 1, y: 0 }).ok);
+  const harvests = [];
+  sim.on('harvest', (result) => harvests.push(result));
+  sim.state.crops[0].growth = 0.999;
+  sim.step();
+  assert.equal(harvests.length, 1);
+  assert.equal(sim.state.crops.length, 0);
+  assert.equal(sim.state.metrics.grownKg, harvests[0].kg);
+  sim.step();
+  assert.equal(harvests.length, 1);
+});
+
+test('Survival planting charges food only on success and supply drops unlock seeds on schedule', () => {
+  const sim = new Simulation(quietData, { siteId: 'gale', difficulty: 'easy', rescue: true });
+  const location = { x: 0, y: 0 };
+  assert.ok(sim.command({ type: 'build', id: 'plot', ...location }).ok);
+  const plant = { type: 'plant', id: 'radish', ...location };
+  const startingFood = sim.state.res.foodKg;
+  const cost = sim.plantingFoodCost('radish');
+  sim.state.res.foodKg = cost / 2;
+  assert.match(sim.command(plant).reason, /kg of food/);
+  assert.equal(sim.state.res.foodKg, cost / 2);
+  sim.state.res.foodKg = startingFood;
+  assert.ok(sim.command(plant).ok);
+  assert.equal(sim.state.res.foodKg, startingFood - cost);
+  assert.equal(sim.command(plant).ok, false);
+  assert.equal(sim.state.res.foodKg, startingFood - cost);
+
+  sim.state.rescue.earned.repeatHarvest = 9;
+  const crop = sim.cropTraits('tomato');
+  const dropSol = data.balance.rescue.seedDropIntervalSols;
+  assert.equal(sim.unlockRequirement(crop), `seed supply drop on sol ${dropSol}`);
+  sim.state.sol = dropSol - 1;
+  const drops = [];
+  sim.on('supply:seeds', (drop) => drops.push(drop));
+  sim.step();
+  assert.equal(sim.unlockRequirement(crop), null);
+  assert.deepEqual(drops, [{ sol: dropSol, crops: ['Tomato', 'Soybean'] }]);
+});
+
+test('forecast storm timing agrees with the simulation and accelerates panel dust', () => {
+  const regional = data.events.find(({ id }) => id === 'dustRegional');
+  const scenario = { ...quietData, events: [{ ...regional, baseChancePerSol: 1, durationSols: [2, 2] }] };
+  const sim = new Simulation(scenario, { siteId: 'gale' });
+  const clear = new Simulation(quietData, { siteId: 'gale' });
+  const forecast = sim.forecastWeather(2);
+  assert.equal(forecast.days[0].active[0].id, 'dustRegional');
+  assert.equal(forecast.days[0].active[0].endSol, 3);
+  assert.equal(sim.state.events.active.length, 0);
+  sim.step();
+  clear.step();
+  assert.equal(sim.state.weather.active[0].id, forecast.days[0].active[0].id);
+  const panel = (run) => run.state.buildings.find(({ id }) => id === 'solar');
+  assert.ok(panel(clear).dust > 0);
+  assert.equal(panel(sim).dust, panel(clear).dust * data.balance.stormDustMultiplier);
+});
+
+test('mining and rocket salvage fund a build exactly once', () => {
+  const sim = new Simulation(quietData, { siteId: 'gale', rescue: true });
+  const { state } = sim;
+  const metal = state.rocks.find(({ material }) => material === 'metal');
+  const mine = () => sim.command({ type: 'mine', x: metal.x, y: metal.y });
+  assert.match(sim.command({ type: 'build', id: 'plot', x: metal.x, y: metal.y }).reason, /Mine this rock/);
+  assert.match(sim.command({ type: 'scrapRocket' }).reason, /burning/);
+  assert.ok(mine().ok);
+  assert.equal(state.res.materials.metal, data.balance.rescue.surface.miningBatch);
+  while (metal.remaining > 0) assert.ok(mine().ok);
+  assert.equal(mine().ok, false);
+  assert.equal(state.res.materials.metal, data.balance.rescue.surface.metalPerNode);
+  while (state.sol < state.rocket.burnsUntilSol) sim.step();
+  assert.equal(state.rocket.status, 'salvageable');
+  assert.ok(sim.command({ type: 'scrapRocket' }).ok);
+  assert.equal(state.rocket.status, 'scrapped');
+  assert.equal(sim.command({ type: 'scrapRocket' }).ok, false);
+  const mined = data.balance.rescue.surface.metalPerNode + data.balance.rescue.surface.rocketSalvage.metal;
+  assert.equal(state.res.materials.metal, mined);
+  state.rescue.earned.repeatHarvest = state.sol;
+  assert.ok(sim.command({ type: 'build', id: 'autoHarvester', x: state.rocket.x, y: state.rocket.y }).ok);
+  assert.equal(state.res.materials.metal, mined - 4);
+});
+
 test('a regional dust storm sheds greenhouse load before life support', () => {
   const sim = new Simulation({ ...data, events: data.events.filter(({ id }) => id === 'dustRegional') },
     { difficulty: 'easy', siteId: 'gale', demo: true });
@@ -170,12 +269,16 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   const plant = (plot, id = 'radish') => sim.command({ type: 'plant', id, ...plot });
   const harvest = (plot) => sim.command({ type: 'harvest', ...plot });
   const greenhouse = data.buildings.find(({ id }) => id === 'plot');
+  const spending = [];
+  sim.on('credits:spent', (credits) => spending.push(credits));
 
   assert.equal(sim.state.crew.n, 1);
   assert.equal(sim.state.rescue.arrivalSol, 120);
   assert.equal(sim.state.res.foodKg, 11 * data.balance.foodPerCrew);
-  assert.equal(sim.state.res.credits, 180);
   assert.equal(sim.state.res.waterL, 500);
+  assert.equal(sim.state.res.credits, 180);
+  assert.deepEqual(sim.state.water, { production: 0, demand: 3.25 });
+  assert.equal(sim.expectedFoodPerSol, 0);
   assert.deepEqual(sim.state.rescue.earned, { stranded: 0 });
   assert.equal(sim.command({ type: 'setSpeed', speed: 4 }).ok, true);
   assert.equal(sim.command({ type: 'setSpeed', speed: 8 }).ok, false);
@@ -191,19 +294,23 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.purchasePrice(greenhouse), 53);
   assert.ok(build('washer', 1, 0).ok);
   assert.equal(sim.state.res.credits, 24);
+  assert.deepEqual(spending, [40, 46, 70]);
 
   assert.ok(sim.command({ type: 'wash', x: 1, y: 0 }).ok);
   sim.step();
   assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
+  const firstPlot = sim.state.buildings.find(({ x, y }) => x === 0 && y === 0);
+  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish'), { kg: 4.8, credits: 24 });
+  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish', 0.5), { kg: 2.4, credits: 12 });
   for (const plot of plots) assert.ok(plant(plot).ok);
+  assert.equal(sim.expectedFoodPerSol, 1.2);
   assert.equal(sim.state.rescue.earned.botanist, 1);
   assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
   assert.equal(sim.state.rescue.colonyName, 'Ares');
   assert.equal(sim.state.rescue.earned.colony, 1);
 
-  const waterAfterTreatment = sim.state.res.waterL;
   while (sim.state.sol < 8) sim.step();
-  assert.ok(Math.abs(sim.state.res.waterL - (waterAfterTreatment - 7 * 11.25)) < 1e-9);
+  assert.ok(Math.abs(sim.state.water.demand - 11.25) < 1e-9);
   assert.equal(harvest(plots[0]).ok, false);
   sim.step();
   assert.ok(harvest(plots[0]).ok);
@@ -233,6 +340,7 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.ok(sim.state.rescue.earned.downlink > 9);
   assert.equal(sim.state.metrics.consumedKg.toFixed(1), '96.0');
   assert.equal(sim.state.metrics.lowWaterSols, 0);
+  assert.ok(sim.state.water.production > sim.state.water.demand);
   assert.ok(sim.state.res.waterL > 500);
 });
 
@@ -249,14 +357,14 @@ test('running out of rations can end survival before the rescue deadline', () =>
   assert.equal(Object.hasOwn(sim.state.rescue.earned, 'rescue'), false);
 });
 
-test('an ice drill has higher output at an ice-rich survival site', () => {
-  for (const [siteId, output] of [['gale', 13.2], ['utopia', 46.0512]]) {
+test('ice-rich sites produce more water per powered drill', () => {
+  for (const [siteId, expected] of [['gale', 13.2], ['utopia', 46.0512]]) {
     const sim = new Simulation(quietData, { rescue: true, siteId, difficulty: 'easy' });
     assert.ok(sim.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok);
     assert.ok(sim.command({ type: 'plant', id: 'radish', x: 0, y: 0 }).ok);
     assert.ok(sim.command({ type: 'build', id: 'iceDrill', x: 1, y: 0 }).ok);
     assert.ok(sim.command({ type: 'demolish', x: 0, y: 0 }).ok);
     sim.step();
-    assert.ok(Math.abs(sim.state.res.waterL - (500 + output - 3.25)) < 1e-9);
+    assert.ok(Math.abs(sim.state.water.production - expected) < 1e-9);
   }
 });

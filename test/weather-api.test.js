@@ -79,7 +79,7 @@ test('Red Harvest mapping preserves power, dust and greenhouse demand formulas',
   const context = { ...input, sol: 1, events: [{ id: 'storm', endSol: 10, effects: { solarFactor: 0.4, heatingFactor: 1.5 } }] };
   const weather = api.current(context);
   const power = api.powerEffects({ weather, ratedW: 3000, dust: 0.1, advanceDust: true });
-  assert.equal(power.dust, 0.1 + data.balance.solarDustLoss * 3);
+  assert.equal(power.dust, 0.1 + data.balance.solarDustLoss * data.balance.stormDustMultiplier);
   assert.equal(power.generationW, 3000 * weather.solarFactor * (1 - power.dust));
   const wheat = data.crops.find(crop => crop.id === 'wheat');
   const load = api.cropEffects(wheat, weather, { basePowerW: 800, includedPpf: 28 });

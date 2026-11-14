@@ -7,13 +7,14 @@ import { landingSite } from './marsMap.js';
 import { mulberry32 } from './rng.js';
 import { createState } from './state.js';
 import { seasonSystem } from './systems/season.js';
-import { eventSystem, startEvent } from './systems/events.js';
+import { eventSystem, forecastDustEvents, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
-import { waterSystem } from './systems/water.js';
-import { cropSolsRemaining, cropSystem, harvestCrop } from './systems/crops.js';
+import { queueSoilWashing, waterSupply, waterSystem } from './systems/water.js';
+import { cropSolsRemaining, cropSystem, expectedFoodPerSol, harvestCrop, harvestPreview } from './systems/crops.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
+import { placeSurfaceMaterials } from './systems/surfaceMaterials.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
@@ -65,6 +66,7 @@ export class Simulation {
     };
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
     if (packed) this.#unpack(manifest);
+    if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface);
     if (state.rescue) {
       if (state.buildings.some(({ id }) => id === 'plot')) earnAdvancement(this.#ctx, 'greenhouse');
       if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');
@@ -83,6 +85,8 @@ export class Simulation {
       const model = this.#ctx.buildings.get(unit.id);
       return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW);
     }, 0);
+    const { production, crewDemand } = waterSupply(this.#ctx);
+    state.water = { production, demand: crewDemand };
     rewardSystem(this.#ctx);
     const location = options.site ? `${site.lat.toFixed(1)}°, ${site.lon.toFixed(1)}°` : site.name;
     this.#record(`Landed at ${location}.`, `Started surface operations with ${state.res.credits} credits.`);
@@ -107,7 +111,15 @@ export class Simulation {
   }
 
   get state() { return this.#ctx.state; }
+  get expectedFoodPerSol() { return expectedFoodPerSol(this.#ctx); }
   cropTraits(id) { return this.#ctx.crops.get(id); }
+  plantingFoodCost(id) {
+    return this.state.rescue && this.#ctx.crops.has(id)
+      ? this.#ctx.data.balance.rescue.plantingFoodKg ?? 0 : 0;
+  }
+  harvestPreview(plot, cropId, health = 1) {
+    return harvestPreview(this.#ctx, { cropId, health }, plot);
+  }
   purchasePrice({ id, cost }) {
     const { rescue } = this.state;
     if (!rescue) return cost;
@@ -118,17 +130,30 @@ export class Simulation {
   unlockRequirement(item) {
     const milestone = missingAdvancement(this.state.rescue, item.id);
     if (milestone) return milestone;
+    const { seedDropIntervalSols, seedDropTiers } = this.#ctx.data.balance.rescue ?? {};
+    if (this.state.rescue && seedDropIntervalSols > 0) {
+      const tier = seedDropTiers?.findIndex((drop) => drop.includes(item.id)) ?? -1;
+      const delivery = tier * seedDropIntervalSols;
+      if (this.state.sol < delivery) return `seed supply drop on sol ${delivery}`;
+    }
     return this.state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : null;
   }
 
   #buy(item) {
-    this.state.res.credits -= this.purchasePrice(item);
+    const price = this.purchasePrice(item);
+    this.state.res.credits -= price;
     const { rescue } = this.state;
     if (rescue) rescue.purchases[item.id] = (rescue.purchases[item.id] ?? 0) + 1;
+    this.#bus.emit('credits:spent', price);
   }
   get weather() { return this.#ctx.weather; }
   getWeather() { return this.weather.current(gameWeatherInput(this.#ctx)); }
-  forecastWeather(sols = 7) { return this.weather.forecast(gameWeatherInput(this.#ctx), { sols }); }
+  forecastWeather(sols = 7) {
+    if (!Number.isSafeInteger(sols) || sols < 0) throw new RangeError('sols must be a nonnegative integer');
+    const { sol } = this.state;
+    const storms = forecastDustEvents(this.#ctx, sol + 1, sol + sols);
+    return this.weather.forecast(gameWeatherInput(this.#ctx, storms), { sols });
+  }
   on(event, fn) { return this.#bus.on(event, fn); }
   off(event, fn) { this.#bus.off(event, fn); }
 
@@ -154,11 +179,24 @@ export class Simulation {
     const { state, data, site } = this.#ctx;
     if (state.status !== 'active') return state;
     state.sol++;
+    if (state.rocket?.status === 'burning' && state.sol >= state.rocket.burnsUntilSol) {
+      state.rocket.status = 'salvageable';
+    }
+    const { seedDropIntervalSols, seedDropTiers } = data.balance.rescue ?? {};
+    if (state.rescue && seedDropIntervalSols > 0 && state.sol % seedDropIntervalSols === 0) {
+      const seeds = seedDropTiers?.[state.sol / seedDropIntervalSols];
+      if (seeds?.length) {
+        const crops = seeds.map((id) => this.cropTraits(id).name);
+        this.#record('Seed supply drop arrived.', crops.join(', '));
+        this.#bus.emit('supply:seeds', { sol: state.sol, crops });
+      }
+    }
     seasonSystem(state, data, site);
     eventSystem(this.#ctx);
     state.weather = this.getWeather();
     state.outsideTempC = state.weather.outsideTempC;
     state.power.clearSolarFactor = state.weather.clearSolarFactor;
+    queueSoilWashing(this.#ctx);
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
     if (state.rescue) {
@@ -166,6 +204,12 @@ export class Simulation {
       if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) earnAdvancement(this.#ctx, 'soil');
     }
     cropSystem(this.#ctx);
+    for (const plot of state.buildings) {
+      if (!this.#ctx.near(plot, 'autoHarvester', (unit) => unit.online)) continue;
+      if (state.crops.some(({ plotUid, growth }) => plotUid === plot.uid && growth >= 1)) {
+        this.command({ type: 'harvest', uid: plot.uid });
+      }
+    }
     crewSystem(this.#ctx);
     economySystem(this.#ctx);
     rewardSystem(this.#ctx);
@@ -200,7 +244,15 @@ export class Simulation {
             y < 0 || y >= state.grid.h || state.buildings.some((entry) => entry.x === x && entry.y === y)) return fail('Choose an empty tile inside the colony.');
         const requirement = this.unlockRequirement(model);
         if (requirement) return fail(`Requires ${requirement}.`);
+        if (state.rocks.some((rock) => rock.x === x && rock.y === y && rock.remaining > 0)) return fail('Mine this rock before building here.');
+        if (state.rocket?.x === x && state.rocket.y === y && state.rocket.status !== 'scrapped') {
+          return fail('Scrap the wreck before building here.');
+        }
         if (state.res.credits < this.purchasePrice(model)) return fail('Insufficient credits.');
+        const materials = state.rescue && data.balance.rescue.surface ? Object.entries(model.materialCost ?? {}) : [];
+        const missing = materials.find(([material, amount]) => state.res.materials[material] < amount);
+        if (missing) return fail(`Requires ${missing[1]} ${missing[0]}.`);
+        for (const [material, amount] of materials) state.res.materials[material] -= amount;
         this.#buy(model);
         this.#place(id, x, y);
         if (id === 'plot') {
@@ -211,6 +263,27 @@ export class Simulation {
         this.#record(`Built ${model.name}.`, model.why);
         this.#bus.emit('purchase', state);
         return ok(`Built ${model.name}.`);
+      }
+      case 'mine': {
+        const rock = state.rocks.find((entry) => entry.x === x && entry.y === y && entry.remaining > 0);
+        if (!rock) return fail('Select a rock with materials left to mine.');
+        const amount = Math.min(rock.remaining, data.balance.rescue.surface.miningBatch);
+        rock.remaining -= amount;
+        state.res.materials[rock.material] += amount;
+        const message = `Mined ${amount} ${rock.material}.`;
+        this.#record(message);
+        return ok(message);
+      }
+      case 'scrapRocket': {
+        if (state.rocket?.status === 'burning') return fail(`The wreck is burning until sol ${state.rocket.burnsUntilSol}.`);
+        if (state.rocket?.status !== 'salvageable') return fail('There is no wreck left to scrap.');
+        const recovered = Object.entries(data.balance.rescue.surface.rocketSalvage)
+          .filter(([, amount]) => amount > 0);
+        for (const [material, amount] of recovered) state.res.materials[material] += amount;
+        state.rocket.status = 'scrapped';
+        const message = `Scrapped the wreck for ${recovered.map(([material, amount]) => `${amount} ${material}`).join(' and ')}.`;
+        this.#record(message);
+        return ok(message);
       }
       case 'buySpares': {
         const parts = data.balance.kit.find(({ id }) => id === 'spares');
@@ -228,6 +301,9 @@ export class Simulation {
         const requirement = this.unlockRequirement(traits);
         if (requirement) return fail(`Requires ${requirement}.`);
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
+        const foodCost = this.plantingFoodCost(id);
+        if (state.res.foodKg + 1e-9 < foodCost) return fail(`Planting requires ${foodCost} kg of food.`);
+        state.res.foodKg = Math.max(0, state.res.foodKg - foodCost);
         state.crops.push({ uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0 });
         if (state.rescue) {
           earnAdvancement(this.#ctx, 'greenhouse');
@@ -236,6 +312,7 @@ export class Simulation {
         }
         const sols = cropSolsRemaining(traits, unit, data.balance);
         this.#record(`Planted ${traits.name}.`, `Requires ${sols} healthy sols to mature.`);
+        this.#bus.emit('crop:plant', state);
         return ok(`Planted ${traits.name}.`);
       }
       case 'harvest': {
@@ -291,6 +368,7 @@ export class Simulation {
         state.crops = state.crops.filter((entry) => entry.plotUid !== unit.uid);
         state.buildings = state.buildings.filter((entry) => entry.uid !== unit.uid);
         this.#record(`Removed ${buildings.get(unit.id).name}.`);
+        if (crop) this.#bus.emit('crop:remove', state);
         return ok('Structure removed.');
       case 'setPriority':
         if (!Array.isArray(cmd.priority) || cmd.priority.some((key) => !buildings.has(key))) return fail('Invalid power priorities.');
