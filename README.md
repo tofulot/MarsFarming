@@ -24,11 +24,13 @@ The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Soil
 - The hydrogen overlay and landing readout use the [NASA Mars Odyssey HEND epithermal neutron grid](https://pds-geosciences.wustl.edu/missions/odyssey/grsspecial.html) in 4° × 4° cells. The game interpolates the normalized flux for display and multiplies it by 0.26 for counts per second. Lower neutron flux can indicate more near-surface hydrogen. The drill uses a game-scaled version of that signal.
 - Solar potential shows modeled equinox noon sunlight relative to the equator. It uses the same clear-sky formula as the simulation. Dust and seasonal effects are handled on the surface.
 
-The map assets ship with the game. To rebuild them on macOS, run `python3 scripts/prepare-mars-map.py MOLA_cylin.jpg hend_epithermal_020917.tab` with the two source files.
+- Weather difficulty uses the [LMD Mars Climate Database dust climatology](https://www-mars.lmd.jussieu.fr/mars/dust_scenarios/index.html), based on [Montabone et al. (2015)](https://doi.org/10.1016/j.icarus.2014.12.034) and NASA orbiter observations. The bundled extract uses the four daily slices nearest Lₛ 45°, 135°, 225° and 315° (zero-based indices 93, 288, 445 and 586 in `dust_clim.nc`). Values are 9.3 μm absorption optical depth normalized to 610 Pa, rounded to 0.001 and interpolated between the original 5° grid points for display. The climatology averages Martian years 24–31 excluding two global storms. This data extract is distributed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+
+The terrain and hydrogen assets ship with the game. To rebuild them on macOS, run `python3 scripts/prepare-mars-map.py MOLA_cylin.jpg hend_epithermal_020917.tab` with the two source files.
 
 ## Weather
 
-Open **Weather** at the base for the next seven sols. The projection uses Kelton’s seasonal temperature model and ongoing events. Archived NASA observations are shown as historical context. The landing map’s **Weather difficulty** layer shows modeled cold and heating demand. Storm odds are set by the season and mission difficulty.
+Open **Weather** at the base for the next seven sols. The projection uses Kelton’s seasonal temperature model and ongoing events. Archived NASA observations are shown as historical context. The landing map’s **Weather difficulty** layer shows regional airborne dust. Longer pink marks mean higher infrared dust optical depth, a measure of how strongly dust absorbs infrared light. Compare snapshots at four solar longitudes (Lₛ) to see how the pattern moves through the Martian year. Site details also show Kelton’s modeled cold-season low. The colony uses its own storm odds and event effects.
 
 | Event | Gameplay effect |
 |---|---|

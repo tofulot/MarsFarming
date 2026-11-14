@@ -1,5 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { dustOpacity } from '../weather/dustClimatology.js';
 import { landingWeatherDifficulty } from '../weather/redHarvest.js';
 import { button, colors, panel, text, targetBackground } from '../ui/controls.js';
 import { clearSolarFactor } from '../sim/insolation.js';
@@ -32,6 +33,7 @@ export class MapScene extends Phaser.Scene {
     targetBackground(this);
     this.dataSet = this.registry.get('missionData');
     this.flux = this.dataSet['neutron-flux'];
+    this.dustSeason = 2;
     this.layers = { hydrogen: false, solar: false, weather: false };
     this.view = { zoom: 1, x: .5, y: .5 };
     this.site = options.site ?? null;
@@ -94,11 +96,11 @@ export class MapScene extends Phaser.Scene {
     panel(this, 964, 171, 260, 436, 0x22191e);
     this.layerUi = this.add.group();
     this.siteUi = this.add.group();
-    this.drawLayers();
+    this.drawLayers(options);
     this.drawSite(options);
     this.drawMap();
     button(this, 56, 645, 116, 40, 'Back', () => this.scene.start('Brief', { ...options, site: this.site }));
-    text(this, 192, 655, 'NASA MGS / MOLA relief    ·    NASA Mars Odyssey / HEND    ·    Equirectangular projection',
+    text(this, 192, 655, 'Terrain: NASA MOLA · Hydrogen: NASA HEND · Dust: LMD / Montabone et al. (CC BY-SA 3.0)',
       13, { color: colors.muted });
   }
 
@@ -135,14 +137,16 @@ export class MapScene extends Phaser.Scene {
       }
     }
     if (this.layers.weather) {
-      ctx.strokeStyle = '#ff9ac8';
-      ctx.lineWidth = 1.6;
+      const frame = this.dataSet.dustClimatology.frames[this.dustSeason];
+      ctx.strokeStyle = '#ffb3eb';
+      ctx.lineWidth = 1.7;
       ctx.beginPath();
       for (let y = 7; y < map.h - 7; y += 12) {
         const lat = 90 - (top + y / (map.h * view.zoom)) * 180;
-        const { severity } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, lat);
-        const size = severity * 5;
         for (let x = 7; x < map.w - 7; x += 12) {
+          const lon = (left + x / (map.w * view.zoom)) * 360 - 180;
+          const opacity = dustOpacity(frame, lat, lon);
+          const size = 0.7 + 4.5 * clamp((opacity - 0.05) / 0.35, 0, 1);
           ctx.moveTo(x - size, y + size);
           ctx.lineTo(x + size, y - size);
         }
@@ -198,7 +202,7 @@ export class MapScene extends Phaser.Scene {
     atlas.texture.refresh();
   }
 
-  drawLayers() {
+  drawLayers(options) {
     const group = this.layerUi;
     group.clear(true, true);
     const say = (...args) => {
@@ -211,7 +215,7 @@ export class MapScene extends Phaser.Scene {
       const on = this.layers[id];
       const control = button(this, 984, y, 220, 33, `${label} · ${on ? 'ON' : 'OFF'}`, () => {
         this.layers[id] = !on;
-        this.drawLayers();
+        this.drawLayers(options);
         this.drawMap();
       }, { selected: on, size: id === 'hydrogen' ? 13 : 14 });
       group.addMultiple([control.box, control.copy]);
@@ -231,23 +235,34 @@ export class MapScene extends Phaser.Scene {
     say(984, 346, 'Denser gold · More equinox sunlight', 12, { color: colors.muted });
 
     toggle('weather', 'Weather difficulty', 374);
-    say(984, 414, 'Longer pink marks · Colder seasonal lows and more heating demand.', 12,
-      { color: colors.muted, wordWrap: { width: 222 } });
-    say(984, 448, 'Storm odds vary by season and mode.', 12, { color: colors.muted });
-    group.add(this.add.rectangle(984, 474, 220, 1, colors.line).setOrigin(0));
+    say(984, 413, 'Longer marks · More dust, less sunlight', 12, { color: colors.muted });
+    this.dataSet.dustClimatology.frames.forEach((frame, i) => {
+      const control = button(this, 984 + i * 56, 434, 52, 26, `${Math.round(frame.ls)}°`, () => {
+        this.dustSeason = i;
+        this.layers.weather = true;
+        this.drawLayers(options);
+        this.drawMap();
+        this.drawSite(options);
+      }, { selected: this.layers.weather && i === this.dustSeason, size: 12 });
+      group.addMultiple([control.box, control.copy]);
+    });
+    say(984, 465, 'Lₛ · Climatology snapshots by season', 11, { color: colors.muted });
+    group.add(this.add.rectangle(984, 485, 220, 1, colors.line).setOrigin(0));
   }
 
   drawSite(options) {
     const group = this.siteUi;
     group.clear(true, true);
-    group.add(text(this, 984, 486, 'LANDING TARGET', 14, { color: '#ff9f7c', fontStyle: 'bold' }));
-    group.add(text(this, 984, 510, this.site ? coordinates(this.site) : 'Select a point on Mars', 18, { fontStyle: 'bold' }));
+    group.add(text(this, 984, 494, 'LANDING TARGET', 14, { color: '#ff9f7c', fontStyle: 'bold' }));
+    group.add(text(this, 984, 517, this.site ? coordinates(this.site) : 'Select a point on Mars', 18, { fontStyle: 'bold' }));
     if (this.site) {
       const flux = normalizedNeutronFlux(this.flux, this.site.lat, this.site.lon);
       const sun = clearSolarFactor(this.site.lat, 0, this.dataSet.seasons.orbit);
       const equator = clearSolarFactor(0, 0, this.dataSet.seasons.orbit);
       const { seasonalLow } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, this.site.lat);
-      group.add(text(this, 984, 538, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSolar potential    ${Math.round(100 * sun / equator)}% of equator\nModeled cold-season low    ~${Math.round(seasonalLow)} °C`, 13,
+      const frame = this.dataSet.dustClimatology.frames[this.dustSeason];
+      const opacity = dustOpacity(frame, this.site.lat, this.site.lon);
+      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\nDust at Lₛ ${Math.round(frame.ls)}° · ${opacity.toFixed(2)} IR optical depth`, 13,
         { color: colors.muted, lineSpacing: 5 }));
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {

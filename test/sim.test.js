@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Simulation } from '../src/sim/Simulation.js';
+import { dustOpacity, hasDustClimatology } from '../src/weather/dustClimatology.js';
 import { gameEvents, landingWeatherDifficulty } from '../src/weather/redHarvest.js';
 import { checkManifest } from '../src/sim/design.js';
 import { solarLongitude } from '../src/sim/insolation.js';
@@ -149,4 +150,15 @@ test('Kelton weather drives the forecast and live storm penalties', () => {
   assert.equal(sim.state.power.solarFactor, days[0].solarFactor);
   assert.ok(landingWeatherDifficulty(weather.temperatureModel, 80).seasonalLow <
     landingWeatherDifficulty(weather.temperatureModel, 0).seasonalLow);
+});
+
+test('the dust climatology varies across longitude and season and wraps at the map seam', () => {
+  const data = read('mars/dust-climatology');
+  assert.ok(hasDustClimatology(data));
+  const [spring, , autumn] = data.frames;
+  assert.equal(dustOpacity(autumn, -2.5, 0), 0.298);
+  assert.equal(dustOpacity(autumn, -2.5, -100), 0.278);
+  assert.equal(dustOpacity(autumn, -2.5, -45), 0.402);
+  assert.ok(dustOpacity(autumn, -2.5, 0) > 2 * dustOpacity(spring, -2.5, 0));
+  assert.equal(dustOpacity(autumn, 35, -180), dustOpacity(autumn, 35, 180));
 });
