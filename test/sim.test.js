@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { Simulation } from '../src/sim/Simulation.js';
+import { dustOpacity, hasDustClimatology } from '../src/weather/dustClimatology.js';
+import { gameEvents, landingWeatherDifficulty } from '../src/weather/redHarvest.js';
 import { checkManifest } from '../src/sim/design.js';
 import { solarLongitude } from '../src/sim/insolation.js';
 
@@ -38,6 +40,7 @@ test('build, plant, grow, harvest, and downlink lettuce', () => {
   assert.ok(sim.state.res.credits > credits);
   assert.ok(sim.state.metrics.grownKg > 0);
   assert.equal(sim.state.res.sp, 0);
+  assert.equal(sim.state.metrics.packets[0].total, data.balance.harvestResearch);
   sim.step();
   assert.ok(sim.state.res.sp > 0);
 });
@@ -51,8 +54,12 @@ test('soil treatment requires the washer to run for a sol', () => {
   const plant = { type: 'plant', id: 'lettuce', ...plot };
   assert.equal(sim.command(plant).ok, false);
   assert.equal(sim.command({ type: 'wash', ...washer }).ok, true);
+  const unit = sim.state.buildings.find(({ id }) => id === 'washer');
+  assert.equal(unit.washStatus, 'queued');
+  assert.equal(sim.command({ type: 'wash', ...washer }).ok, false);
   assert.equal(sim.command(plant).ok, false);
   sim.step();
+  assert.equal(unit.washStatus, 'complete');
   assert.equal(sim.command(plant).ok, true);
 });
 
@@ -64,6 +71,7 @@ test('a regional dust storm sheds greenhouse load before life support', () => {
   sim.step();
   assert.ok(sim.state.crops[0].growth > 0);
   assert.equal(sim.command({ type: 'triggerEvent', id: 'dustRegional' }).ok, true);
+  assert.equal(sim.state.events.active[0].startedSol, sim.state.sol);
   sim.step();
   assert.ok(sim.state.buildings.find(({ id }) => id === 'hab').online);
   assert.ok(sim.state.power.shed.includes(sim.state.crops[0].plotUid));
@@ -104,4 +112,136 @@ test('every demo data number is finite and no fields are null', () => {
     if (typeof value === 'object') Object.values(value).forEach(verify);
   }
   verify(data);
+});
+
+test('map landings start with the full base budget and buy equipment on the surface', () => {
+  const grid = read('mars/neutron-flux');
+  assert.equal(grid.length, 4050);
+  const fixture = { ...quietData, 'neutron-flux': grid };
+  const polar = new Simulation(fixture, { site: { lat: -88, lon: -178 } });
+  const equatorial = new Simulation(fixture, { site: { lat: 0, lon: -178 } });
+  assert.ok(polar.state.site.iceFactor > equatorial.state.site.iceFactor);
+  assert.ok(polar.state.power.gen < equatorial.state.power.gen);
+  assert.equal(polar.state.res.credits, data.difficulty.medium.budget);
+  assert.equal(polar.state.buildings.length, data.balance.starter.length);
+  assert.equal(polar.command({ type: 'buySpares' }).ok, true);
+  assert.equal(polar.state.res.spares, 1);
+  assert.equal(polar.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok, true);
+  assert.equal(polar.state.res.credits, data.difficulty.medium.budget - 60);
+});
+
+test('Kelton weather drives the forecast and live storm penalties', () => {
+  const weather = read('weather');
+  const events = gameEvents(weather, data.events).map((event) => ({ ...event, baseChancePerSol: 0 }));
+  assert.ok(events.some(({ id }) => id === 'spe'));
+  assert.ok(events.some(({ id }) => id === 'coldSnap'));
+  const sim = new Simulation({ ...data, weather, events, weatherObservations: read('weather-observations') },
+    { siteId: 'gale', demo: true });
+  assert.equal(sim.weather.getObservations('jezero')[0].pressurePa, 718);
+  assert.equal(sim.command({ type: 'triggerEvent', id: 'dustRegional' }).ok, true);
+  const snapshot = structuredClone(sim.state);
+  const days = sim.forecastWeather(65).days;
+  assert.deepEqual(sim.state, snapshot);
+  assert.equal(days[0].dustFactor, 0.4);
+  assert.equal(days[0].commsFactor, 0.75);
+  assert.equal(days.at(-1).dustFactor, 1);
+  sim.step();
+  assert.equal(sim.state.outsideTempC, days[0].outsideTempC);
+  assert.equal(sim.state.power.solarFactor, days[0].solarFactor);
+  assert.ok(landingWeatherDifficulty(weather.temperatureModel, 80).seasonalLow <
+    landingWeatherDifficulty(weather.temperatureModel, 0).seasonalLow);
+});
+
+test('the dust climatology varies across longitude and season and wraps at the map seam', () => {
+  const data = read('mars/dust-climatology');
+  assert.ok(hasDustClimatology(data));
+  const [spring, , autumn] = data.frames;
+  assert.equal(dustOpacity(autumn, -2.5, 0), 0.298);
+  assert.equal(dustOpacity(autumn, -2.5, -100), 0.278);
+  assert.equal(dustOpacity(autumn, -2.5, -45), 0.402);
+  assert.ok(dustOpacity(autumn, -2.5, 0) > 2 * dustOpacity(spring, -2.5, 0));
+  assert.equal(dustOpacity(autumn, 35, -180), dustOpacity(autumn, 35, 180));
+});
+
+test('a stranded farmer can fund upgrades with harvests and survive until rescue', () => {
+  const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  const build = (id, x, y) => sim.command({ type: 'build', id, x, y });
+  const plots = [{ x: 0, y: 0 }, { x: 0, y: 1 }];
+  const plant = (plot, id = 'radish') => sim.command({ type: 'plant', id, ...plot });
+  const harvest = (plot) => sim.command({ type: 'harvest', ...plot });
+  const greenhouse = data.buildings.find(({ id }) => id === 'plot');
+
+  assert.equal(sim.state.crew.n, 1);
+  assert.equal(sim.state.rescue.arrivalSol, 120);
+  assert.equal(sim.state.res.foodKg, 11 * data.balance.foodPerCrew);
+  assert.equal(sim.state.res.credits, 180);
+  assert.deepEqual(sim.state.rescue.earned, { stranded: 0 });
+  assert.equal(sim.command({ type: 'setSpeed', speed: 4 }).ok, true);
+  assert.equal(sim.command({ type: 'setSpeed', speed: 8 }).ok, false);
+  assert.equal(sim.command({ type: 'setSpeed', speed: 16 }).ok, false);
+  assert.equal(sim.state.speed, 4);
+  assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
+  assert.match(build('iceDrill', 2, 0).reason, /Botanist/);
+  assert.ok(build('plot', 0, 0).ok);
+  assert.equal(sim.purchasePrice(greenhouse), 46);
+  assert.equal(build('plot', 0, 0).ok, false);
+  assert.equal(sim.purchasePrice(greenhouse), 46);
+  assert.ok(build('plot', 0, 1).ok);
+  assert.equal(sim.purchasePrice(greenhouse), 53);
+  assert.ok(build('washer', 1, 0).ok);
+  assert.equal(sim.state.res.credits, 24);
+
+  assert.ok(sim.command({ type: 'wash', x: 1, y: 0 }).ok);
+  sim.step();
+  assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
+  for (const plot of plots) assert.ok(plant(plot).ok);
+  assert.equal(sim.state.rescue.earned.botanist, 1);
+  assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
+  assert.equal(sim.state.rescue.colonyName, 'Ares');
+  assert.equal(sim.state.rescue.earned.colony, 1);
+
+  while (sim.state.sol < 8) sim.step();
+  assert.equal(harvest(plots[0]).ok, false);
+  sim.step();
+  assert.ok(harvest(plots[0]).ok);
+  // Wild-type yy yield is 0.85 (Mendelian game value), so radish pays 20 cr instead of 24.
+  assert.equal(sim.state.res.credits, 24 + 20 + 70);
+  assert.ok(harvest(plots[1]).ok);
+  assert.equal(sim.state.res.credits, 24 + 40 + 70 + 55);
+  assert.equal(sim.state.rescue.earned.repeatHarvest, 9);
+  assert.ok(build('iceDrill', 2, 0).ok);
+  assert.ok(build('solar', 3, 0).ok);
+  for (const plot of plots) assert.ok(plant(plot).ok);
+
+  while (sim.state.status === 'active') {
+    sim.step();
+    if (sim.state.status !== 'active') break;
+    for (const plot of plots) {
+      const unit = sim.state.buildings.find(({ x, y }) => plot.x === x && plot.y === y);
+      if (sim.state.crops.some((crop) => crop.plotUid === unit.uid && crop.growth === 1)) {
+        assert.ok(harvest(plot).ok);
+        assert.ok(plant(plot).ok);
+      }
+    }
+  }
+  assert.equal(sim.state.rescue.outcome, 'rescued');
+  assert.equal(sim.state.rescue.earned.halfway, 60);
+  assert.equal(sim.state.rescue.earned.rescue, 120);
+  assert.equal(sim.state.rescue.earned.water, 10);
+  assert.ok(sim.state.rescue.earned.downlink > 9);
+  // Below a full 120×0.8 kg diet because wild-type yy yield is 0.85 (Mendelian game value).
+  assert.equal(sim.state.metrics.consumedKg.toFixed(1), '91.1');
+});
+
+test('running out of rations can end survival before the rescue deadline', () => {
+  const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  for (let i = 0; i < 11; i++) sim.step();
+  assert.equal(sim.state.crew.health, 1);
+  assert.ok(sim.state.res.foodKg < 1e-9);
+  sim.step();
+  assert.ok(sim.state.crew.health < 1);
+  while (sim.state.status === 'active') sim.step();
+  assert.equal(sim.state.rescue.outcome, 'lost');
+  assert.ok(sim.state.sol < sim.state.rescue.arrivalSol);
+  assert.equal(Object.hasOwn(sim.state.rescue.earned, 'rescue'), false);
 });

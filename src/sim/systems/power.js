@@ -1,14 +1,11 @@
 // AI-assisted (OpenAI Codex)
 import { lineagePhenotype } from './mutations.js';
 
-export function powerSystem({ state, data, buildings, crops, emit }) {
-  const { balance } = data;
+export function powerSystem({ state, data, buildings, crops, emit, weather }) {
   const active = state.events.active;
-  const dust = active.reduce((factor, event) => Math.min(factor, event.effects.solarFactor ?? 1), 1);
-  const heat = active.reduce((factor, event) => Math.max(factor, event.effects.heatFactor ?? 1), 1);
   const hours = data.seasons.orbit.solHours;
   const before = state.power.shed.length;
-  state.power.solarFactor = state.power.clearSolarFactor * dust;
+  state.power.solarFactor = state.weather.solarFactor;
   state.power.gen = 0;
   state.power.demand = 0;
   state.power.shed = [];
@@ -20,18 +17,31 @@ export function powerSystem({ state, data, buildings, crops, emit }) {
     if (!unit.online) continue;
     if (config.capacityWh) capacityWh += config.capacityWh;
     if (unit.id === 'solar') {
-      unit.dust = Math.min(1 - balance.solarDustFloor, unit.dust + balance.solarDustLoss * (dust < 1 ? 3 : 1));
-      state.power.gen += config.powerW * state.power.solarFactor * (1 - unit.dust);
+      const { generationW, dust } = weather.powerEffects({ weather: state.weather, ratedW: config.powerW,
+        dust: unit.dust, advanceDust: true });
+      unit.dust = dust;
+      state.power.gen += generationW;
     } else if (config.powerW > 0) {
       state.power.gen += config.powerW;
     } else if (config.powerW < 0) {
       const crop = state.crops.find(({ plotUid }) => plotUid === unit.uid);
       const traits = crops.get(crop?.cropId);
       const mods = lineagePhenotype(state, crop, data.mutations);
-      const extra = traits ? Math.max(0, traits.ppf * (mods?.ppf ?? 1) - 28) * balance.wheatExtraWattsPerPpf +
-        Math.max(0, traits.tempDayC - state.outsideTempC) * balance.heatWattsPerDegree * (mods?.heat ?? 1) * heat : 0;
+      const adjusted = traits ? {
+        ...traits,
+        ppf: traits.ppf * (mods?.ppf ?? 1),
+        tempDayC: traits.tempDayC,
+      } : null;
+      const heatScale = mods?.heat ?? 1;
+      const watts = adjusted
+        ? (() => {
+          const effect = weather.cropEffects(adjusted, state.weather,
+            { basePowerW: -config.powerW, includedPpf: 28 });
+          return effect.baseW + effect.lightW + effect.heatW * heatScale;
+        })()
+        : -config.powerW;
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;
-      loads.push({ unit, watts: -config.powerW + extra });
+      loads.push({ unit, watts });
     }
   }
   const priority = (unit) => {

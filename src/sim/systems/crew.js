@@ -31,9 +31,12 @@ export function crewSystem({ state, data }) {
   const poorDiet = meal.satiety > 0 ? Math.max(0, 1 - meal.nutrition) : 1;
   const lifeSupportStress = Number(!crew.hydrated) + Number(!powered);
   const radiationStress = state.difficulty === 'easy' ? 0 : radiation * (shelter ? 0.0002 : 0.001);
+  const hungerLoss = state.rescue
+    ? balance.rescue.starvationDamage * hunger
+    : diet.healthLossHunger * hunger;
 
   let delta = -balance.healthLoss * lifeSupportStress
-    - diet.healthLossHunger * hunger
+    - hungerLoss
     - diet.healthLossPoorDiet * poorDiet
     - radiationStress;
   if (meal.satiety >= diet.wellFedSatiety && meal.nutrition >= diet.wellFedNutrition && powered && crew.hydrated) {
