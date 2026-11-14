@@ -40,5 +40,5 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   });
   const refresh = () => fields.forEach(([, get], index) => values[index].setText(get(sim.state)));
   refresh();
-  return { refresh, destroy: () => group.clear(true, true) };
+  return { refresh };
 }

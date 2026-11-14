@@ -9,7 +9,6 @@ export class UIScene extends Phaser.Scene {
     const unsubscribe = ['sol', 'purchase', 'harvest', 'advancement'].map(event => sim.on(event, hud.refresh));
     this.events.once('shutdown', () => {
       unsubscribe.forEach(stop => stop());
-      hud.destroy();
     });
   }
 }
