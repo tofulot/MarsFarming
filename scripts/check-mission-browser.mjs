@@ -96,8 +96,24 @@ try {
   await pressButton('Title', 'Start survival');
   await active('UI');
   assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.sol), 0);
+
+  const respondToAbandon = async (accept) => {
+    const respond = page.waitForEvent('dialog', { timeout: 10000 }).then(async (dialog) => {
+      const message = dialog.message();
+      if (accept) await dialog.accept();
+      else await dialog.dismiss();
+      assert.match(message, /abandon/i);
+    });
+    await Promise.all([respond, pressButton('UI', 'Abandon')]);
+  };
+  await respondToAbandon(false);
+  await active('UI');
+  assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.status), 'active');
+  await respondToAbandon(true);
+  await active('Report');
+  await hasText('Report', 'Mission abandoned');
   assert.deepEqual(errors, []);
-  console.log('Rescue report, crop journal, and fresh mission verified.');
+  console.log('Rescue, crop journal, re-fly, and abandon confirmation verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });
