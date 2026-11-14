@@ -1,12 +1,13 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
 import { advancements } from '../sim/advancements.js';
+import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { button, colors, heading, panel, targetBackground, text } from '../ui/controls.js';
 
 export class ReportScene extends Phaser.Scene {
   constructor() { super('Report'); }
 
-  create({ state, options, journal = false }) {
+  create({ state, options, journal = false, pendingAwards = [] }) {
     targetBackground(this);
     const data = this.registry.get('missionData');
     const objective = data.objectives.find(({ id }) => id === state.objectiveId);
@@ -50,6 +51,7 @@ Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
       button(this, 221, 636, 187, 48, 'Crop journal', () => this.scene.restart({ ...report, journal: true }));
       button(this, 950, 636, 274, 48, 'Try another landing site →',
         () => this.scene.start('Map', options), { selected: true });
+      playAchievementToasts(this, pendingAwards, 42);
       return;
     }
     heading(this, 'MISSION REPORT', objective.name, `${state.endReason}  ${result.completed ? 'Objective met.' : 'Objective incomplete.'}`);

@@ -1,7 +1,8 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
-import { nextAdvancement } from '../sim/advancements.js';
+import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation, playbackSpeeds } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
@@ -45,18 +46,10 @@ export class ColonyScene extends Phaser.Scene {
       this.nameDialog?.remove();
       this.scene.stop('UI');
     });
-    this.sim.on('advancement', (award) => {
-      this.awardNotice?.remove();
-      this.awardLabel.setText(`Achievement unlocked · ${award.name}`);
-      this.awardNotice = this.time.delayedCall(6000, () => this.awardLabel.setText(''));
-      if (award.id === 'botanist') {
-        this.sim.command({ type: 'setSpeed', speed: 0 });
-        this.achievementSelection = 'botanist';
-        this.showAdvancements = true;
-        this.showWeather = false;
-        this.showTimers = false;
-      }
-    });
+    const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
+      .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
+    const announceAward = playAchievementToasts(this, pendingAwards);
+    this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
@@ -66,11 +59,9 @@ export class ColonyScene extends Phaser.Scene {
     this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`));
     this.sim.on('mission:end', (state) => {
       this.finished = true;
-      this.scene.start('Report', { state, options });
+      this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
     });
     this.colonyTitle = text(this, 48, 95, rescue ? 'Unnamed colony' : this.sim.state.site.name, 29, { fontStyle: 'bold' });
-    this.awardNotice = null;
-    this.awardLabel = text(this, 48, 605, '', 13, { color: '#9bd8ae', fontStyle: 'bold' });
     if (rescue) button(this, 1092, 114, 133, 31, 'Achievements', () => {
       this.showAdvancements = !this.showAdvancements;
       this.showTimers = false;
