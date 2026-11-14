@@ -1,0 +1,150 @@
+{
+  "_aiAssisted": "OpenAI Codex",
+  "_checkedOn": "2026-11-14",
+  "sources": {
+    "S4": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html",
+    "S6": "https://www.giss.nasa.gov/tools/mars24/help/notes.html",
+    "S7": "https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.html",
+    "S13": "https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/",
+    "W1": "https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/",
+    "W2": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/PERSEVERANCE/meda.html",
+    "W3": "https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/curiosity.html",
+    "W4": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/INSIGHT/insight.html"
+  },
+  "calendar": {
+    "yearSols": 668.6,
+    "monthStartSols": [
+      0,
+      61.2,
+      126.6,
+      193.3,
+      257.8,
+      317.5,
+      371.9,
+      421.6,
+      468.5,
+      514.6,
+      562,
+      612.9,
+      668.6
+    ],
+    "stormLsFrom": 180,
+    "stormLsTo": 360,
+    "_src": "S7"
+  },
+  "orbit": {
+    "obliquityDeg": 25.19,
+    "eccentricity": 0.0935,
+    "solHours": 24.6597,
+    "_src": "S4",
+    "perihelionLs": 251,
+    "_src_perihelionLs": "S6"
+  },
+  "temperatureModel": {
+    "baseC": -59,
+    "_src_baseC": "S4 global average; reference only",
+    "latitudeCoolingC": 25,
+    "seasonAmplitudeC": 25,
+    "dailyVariationC": 4,
+    "_game": true,
+    "note": "Synthetic outside temperature anchored to a global reference. Latitude, season and noise coefficients are game values. This is not a site climatology."
+  },
+  "balance": {
+    "_game": true,
+    "panelLossPerSol": 0.003,
+    "minimumPanelCleanliness": 0.05,
+    "lightWattsPerPpf": 8,
+    "heatWattsPerDegree": 5,
+    "note": "Climate watts are per game crop slot. PPF conversion and heat losses are balancing coefficients, not greenhouse engineering specifications."
+  },
+  "difficulties": {
+    "easy": {
+      "eventMult": 0.5,
+      "warningSols": 1,
+      "_game": true
+    },
+    "medium": {
+      "eventMult": 1,
+      "warningSols": 1,
+      "_game": true
+    },
+    "hard": {
+      "eventMult": 1.3,
+      "warningSols": 0,
+      "_game": true
+    }
+  },
+  "events": [
+    {
+      "id": "dustGlobal",
+      "group": "dust",
+      "name": "Global dust storm",
+      "baseChancePerSol": 0.0003,
+      "seasonMultiplier": 4,
+      "durationSols": [
+        40,
+        60
+      ],
+      "difficulties": [
+        "hard"
+      ],
+      "maxPerMission": 1,
+      "effects": {
+        "solarFactor": 0.05,
+        "heatingFactor": 1,
+        "commsFactor": 0.5
+      },
+      "_game": true,
+      "_src_basis": "S13",
+      "why": "Suspended dust reduces sunlight. Protect battery reserves and prioritize life support."
+    },
+    {
+      "id": "dustRegional",
+      "group": "dust",
+      "name": "Regional dust storm",
+      "baseChancePerSol": 0.004,
+      "seasonMultiplier": 4,
+      "durationSols": [
+        10,
+        30
+      ],
+      "difficulties": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "effects": {
+        "solarFactor": 0.4,
+        "heatingFactor": 1,
+        "commsFactor": 0.75
+      },
+      "_game": true,
+      "_src_basis": "S7, S13",
+      "why": "Reduced sunlight leaves less power for crop lights. Short, low-light crops reduce exposure."
+    },
+    {
+      "id": "coldSnap",
+      "group": "cold",
+      "name": "Cold snap",
+      "baseChancePerSol": 0.003,
+      "seasonMultiplier": 1,
+      "durationSols": [
+        5,
+        5
+      ],
+      "difficulties": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "effects": {
+        "solarFactor": 1,
+        "heatingFactor": 1.5,
+        "commsFactor": 1
+      },
+      "_game": true,
+      "_src_basis": "S4",
+      "why": "Heating demand rises. Reserve power for greenhouse temperature control."
+    }
+  ]
+}
