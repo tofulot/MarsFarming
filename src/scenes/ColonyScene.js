@@ -56,6 +56,10 @@ export class ColonyScene extends Phaser.Scene {
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
+    this.sim.on('supply:seeds', ({ crops: names }) => {
+      this.notify(`Supply drop arrived · New seeds: ${names.join(', ')}.`);
+      this.drawSide();
+    });
     this.sim.on('power:shortage', () => {
       if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.');
     });
@@ -254,14 +258,16 @@ export class ColonyScene extends Phaser.Scene {
           if (doForUnit('harvest').ok) doForUnit('plant', traits.id);
         } : null);
       } else if (info.plot) {
-        say(695, 279, unit.treated ? 'Choose a crop' : 'Untreated soil. Run a Soil Washer batch.', 17);
+        say(695, 279, unit.treated ? 'Choose a crop' : 'Untreated soil. A powered Soil Washer will treat it automatically.', 17);
         this.dataSet.crops.slice(0, 8).forEach(({ id }, i) => {
           const item = this.sim.cropTraits(id);
           const requirement = this.sim.unlockRequirement(item);
+          const foodCost = this.sim.plantingFoodCost(id);
+          const affordable = state.res.foodKg + 1e-9 >= foodCost;
           action(695 + i % 2 * 252, 318 + Math.floor(i / 2) * 48, 238, 40,
             requirement ? `${item.name}\nRequires ${requirement}`
-              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols`,
-            unit.treated && !requirement ? () => doForUnit('plant', id) : null, { size: 14 });
+              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols · ${foodCost.toFixed(1)} kg food`,
+            unit.treated && !requirement && affordable ? () => doForUnit('plant', id) : null, { size: 14 });
         });
       }
       if (unit.id === 'washer') {
@@ -271,7 +277,6 @@ export class ColonyScene extends Phaser.Scene {
         const fill = progressBar(this, this.sideLayer, 695, 311, 496, 8, Number(status === 'complete'),
           status === 'complete' ? colors.mint : colors.accent);
         if (status === 'queued' && unit.online) this.runningWasherBar = fill;
-        action(695, 342, 240, 40, unit.pending ? 'Treatment queued' : 'Treat soil · 1 sol', unit.pending ? null : () => doForUnit('wash'));
       }
       if (unit.id === 'solar') action(695, 303, 240, 43, `Clean panels · ${Math.round(unit.dust * 100)}% dust`, () => doForUnit('clean'));
       const failure = state.events.active.find(({ targetUid }) => targetUid === unit.uid);

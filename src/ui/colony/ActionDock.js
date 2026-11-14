@@ -14,20 +14,28 @@ export function drawActionDock(scene, group) {
     scene.dataSet.crops.forEach(({ id }, index) => {
       const crop = sim.cropTraits(id);
       const requirement = sim.unlockRequirement(crop);
+      const foodCost = sim.plantingFoodCost?.(id);
       const x = 32 + index * 122;
       const card = plate(scene, group, x, 556, 112, 72, requirement ? 0x513c31 : 0x9b7858);
       card.setDepth(20);
       label(scene, group, x + 56, 611, crop.name, 11, { fontStyle: 'bold' }).setOrigin(0.5);
-      label(scene, group, x + 56, 623, requirement ? 'LOCKED' : `${cropSolsRemaining(crop, unit ?? { id: 'plot' }, scene.dataSet.balance)} sols`, 9).setOrigin(0.5);
+      const growthSols = cropSolsRemaining(crop, unit ?? { id: 'plot' }, scene.dataSet.balance);
+      label(scene, group, x + 56, 623, requirement ? 'LOCKED'
+        : `${growthSols} sols${Number.isFinite(foodCost) ? ` · ${foodCost.toFixed(1)} kg food` : ''}`, 9).setOrigin(0.5);
       previews.push({ key: `preview-${id}`, id, x: x + 56, y: 603, size: 30, growth: 1 });
       card.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         if (requirement) { scene.notify(`${crop.name} requires ${requirement}.`); return; }
         const plot = unit && scene.dataSet.buildings.find(item => item.id === unit.id)?.plot;
-        if (plot) scene.run({ type: 'plant', id, uid: unit.uid });
-        else {
+        if (plot) {
+          if (Number.isFinite(foodCost) && sim.state.res.foodKg < foodCost) {
+            scene.notify(`Planting ${crop.name} needs ${foodCost.toFixed(1)} kg of food.`);
+            return;
+          }
+          scene.run({ type: 'plant', id, uid: unit.uid });
+        } else {
           scene.seedTool = id;
           scene.tool = null;
-          scene.notify(`Select an empty, treated greenhouse to plant ${crop.name}.`);
+          scene.notify(`Select an empty, treated greenhouse to plant ${crop.name}${Number.isFinite(foodCost) ? ` · ${foodCost.toFixed(1)} kg food` : ''}.`);
         }
       });
     });
