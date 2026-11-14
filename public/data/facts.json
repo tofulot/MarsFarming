@@ -1,0 +1,20 @@
+[
+  {
+    "id": "growth",
+    "text": "The NASA life-support baseline assigns lettuce a 28-day growth period.",
+    "source": "S9",
+    "url": "https://ntrs.nasa.gov/citations/20210024855"
+  },
+  {
+    "id": "season",
+    "text": "Mars reaches northern autumn at solar longitude 180°. This begins dust storm season.",
+    "source": "S7",
+    "url": "https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new"
+  },
+  {
+    "id": "ice",
+    "text": "NASA’s orbital data identified areas on Mars with ice less than 30 centimeters underground.",
+    "source": "S14",
+    "url": "https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars/"
+  }
+]

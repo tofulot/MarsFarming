@@ -1,0 +1,68 @@
+{
+  "_game": true,
+  "crew": 4,
+  "foodPerCrew": 0.8,
+  "waterCapacity": 5000,
+  "plotAreaM2": 42,
+  "crewRadiationPerSol": 0.67,
+  "_src_radiation": "S11",
+  "recycleFraction": 0.5,
+  "washerBatchWaterL": 30,
+  "washerBatchPlots": 4,
+  "wheatExtraWattsPerPpf": 18,
+  "heatWattsPerDegree": 5,
+  "baselineGreenhouseTempC": 20,
+  "hydroGrowth": 1.15,
+  "harvestResearch": 5,
+  "discoveryResearch": 5,
+  "commsThroughput": 2,
+  "healthLoss": 0.012,
+  "healthRecovery": 0.003,
+  "solarDustLoss": 0.001,
+  "solarDustFloor": 0.2,
+  "fertilizerYield": 1.2,
+  "shelterDoseMultiplier": 0.2,
+  "kit": [
+    {
+      "id": "seeds",
+      "name": "Seed Pack",
+      "massKg": 10,
+      "cost": 15
+    },
+    {
+      "id": "spares",
+      "name": "Spare Parts",
+      "massKg": 50,
+      "cost": 20
+    }
+  ],
+  "starter": [
+    {
+      "id": "hab",
+      "x": 7,
+      "y": 5
+    },
+    {
+      "id": "solar",
+      "x": 6,
+      "y": 5
+    },
+    {
+      "id": "solar",
+      "x": 8,
+      "y": 5
+    },
+    {
+      "id": "comms",
+      "x": 7,
+      "y": 6
+    }
+  ],
+  "temperatureModel": {
+    "baseC": -42,
+    "latitudePenalty": 0.36,
+    "seasonSwingC": 18
+  },
+  "demoSeed": 42,
+  "solMs": 500
+}

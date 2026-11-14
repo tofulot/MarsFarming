@@ -1,0 +1,85 @@
+[
+  {
+    "id": "dustRegional",
+    "name": "Regional dust storm",
+    "baseChancePerSol": 0.004,
+    "seasonMultiplier": {
+      "LsFrom": 180,
+      "LsTo": 360,
+      "x": 4
+    },
+    "durationSols": [
+      10,
+      30
+    ],
+    "effects": {
+      "solarFactor": 0.4
+    },
+    "fact": "Dust storm season begins near Ls 180° (S7).",
+    "_game": true
+  },
+  {
+    "id": "dustGlobal",
+    "name": "Global dust storm",
+    "hardOnly": true,
+    "once": true,
+    "baseChancePerSol": 0.0009,
+    "seasonMultiplier": {
+      "LsFrom": 180,
+      "LsTo": 360,
+      "x": 4
+    },
+    "durationSols": [
+      40,
+      60
+    ],
+    "effects": {
+      "solarFactor": 0.05
+    },
+    "fact": "Opportunity went silent during the 2018 global storm (S13).",
+    "_game": true
+  },
+  {
+    "id": "spe",
+    "name": "Solar particle event",
+    "baseChancePerSol": 0.0025,
+    "durationSols": [
+      2,
+      4
+    ],
+    "effects": {
+      "crewDose_mSv": 22,
+      "unshieldedCropHealth": 0.3
+    },
+    "fact": "NASA catalogs solar energetic particle events (S22).",
+    "_game": true
+  },
+  {
+    "id": "cold",
+    "name": "Cold snap",
+    "baseChancePerSol": 0.003,
+    "durationSols": [
+      5,
+      5
+    ],
+    "effects": {
+      "heatFactor": 1.5
+    },
+    "fact": "Mars surface temperatures can drop sharply overnight (S4).",
+    "_game": true
+  },
+  {
+    "id": "failure",
+    "name": "Equipment failure",
+    "baseChancePerSol": 0.002,
+    "durationSols": [
+      4,
+      8
+    ],
+    "effects": {
+      "equipmentFailure": true
+    },
+    "fact": "Equipment failure is a game scenario.",
+    "_game": true
+  }
+]
