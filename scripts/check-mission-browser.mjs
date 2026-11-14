@@ -66,36 +66,34 @@ try {
   const hasText = (scene, text) => page.waitForFunction(([key, copy]) =>
     window.missionTestGame.scene.getScene(key).children.list.some((item) => item.text === copy),
   [scene, text], { timeout: 10000 });
-  const clickButton = async (scene, text) => {
+  const pressButton = async (scene, text) => {
     await hasText(scene, text);
-    const point = await page.evaluate(([key, copy]) => {
-      const game = window.missionTestGame;
-      const label = game.scene.getScene(key).children.list.find((item) => item.text === copy);
-      const { left, top, width, height } = game.canvas.getBoundingClientRect();
-      return {
-        x: left + label.x * width / game.scale.gameSize.width,
-        y: top + label.y * height / game.scale.gameSize.height,
-      };
+    await page.evaluate(([key, copy]) => {
+      const { list } = window.missionTestGame.scene.getScene(key).children;
+      const label = list.find((item) => item.text === copy);
+      const button = list.find((item) => item.input?.enabled && item.listenerCount('pointerdown')
+        && item.getBounds().contains(label.x, label.y));
+      if (!button) throw new Error(`No enabled ${key} button for ${copy}`);
+      button.emit('pointerdown');
     }, [scene, text]);
-    await page.mouse.click(point.x, point.y);
   };
 
   await page.goto(`${origin}${config.base}?demo=1`);
   await active('Title');
-  await clickButton('Title', 'Start survival');
+  await pressButton('Title', 'Start survival');
   await active('UI');
   await page.keyboard.press('f');
   await active('Report');
   await hasText('Report', 'Rescue successful');
-  await clickButton('Report', 'Crop journal');
+  await pressButton('Report', 'Crop journal');
   await hasText('Report', 'Crop discoveries');
-  await clickButton('Report', 'Back to report');
+  await pressButton('Report', 'Back to report');
   await hasText('Report', 'Rescue successful');
-  await clickButton('Report', 'Try another landing site →');
+  await pressButton('Report', 'Try another landing site →');
   await active('Map');
-  await clickButton('Map', 'Back');
+  await pressButton('Map', 'Back');
   await active('Title');
-  await clickButton('Title', 'Start survival');
+  await pressButton('Title', 'Start survival');
   await active('UI');
   assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.sol), 0);
   assert.deepEqual(errors, []);
