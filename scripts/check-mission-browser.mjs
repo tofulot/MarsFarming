@@ -27,7 +27,13 @@ try {
   });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('pageerror', (error) => {
+    errors.push(error.message);
+    console.error(error.stack);
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.error(message.text());
+  });
   await page.route(`${origin}${config.base}**`, async (route) => {
     const file = new URL(route.request().url()).pathname.slice(config.base.length) || 'index.html';
     const local = join(output, file);
@@ -47,8 +53,16 @@ try {
     return route.fulfill({ json: balance });
   });
 
-  const active = (key) => page.waitForFunction((scene) =>
-    window.missionTestGame?.scene.isActive(scene), key, { timeout: 10000 });
+  const active = async (key) => {
+    try {
+      await page.waitForFunction((scene) =>
+        window.missionTestGame?.scene.isActive(scene), key, { timeout: 10000 });
+    } catch (error) {
+      const scenes = await page.evaluate(() =>
+        window.missionTestGame?.scene.getScenes(true).map((scene) => scene.sys.settings.key));
+      throw new Error(`Expected ${key}. Active scenes: ${scenes?.join(', ')}. Page errors: ${errors.join(', ')}`, { cause: error });
+    }
+  };
   const hasText = (scene, text) => page.waitForFunction(([key, copy]) =>
     window.missionTestGame.scene.getScene(key).children.list.some((item) => item.text === copy),
   [scene, text], { timeout: 10000 });
