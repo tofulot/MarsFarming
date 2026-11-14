@@ -163,39 +163,81 @@ test('the dust climatology varies across longitude and season and wraps at the m
   assert.equal(dustOpacity(autumn, 35, -180), dustOpacity(autumn, 35, 180));
 });
 
-test('a stranded farmer can plant, name their colony, harvest and survive until rescue', () => {
+test('a stranded farmer can fund upgrades with harvests and survive until rescue', () => {
   const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
   const build = (id, x, y) => sim.command({ type: 'build', id, x, y });
-  const plot = { x: 0, y: 0 };
+  const plots = [{ x: 0, y: 0 }, { x: 0, y: 1 }];
+  const plant = (plot, id = 'radish') => sim.command({ type: 'plant', id, ...plot });
+  const harvest = (plot) => sim.command({ type: 'harvest', ...plot });
+  const greenhouse = data.buildings.find(({ id }) => id === 'plot');
+
   assert.equal(sim.state.crew.n, 1);
   assert.equal(sim.state.rescue.arrivalSol, 120);
+  assert.equal(sim.state.res.foodKg, 11 * data.balance.foodPerCrew);
+  assert.equal(sim.state.res.credits, 180);
   assert.deepEqual(sim.state.rescue.earned, { stranded: 0 });
+  assert.equal(sim.command({ type: 'setSpeed', speed: 4 }).ok, true);
+  assert.equal(sim.command({ type: 'setSpeed', speed: 8 }).ok, false);
+  assert.equal(sim.command({ type: 'setSpeed', speed: 16 }).ok, false);
+  assert.equal(sim.state.speed, 4);
   assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
+  assert.match(build('iceDrill', 2, 0).reason, /Botanist/);
   assert.ok(build('plot', 0, 0).ok);
+  assert.equal(sim.purchasePrice(greenhouse), 46);
+  assert.equal(build('plot', 0, 0).ok, false);
+  assert.equal(sim.purchasePrice(greenhouse), 46);
+  assert.ok(build('plot', 0, 1).ok);
+  assert.equal(sim.purchasePrice(greenhouse), 53);
   assert.ok(build('washer', 1, 0).ok);
-  assert.ok(build('iceDrill', 2, 0).ok);
+  assert.equal(sim.state.res.credits, 24);
+
   assert.ok(sim.command({ type: 'wash', x: 1, y: 0 }).ok);
   sim.step();
-  assert.ok(sim.command({ type: 'plant', id: 'lettuce', ...plot }).ok);
+  assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
+  for (const plot of plots) assert.ok(plant(plot).ok);
   assert.equal(sim.state.rescue.earned.botanist, 1);
   assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
   assert.equal(sim.state.rescue.colonyName, 'Ares');
-  for (let sol = 2; sol <= sim.state.solLimit; sol++) {
+  assert.equal(sim.state.rescue.earned.colony, 1);
+
+  while (sim.state.sol < 8) sim.step();
+  assert.equal(harvest(plots[0]).ok, false);
+  sim.step();
+  assert.ok(harvest(plots[0]).ok);
+  assert.equal(sim.state.res.credits, 24 + 24 + 70);
+  assert.ok(harvest(plots[1]).ok);
+  assert.equal(sim.state.res.credits, 24 + 48 + 70 + 55);
+  assert.equal(sim.state.rescue.earned.repeatHarvest, 9);
+  assert.ok(build('iceDrill', 2, 0).ok);
+  assert.ok(build('solar', 3, 0).ok);
+  for (const plot of plots) assert.ok(plant(plot).ok);
+
+  while (sim.state.status === 'active') {
     sim.step();
-    if (sim.state.crops[0]?.growth === 1) {
-      assert.ok(sim.command({ type: 'harvest', ...plot }).ok);
-      assert.ok(sim.command({ type: 'plant', id: 'lettuce', ...plot }).ok);
+    if (sim.state.status !== 'active') break;
+    for (const plot of plots) {
+      const unit = sim.state.buildings.find(({ x, y }) => plot.x === x && plot.y === y);
+      if (sim.state.crops.some((crop) => crop.plotUid === unit.uid && crop.growth === 1)) {
+        assert.ok(harvest(plot).ok);
+        assert.ok(plant(plot).ok);
+      }
     }
   }
   assert.equal(sim.state.rescue.outcome, 'rescued');
   assert.equal(sim.state.rescue.earned.halfway, 60);
   assert.equal(sim.state.rescue.earned.rescue, 120);
-  assert.equal(sim.state.rescue.earned.botanist, 1);
-  assert.ok(sim.state.metrics.grownKg > 0);
+  assert.equal(sim.state.rescue.earned.water, 10);
+  assert.ok(sim.state.rescue.earned.downlink > 9);
+  assert.equal(sim.state.metrics.consumedKg.toFixed(1), '96.0');
 });
 
 test('running out of rations can end survival before the rescue deadline', () => {
   const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  for (let i = 0; i < 11; i++) sim.step();
+  assert.equal(sim.state.crew.health, 1);
+  assert.ok(sim.state.res.foodKg < 1e-9);
+  sim.step();
+  assert.ok(sim.state.crew.health < 1);
   while (sim.state.status === 'active') sim.step();
   assert.equal(sim.state.rescue.outcome, 'lost');
   assert.ok(sim.state.sol < sim.state.rescue.arrivalSol);

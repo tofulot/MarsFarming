@@ -1,6 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import { createRedHarvestWeather, gameWeatherInput } from '../weather/redHarvest.js';
-import { earnAdvancement } from './advancements.js';
+import { earnAdvancement, missingAdvancement } from './advancements.js';
 import { createBus } from './bus.js';
 import { checkManifest } from './design.js';
 import { landingSite } from './marsMap.js';
@@ -17,7 +17,7 @@ import { rewardSystem } from './systems/rewards.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
-export const playbackSpeeds = [0, 1, 2, 4, 8];
+export const playbackSpeeds = [0, 1, 2, 4];
 
 export class Simulation {
   #ctx;
@@ -36,8 +36,9 @@ export class Simulation {
     if (!site) throw new Error('Invalid landing site.');
     // Existing scripted missions can still supply a validated payload.
     const packed = landerId || Object.keys(manifest).length;
+    const budget = options.rescue ? data.balance.rescue.startingCredits : mode.budget;
     const launch = packed
-      ? checkManifest(data, { landerId: landerId ?? data.landers[0].id, items: manifest, budget: mode.budget, siteId })
+      ? checkManifest(data, { landerId: landerId ?? data.landers[0].id, items: manifest, budget, siteId })
       : { ok: true, cost: 0, massKg: 0 };
     if (!launch.ok) throw new Error(launch.reasons.join(' '));
     const state = createState(data, { seed, difficulty, objectiveId,
@@ -45,15 +46,18 @@ export class Simulation {
     state.site = site;
     if (options.rescue) {
       const { arrivalSol, rationSols } = data.balance.rescue;
-      state.rescue = { arrivalSol, colonyName: '', earned: { stranded: state.sol }, harvestedPlots: [], outcome: 'waiting' };
+      state.rescue = { arrivalSol, colonyName: '', earned: { stranded: state.sol }, harvestedPlots: [],
+        harvests: 0, purchases: {}, outcome: 'waiting' };
       state.solLimit = arrivalSol;
       state.crew.n = 1;
       state.res.foodKg = rationSols * data.balance.foodPerCrew;
+      state.res.credits = budget - launch.cost;
     }
     this.#demo = demo;
     this.#ctx = {
       state, data, site, weather: createRedHarvestWeather(data), buildings: new Map(data.buildings.map((item) => [item.id, item])),
-      crops: new Map(data.crops.map((item) => [item.id, item])),
+      crops: new Map(data.crops.map((item) => [item.id, options.rescue
+        ? { ...item, ...data.balance.rescue.crops[item.id] } : item])),
       random: mulberry32(seed), emit: this.#bus.emit,
       near: (plot, id, predicate = () => true) => state.buildings.some((unit) =>
         unit.id === id && Math.abs(unit.x - plot.x) + Math.abs(unit.y - plot.y) === 1 && predicate(unit)),
@@ -102,6 +106,25 @@ export class Simulation {
   }
 
   get state() { return this.#ctx.state; }
+  cropTraits(id) { return this.#ctx.crops.get(id); }
+  purchasePrice({ id, cost }) {
+    const { rescue } = this.state;
+    if (!rescue) return cost;
+    const multiplier = this.#ctx.data.balance.rescue.priceMultiplier;
+    return Math.round(cost * multiplier ** (rescue.purchases[id] ?? 0));
+  }
+
+  unlockRequirement(item) {
+    const milestone = missingAdvancement(this.state.rescue, item.id);
+    if (milestone) return milestone;
+    return this.state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : null;
+  }
+
+  #buy(item) {
+    this.state.res.credits -= this.purchasePrice(item);
+    const { rescue } = this.state;
+    if (rescue) rescue.purchases[item.id] = (rescue.purchases[item.id] ?? 0) + 1;
+  }
   get weather() { return this.#ctx.weather; }
   getWeather() { return this.weather.current(gameWeatherInput(this.#ctx)); }
   forecastWeather(sols = 7) { return this.weather.forecast(gameWeatherInput(this.#ctx), { sols }); }
@@ -145,10 +168,12 @@ export class Simulation {
     crewSystem(this.#ctx);
     economySystem(this.#ctx);
     rewardSystem(this.#ctx);
-    this.#bus.emit('sol', state);
+    if (state.res.batteryWh >= 10000) earnAdvancement(this.#ctx, 'charged');
+    if (state.metrics.transmitted >= 5) earnAdvancement(this.#ctx, 'downlink');
     if (state.crew.health > 0 && state.rescue && state.sol >= Math.ceil(state.rescue.arrivalSol / 2)) {
       earnAdvancement(this.#ctx, 'halfway');
     }
+    this.#bus.emit('sol', state);
     if (!state.crew.health) this.#finish(state.rescue ? 'You died before rescue arrived.' : 'Crew health fell to zero.');
     else if (state.sol >= state.solLimit) {
       if (state.rescue) {
@@ -172,9 +197,10 @@ export class Simulation {
         if (!model || id === 'hab') return fail('Choose a buildable structure.');
         if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || x >= state.grid.w ||
             y < 0 || y >= state.grid.h || state.buildings.some((entry) => entry.x === x && entry.y === y)) return fail('Choose an empty tile inside the colony.');
-        if (state.res.sp < model.unlockSP) return fail(`Requires ${model.unlockSP} science points.`);
-        if (state.res.credits < model.cost) return fail('Insufficient credits.');
-        state.res.credits -= model.cost;
+        const requirement = this.unlockRequirement(model);
+        if (requirement) return fail(`Requires ${requirement}.`);
+        if (state.res.credits < this.purchasePrice(model)) return fail('Insufficient credits.');
+        this.#buy(model);
         this.#place(id, x, y);
         if (id === 'plot') {
           earnAdvancement(this.#ctx, 'greenhouse');
@@ -187,8 +213,8 @@ export class Simulation {
       }
       case 'buySpares': {
         const parts = data.balance.kit.find(({ id }) => id === 'spares');
-        if (state.res.credits < parts.cost) return fail('Insufficient credits for spare parts.');
-        state.res.credits -= parts.cost;
+        if (state.res.credits < this.purchasePrice(parts)) return fail('Insufficient credits for spare parts.');
+        this.#buy(parts);
         state.res.spares++;
         this.#record('Bought a spare part.');
         this.#bus.emit('purchase', state);
@@ -197,7 +223,9 @@ export class Simulation {
       case 'plant': {
         const traits = crops.get(id);
         if (!unit || !buildings.get(unit.id).plot || crop) return fail('Choose an empty greenhouse or hydroponic bay.');
-        if (!traits || state.res.sp < traits.unlockSP) return fail('This crop is unavailable.');
+        if (!traits) return fail('This crop is unavailable.');
+        const requirement = this.unlockRequirement(traits);
+        if (requirement) return fail(`Requires ${requirement}.`);
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
         state.crops.push({ uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0 });
         if (state.rescue) {
@@ -213,9 +241,12 @@ export class Simulation {
         if (!crop || crop.growth < 1) return fail('The plot has no mature crop.');
         const result = harvestCrop(this.#ctx, crop, unit);
         earnAdvancement(this.#ctx, 'harvest');
-        if (state.rescue && !state.rescue.harvestedPlots.includes(unit.uid)) {
-          state.rescue.harvestedPlots.push(unit.uid);
-          if (state.rescue.harvestedPlots.length >= 3) earnAdvancement(this.#ctx, 'farm');
+        if (state.rescue) {
+          const rescue = state.rescue;
+          rescue.harvests++;
+          if (rescue.harvests === 2) earnAdvancement(this.#ctx, 'repeatHarvest');
+          if (!rescue.harvestedPlots.includes(unit.uid)) rescue.harvestedPlots.push(unit.uid);
+          if (rescue.harvestedPlots.length >= 3) earnAdvancement(this.#ctx, 'farm');
         }
         this.#record(result, 'Harvest added food and research.');
         rewardSystem(this.#ctx);
@@ -227,6 +258,7 @@ export class Simulation {
         const name = typeof cmd.name === 'string' ? cmd.name.trim() : '';
         if (!name || name.length > 28 || /[\u0000-\u001f\u007f]/.test(name)) return fail('Enter a colony name of 1–28 characters.');
         rescue.colonyName = name;
+        earnAdvancement(this.#ctx, 'colony');
         this.#record(`Named the colony ${name}.`);
         return ok(`Colony named ${name}.`);
       }

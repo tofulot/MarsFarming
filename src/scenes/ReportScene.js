@@ -45,7 +45,7 @@ Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
       const awards = advancements.filter(({ id }) => Object.hasOwn(earned, id));
       if (!awards.length) text(this, 547, 265, 'No achievements earned.', 17, { color: colors.muted });
       awards.forEach(({ id, name }, i) => {
-        text(this, 547, 263 + 31 * i, `${name}  ·  Sol ${earned[id]}`, 18);
+        text(this, 547 + 325 * Math.floor(i / 7), 263 + 31 * (i % 7), `${name}  ·  Sol ${earned[id]}`, 18);
       });
       button(this, 56, 636, 139, 48, 'Main menu', () => this.scene.start('Title'));
       button(this, 221, 636, 187, 48, 'Crop journal', () => this.scene.restart({ ...report, journal: true }));

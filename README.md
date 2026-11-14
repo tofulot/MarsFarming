@@ -16,7 +16,7 @@ npm run build
 
 Open the URL Vite prints. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report.
 
-Start Survival to spawn in Gale Crater, or choose a landing site on the map. You have 120 sols until rescue and 30 sols of rations. The colony starts paused. Press **+1 sol** to step or run at **1×–8×**. Open **Achievements** for farming clues. Plant your first crop to earn **Botanist** and unlock colony naming. Soil treatment takes one sol with power and water. Open **Timers** to track active events, equipment outages, and research downlinks.
+Start Survival to spawn in Gale Crater, or choose a landing site on the map. You have 120 sols until rescue, 11 sols of rations, and 180 credits. Start with two Greenhouse Plots and a Soil Washer. Radishes mature in eight healthy sols. Random hazards begin after the starting ration window. Harvest milestones pay credit bonuses and unlock upgrades. Each purchase raises the next price of that item by 15%. The colony starts paused. Press **+1 sol** to step or run at **1×–4×**. One sol takes 15 seconds at 1×. Open **Achievements** for farming clues. Plant your first crop to earn **Botanist** and unlock colony naming. Soil treatment takes one sol with power and water. Open **Timers** to track active events, equipment outages, and research downlinks.
 
 ## Landing map data
 

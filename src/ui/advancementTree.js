@@ -3,9 +3,9 @@ import { colors, panel, text } from './controls.js';
 
 export function drawAdvancementTree(scene, group, rescue, selected, choose) {
   const width = 120;
-  const height = 39;
+  const height = 34;
   const position = ({ position: [column, row] }) =>
-    ({ x: 695 + column * 129, y: 211 + row * 47 });
+    ({ x: 695 + column * 129, y: 208 + row * 41 });
   const earned = (id) => Object.hasOwn(rescue.earned, id);
   const links = scene.add.graphics();
   group.add(links);
@@ -33,7 +33,7 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
     card.setInteractive({ useHandCursor: true }).on('pointerdown', () => choose(entry.id));
     group.addMultiple([card,
       text(scene, x + 6, y + 3, entry.name, 12, { fontStyle: 'bold', color: done || ready ? colors.ink : colors.muted }),
-      text(scene, x + 6, y + 20, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 11,
+      text(scene, x + 6, y + 17, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 11,
         { color: done ? '#9bd8ae' : ready ? '#ffc7a8' : colors.muted }),
     ]);
   }
@@ -41,7 +41,8 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
   const clue = advancements.find(({ id }) => id === selected);
   const missing = clue.requires.filter((id) => !earned(id)).map((id) => advancements.find((entry) => entry.id === id).name);
   const detail = missing.length ? `Unlock ${missing.join(' and ')} first. ${clue.hint}` : clue.hint;
-  group.add(text(scene, 695, 492, detail, 14, { wordWrap: { width: 505 }, color: colors.muted }));
+  group.add(text(scene, 695, 495, clue.credits ? `${detail} Reward · ${clue.credits} cr.` : detail, 13,
+    { wordWrap: { width: 505 }, color: colors.muted }));
 }
 
 export function openColonyNameDialog(currentName, save) {

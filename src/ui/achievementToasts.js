@@ -13,7 +13,8 @@ export function playAchievementToasts(scene, queue, y = 154) {
       badge,
       text(scene, 49, 8, 'ACHIEVEMENT UNLOCKED', 11, { color: '#9bd8ae', fontStyle: 'bold' }),
       text(scene, 49, 23, award.name, 18, { fontStyle: 'bold' }),
-      text(scene, 49, 47, award.id === 'botanist' ? 'Name your colony in Achievements' : `Sol ${award.sol}`,
+      text(scene, 49, 47, award.id === 'botanist' ? 'Colony naming and Ice Drill unlocked'
+        : `Sol ${award.sol}${award.credits ? ` · +${award.credits} cr` : ''}`,
         12, { color: colors.muted }),
     ]).setAlpha(0).setDepth(10);
 

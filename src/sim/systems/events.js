@@ -31,6 +31,7 @@ export function eventSystem(ctx) {
   const { state, data, random, emit } = ctx;
   for (const event of state.events.active.filter(({ until }) => until <= state.sol)) emit('event:end', event);
   state.events.active = state.events.active.filter(({ until }) => until > state.sol);
+  if (state.rescue && state.sol <= data.balance.rescue.rationSols) return;
   for (const event of data.events) {
     if (event.difficulties && !event.difficulties.includes(state.difficulty)) continue;
     if (event.hardOnly && state.difficulty !== 'hard') continue;

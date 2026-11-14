@@ -32,7 +32,12 @@ export class UIScene extends Phaser.Scene {
       mission.scaleX = state.sol / state.solLimit;
     };
     refresh(sim.state);
-    const unsubscribe = [sim.on('sol', refresh), sim.on('purchase', refresh), sim.on('harvest', () => refresh(sim.state))];
+    const unsubscribe = [
+      sim.on('sol', refresh),
+      sim.on('purchase', refresh),
+      sim.on('harvest', () => refresh(sim.state)),
+      sim.on('advancement', () => refresh(sim.state)),
+    ];
     this.events.once('shutdown', () => unsubscribe.forEach((fn) => fn()));
   }
 }

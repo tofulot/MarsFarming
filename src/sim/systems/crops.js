@@ -27,8 +27,8 @@ export function harvestCrop(ctx, crop, plot) {
   const traits = crops.get(crop.cropId);
   const fertilized = ctx.near(plot, 'fertilizer', (building) => building.online && building.watered);
   const multiplier = fertilized ? data.balance.fertilizerYield : 1;
-  const kg = traits.yieldDry_g_m2_d * traits.growthDays * data.balance.plotAreaM2
-    * crop.health * multiplier / 1000;
+  const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * data.balance.plotAreaM2 / 1000;
+  const kg = fullYieldKg * crop.health * multiplier;
   const credits = Math.round(kg * traits.value_cr_per_kg);
   state.res.foodKg += kg;
   state.res.credits += credits;

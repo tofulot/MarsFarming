@@ -3,7 +3,7 @@ export function crewSystem({ state, data }) {
   const { balance } = data;
   const crew = state.crew;
   const foodNeeded = crew.n * balance.foodPerCrew;
-  const fed = state.res.foodKg >= foodNeeded;
+  const fed = state.res.foodKg + 1e-9 >= foodNeeded;
   const consumed = Math.min(foodNeeded, state.res.foodKg);
   state.res.foodKg -= consumed;
   state.metrics.consumedKg += consumed;
@@ -18,9 +18,10 @@ export function crewSystem({ state, data }) {
   const radiation = state.events.active.reduce((dose, event) =>
     dose + (event.effects.crewDose_mSv ?? 0) / (event.durationSols[1] || 1), 0);
   crew.dose_mSv += balance.crewRadiationPerSol + radiation * (shelter ? balance.shelterDoseMultiplier : 1);
-  const stress = Number(!fed) + Number(!crew.hydrated) + Number(!powered);
+  const hunger = fed ? 0 : state.rescue ? balance.rescue.starvationDamage : balance.healthLoss;
+  const damage = hunger + balance.healthLoss * (Number(!crew.hydrated) + Number(!powered));
   const radiationStress = state.difficulty === 'easy' ? 0 : radiation * (shelter ? 0.0002 : 0.001);
   crew.health = Math.max(0, Math.min(1, crew.health +
-    (stress ? -balance.healthLoss * stress : balance.healthRecovery) - radiationStress));
+    (damage ? -damage : balance.healthRecovery) - radiationStress));
   crew.morale = Math.max(0, Math.min(1, crew.morale + (fed ? .01 : -.02)));
 }

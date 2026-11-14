@@ -39,7 +39,7 @@ export class ColonyScene extends Phaser.Scene {
     this.tool = null;
     const { rescue } = this.sim.state;
     this.message = rescue
-      ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Build a greenhouse first.`
+      ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Start with two Greenhouse Plots and a Soil Washer.`
       : 'Use the base shop to equip the outpost. Press 1× to advance time.';
     this.finished = false;
     this.events.once('shutdown', () => {
@@ -246,7 +246,7 @@ export class ColonyScene extends Phaser.Scene {
         { color: unit.online ? '#9bd8ae' : '#ff805a' });
       const doForUnit = (type, id) => this.run({ type, id, uid: unit.uid });
       if (crop) {
-        const traits = this.dataSet.crops.find(({ id }) => id === crop.cropId);
+        const traits = this.sim.cropTraits(crop.cropId);
         say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health`, 18);
         const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth);
         const status = !remaining ? 'Ready to harvest' : `${remaining} growing sols remaining`;
@@ -262,10 +262,13 @@ export class ColonyScene extends Phaser.Scene {
         } : null);
       } else if (info.plot) {
         say(695, 279, unit.treated ? 'Choose a crop' : 'Untreated soil. Run a Soil Washer batch.', 17);
-        this.dataSet.crops.slice(0, 8).forEach((item, i) => {
+        this.dataSet.crops.slice(0, 8).forEach(({ id }, i) => {
+          const item = this.sim.cropTraits(id);
+          const requirement = this.sim.unlockRequirement(item);
           action(695 + i % 2 * 252, 318 + Math.floor(i / 2) * 48, 238, 40,
-            `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols`,
-            unit.treated ? () => doForUnit('plant', item.id) : null, { size: 14 });
+            requirement ? `${item.name}\nRequires ${requirement}`
+              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols`,
+            unit.treated && !requirement ? () => doForUnit('plant', id) : null, { size: 14 });
         });
       }
       if (unit.id === 'washer') {
@@ -295,8 +298,11 @@ export class ColonyScene extends Phaser.Scene {
         : 'Select an empty tile, or choose a structure first.', 16, { color: colors.muted });
       entries.slice(this.buildPage * pageSize, (this.buildPage + 1) * pageSize).forEach((item, i) => {
         const active = this.tool === item.id;
-        const cost = state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : `${item.cost} cr`;
-        action(695 + i % 2 * 252, 252 + Math.floor(i / 2) * 49, 238, 41, `${item.name} · ${cost}`,
+        const requirement = this.sim.unlockRequirement(item);
+        const price = this.sim.purchasePrice(item);
+        const label = requirement ? `${item.name}\nRequires ${requirement}` : `${item.name} · ${price} cr`;
+        action(695 + i % 2 * 252, 252 + Math.floor(i / 2) * 49, 238, 41, label,
+          !requirement && state.res.credits >= price ?
           () => {
             if (cell) {
               this.tool = null;
@@ -306,7 +312,7 @@ export class ColonyScene extends Phaser.Scene {
               this.notify(item.why);
               this.drawSide();
             }
-          }, { selected: active, size: 15 });
+          } : null, { selected: active, size: 15 });
       });
       action(695, 507, 59, 34, '←', this.buildPage > 0 ? () => { this.buildPage--; this.drawSide(); } : null);
       say(772, 514, `${this.buildPage + 1}/${pages}`, 14, { color: colors.muted });
@@ -316,15 +322,16 @@ export class ColonyScene extends Phaser.Scene {
         () => this.run({ type: 'setPriority', priority: state.power.priority[0] === 'iceDrill'
           ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
       const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
-      action(695, 550, 220, 35, `Buy spare part · ${spares.cost} cr`,
-        () => this.run({ type: 'buySpares' }), { size: 14 });
+      const sparePrice = this.sim.purchasePrice(spares);
+      action(695, 550, 220, 35, `Buy spare part · ${sparePrice} cr`,
+        state.res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
       say(933, 558, `Spares in storage: ${state.res.spares}`, 14, { color: colors.muted });
     }
     for (const [i, speed] of playbackSpeeds.entries()) {
       action(678 + i * 58, 633, 52, 42, speed ? `${speed}×` : 'Pause',
         () => this.run({ type: 'setSpeed', speed }, false), { selected: state.speed === speed, size: 14 });
     }
-    action(973, 633, 86, 42, '+1 sol', () => { this.acc = 0; this.sim.step(); }, { size: 14 });
+    action(915, 633, 86, 42, '+1 sol', () => { this.acc = 0; this.sim.step(); }, { size: 14 });
     action(1067, 633, 157, 42, state.rescue ? 'Abandon mission' : 'End and report',
       () => { if (!state.rescue || window.confirm('Abandon this rescue mission?')) this.run({ type: 'endMission' }); }, { size: 14 });
   }
