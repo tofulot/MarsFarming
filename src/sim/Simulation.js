@@ -45,7 +45,7 @@ export class Simulation {
     state.site = site;
     if (options.rescue) {
       const { arrivalSol, rationSols } = data.balance.rescue;
-      state.rescue = { arrivalSol, colonyName: '', earned: {}, harvestedPlots: [], outcome: 'waiting' };
+      state.rescue = { arrivalSol, colonyName: '', earned: { stranded: state.sol }, harvestedPlots: [], outcome: 'waiting' };
       state.solLimit = arrivalSol;
       state.crew.n = 1;
       state.res.foodKg = rationSols * data.balance.foodPerCrew;
@@ -60,6 +60,10 @@ export class Simulation {
     };
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
     if (packed) this.#unpack(manifest);
+    if (state.rescue) {
+      if (state.buildings.some(({ id }) => id === 'plot')) earnAdvancement(this.#ctx, 'greenhouse');
+      if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');
+    }
     seasonSystem(state, data, site);
     state.weather = this.getWeather();
     state.outsideTempC = state.weather.outsideTempC;
@@ -142,6 +146,9 @@ export class Simulation {
     economySystem(this.#ctx);
     rewardSystem(this.#ctx);
     this.#bus.emit('sol', state);
+    if (state.crew.health > 0 && state.rescue && state.sol >= Math.ceil(state.rescue.arrivalSol / 2)) {
+      earnAdvancement(this.#ctx, 'halfway');
+    }
     if (!state.crew.health) this.#finish(state.rescue ? 'You died before rescue arrived.' : 'Crew health fell to zero.');
     else if (state.sol >= state.solLimit) {
       if (state.rescue) {

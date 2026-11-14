@@ -1,34 +1,47 @@
-import { advancements } from '../sim/advancements.js';
+import { advancementAvailable, advancements } from '../sim/advancements.js';
 import { colors, panel, text } from './controls.js';
 
 export function drawAdvancementTree(scene, group, rescue, selected, choose) {
-  const origin = { x: 696, y: 213 };
+  const width = 120;
+  const height = 39;
   const position = ({ position: [column, row] }) =>
-    ({ x: origin.x + column * 264, y: origin.y + row * 56 });
+    ({ x: 695 + column * 129, y: 211 + row * 47 });
+  const earned = (id) => Object.hasOwn(rescue.earned, id);
   const links = scene.add.graphics();
   group.add(links);
+
   for (const entry of advancements) {
-    const { x, y } = position(entry);
+    const target = position(entry);
     for (const parent of entry.requires) {
       const start = position(advancements.find(({ id }) => id === parent));
-      links.lineStyle(2, colors.line).lineBetween(start.x + 115, start.y + 49, x + 115, y);
+      const fromX = start.x + width / 2;
+      const toX = target.x + width / 2;
+      const fromY = start.y + height;
+      const between = (fromY + target.y) / 2;
+      links.lineStyle(2, earned(entry.id) ? colors.mint : earned(parent) ? colors.accent : colors.line);
+      links.beginPath().moveTo(fromX, fromY).lineTo(fromX, between)
+        .lineTo(toX, between).lineTo(toX, target.y).strokePath();
     }
   }
+
   for (const entry of advancements) {
     const { x, y } = position(entry);
-    const earned = Object.hasOwn(rescue.earned, entry.id);
-    const ready = entry.requires.every((id) => Object.hasOwn(rescue.earned, id));
-    const card = panel(scene, x, y, 230, 49, earned ? 0x294238 : 0x30232b);
+    const done = earned(entry.id);
+    const ready = advancementAvailable(rescue, entry);
+    const card = panel(scene, x, y, width, height, done ? 0x294238 : ready ? 0x492e2c : 0x211b21);
     if (selected === entry.id) card.setStrokeStyle(2, colors.accent);
     card.setInteractive({ useHandCursor: true }).on('pointerdown', () => choose(entry.id));
     group.addMultiple([card,
-      text(scene, x + 12, y + 6, entry.name, 16, { fontStyle: 'bold' }),
-      text(scene, x + 12, y + 29, earned ? `Earned on sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 12,
-        { color: earned ? '#9bd8ae' : colors.muted }),
+      text(scene, x + 6, y + 3, entry.name, 12, { fontStyle: 'bold', color: done || ready ? colors.ink : colors.muted }),
+      text(scene, x + 6, y + 20, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 11,
+        { color: done ? '#9bd8ae' : ready ? '#ffc7a8' : colors.muted }),
     ]);
   }
+
   const clue = advancements.find(({ id }) => id === selected);
-  group.add(text(scene, 696, 500, clue.hint, 15, { wordWrap: { width: 495 }, color: colors.muted }));
+  const missing = clue.requires.filter((id) => !earned(id)).map((id) => advancements.find((entry) => entry.id === id).name);
+  const detail = missing.length ? `Unlock ${missing.join(' and ')} first. ${clue.hint}` : clue.hint;
+  group.add(text(scene, 695, 492, detail, 14, { wordWrap: { width: 505 }, color: colors.muted }));
 }
 
 export function openColonyNameDialog(currentName, save) {

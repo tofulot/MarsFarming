@@ -169,6 +169,7 @@ test('a stranded farmer can plant, name their colony, harvest and survive until 
   const plot = { x: 0, y: 0 };
   assert.equal(sim.state.crew.n, 1);
   assert.equal(sim.state.rescue.arrivalSol, 120);
+  assert.deepEqual(sim.state.rescue.earned, { stranded: 0 });
   assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
   assert.ok(build('plot', 0, 0).ok);
   assert.ok(build('washer', 1, 0).ok);
@@ -187,6 +188,7 @@ test('a stranded farmer can plant, name their colony, harvest and survive until 
     }
   }
   assert.equal(sim.state.rescue.outcome, 'rescued');
+  assert.equal(sim.state.rescue.earned.halfway, 60);
   assert.equal(sim.state.rescue.earned.rescue, 120);
   assert.equal(sim.state.rescue.earned.botanist, 1);
   assert.ok(sim.state.metrics.grownKg > 0);
