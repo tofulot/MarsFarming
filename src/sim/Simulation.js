@@ -55,7 +55,7 @@ export class Simulation {
     }
     this.#demo = demo;
     this.#ctx = {
-      state, data, site, weather: createRedHarvestWeather(data), buildings: new Map(data.buildings.map((item) => [item.id, item])),
+      state, data, site, weather: createRedHarvestWeather(data, options.weather), buildings: new Map(data.buildings.map((item) => [item.id, item])),
       crops: new Map(data.crops.map((item) => [item.id, options.rescue
         ? { ...item, ...data.balance.rescue.crops[item.id] } : item])),
       random: mulberry32(seed), emit: this.#bus.emit,

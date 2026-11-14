@@ -1,0 +1,172 @@
+# Shared weather API
+
+The shared JavaScript interface is implemented in `src/weather/index.js` and connected to the game imported from `red-harvest/mvp` at `a85f5cc`. It runs in the browser and Node. The API accepts plain objects, returns independent snapshots, and exposes `version: 1`.
+
+## Use from the running game
+
+`Simulation` constructs the API and connects it to the sol loop and power system. Teammates can query it immediately after creating a simulation.
+
+```js
+const weather = sim.getWeather();
+const forecast = sim.forecastWeather(7);
+const crop = data.crops.find(crop => crop.id === 'lettuce');
+
+const effects = sim.weather.cropEffects(crop, weather, {
+  basePowerW: 800,
+  includedPpf: 28
+});
+// effects contains baseW, lightW, heatW and totalW.
+
+const advice = sim.weather.plantingAdvice(crop, weather, 1500, {
+  basePowerW: 800,
+  includedPpf: 28
+});
+// 1500 is the power available to this slot after other loads.
+// advice includes powerSufficientNow, powerFit, stormSeasonSols and regionalStormRisk.
+
+const solar = sim.weather.powerEffects({
+  weather,
+  ratedW: 3000,
+  dust: 0.1
+});
+// solar.generationW is projected output with the supplied panel dust.
+```
+
+Use the selected building's `-powerW` as `basePowerW`. The current game includes lighting up to PPF 28 in that building budget. The interface accepts this allowance per call, so future building definitions can supply different values. The live power system already calls these methods and applies their results to load allocation. The crop system observes `plot.online` to determine growth and stress.
+
+Forecasts cover the next requested sols. Each day contains `sol`, `Ls`, `season`, `outsideTempC`, `solarFactor`, `dustFactor`, `heatingFactor`, `commsFactor`, and active known events. The result identifies itself as a `projection` with its assumptions. It projects seasonal conditions and the remaining lifetime of known events. Random future storms remain uncertain. Queries leave resources, event RNG and the mission clock unchanged.
+
+`sim.getWeather()` reads the current event list, including a just-triggered demo event. `sim.state.weather` holds the snapshot from initialization or the most recent sol. UI callers should use `getWeather()` when they need to reflect an event command immediately.
+
+## Public interface
+
+| Method | Inputs | Result |
+|---|---|---|
+| `current(input)` | Sol, site, optional seed/difficulty/Ls/events/observation | Weather snapshot |
+| `forecast(input, { sols })` | Same input, future sol count | `{ kind, basis, days }` |
+| `powerEffects({ weather, ratedW, dust, advanceDust })` | Panel and conditions | `{ generationW, dust, solarFactor, _game }` |
+| `cropEffects(crop, weather, load)` | Effective crop traits and optional base load | `{ baseW, lightW, heatW, totalW, _game }` |
+| `plantingAdvice(crop, weather, availableClimateW, load)` | Crop, conditions and power budget | Demand, current power fit and duration-based regional-storm risk |
+| `advance(previous, input)` | Previous standalone weather snapshot and next sol | `{ weather, messages }` from the seeded weather scheduler |
+| `getConfig()` | None | Independent configuration copy |
+| `getSources()` | None | Source IDs and URLs |
+| `getObservations(siteId)` | Optional site ID | Independent copies of archived reference records |
+
+`current()` and `forecast()` use events supplied by their caller. Red Harvest's `eventSystem` owns scheduling in the integrated game. The standalone `advance()` method supplies scheduling for a caller that needs it, including warnings and saveable event state. In that mode, initialize with an undefined previous snapshot, advance one sol at a time, and save the returned weather object. Repeated calls for the same sol produce no duplicate messages.
+
+`advanceDust` defaults to false for queries. The live power system sets it to true once per powered solar array per sol and stores the returned dust. The cleaning command sets that panel's dust to zero. This keeps forecasts and UI queries from advancing panel wear.
+
+## Use in another module or branch
+
+Load the configuration using the team's existing data loader. Browser fetches should honor the application's base URL.
+
+```js
+import { createWeatherAPI } from './src/weather/index.js';
+
+const response = await fetch(`${import.meta.env.BASE_URL}data/weather.json`);
+if (!response.ok) throw new Error(`Weather config load failed (${response.status})`);
+const config = await response.json();
+const api = createWeatherAPI({ config });
+const input = {
+  sol: 100,
+  site: { id: 'jezero', lat: 18.44 },
+  seed: 42,
+  difficulty: 'medium',
+  events: []
+};
+const weather = api.current(input);
+const forecast = api.forecast(input, { sols: 10 });
+```
+
+Paths in examples are relative to the repository root. Adjust import paths for the calling module. The module uses standard ES imports and has no Phaser dependency.
+
+The canonical active-event shape is shown below. Time intervals include `startSol` and end just before `endSol`. Omit `endSol` for an event with unknown duration. The forecast carries such an event forward.
+
+```js
+{
+  id: 'dustRegional',
+  startSol: 100,
+  endSol: 110,
+  effects: { solarFactor: 0.4, heatingFactor: 1, commsFactor: 1 }
+}
+```
+
+The Red Harvest adapter translates its existing `until` to `endSol` and `heatFactor` to `heatingFactor`. Concurrent effects use the lowest solar/comms factor and highest heating factor, preserving the game's current composition rule. Other event fields, including equipment targets and fact text, remain available to their owning systems.
+
+## Change the design without changing callers
+
+`src/weather/redHarvest.js` contains the game-specific mapping. This is the place to update when teammates rename event fields or change their data organization. `src/weather/index.js` provides the stable public methods. The original pure functions and legacy adapter remain available to earlier callers.
+
+Configuration is copied when constructing an API. Named sections merge field by field, individual difficulty entries merge, and arrays such as `events` replace the complete array. Construct a new instance when loading new tuning. Inputs and returned copies can be edited without changing the API's internal configuration.
+
+```js
+const api = createWeatherAPI({
+  config,
+  overrides: {
+    balance: { heatWattsPerDegree: 4 },
+    difficulties: { easy: { eventMult: 0.25 } },
+    events: []
+  },
+  models: {
+    temperature: ({ sol, site, Ls, config }) => myTemperatureModel(sol, site, Ls, config),
+    solar: ({ site, Ls, config }) => mySolarModel(site, Ls, config)
+  }
+});
+```
+
+The model callbacks return finite numbers. Solar output must be nonnegative. They receive copied context and should compute deterministically from their inputs. This supports replacing the simple temperature model with a screened seasonal dataset while retaining the same UI and crop calls.
+
+For the integrated game, the existing `seasons`, `balance`, `difficulty`, and `events` datasets take precedence over bundled weather defaults. This preserves the current game's temperature curve, dust accumulation and load budgets. Explicit per-simulation overrides win last.
+
+```js
+const sim = new Simulation(data, {
+  siteId: 'gale',
+  difficulty: 'easy',
+  weather: {
+    overrides: { balance: { heatWattsPerDegree: 4 } },
+    models: { temperature: ({ Ls }) => mySeasonalTemperature(Ls) }
+  }
+});
+```
+
+External scheduling in Red Harvest uses `data.events` and `data.difficulty`. Edit those datasets to change the live event schedule. The shared interface's event configuration supports standalone scheduling and planting-risk estimates. A per-instance API event override changes those API calculations. The event scheduler remains owned by `eventSystem`.
+
+For Edwin's crop genetics work, pass the effective traits after mutations into `cropEffects()` and `plantingAdvice()`. The API reads `ppf`, `tempDayC`, and `growthSols` from each supplied object. Trait changes are reflected immediately. Missing numeric crop targets raise a clear error. The gameplay owner can decide how mutations alter growth or stress using those demand results.
+
+## Current coordination
+
+| Owner | Integration |
+|---|---|
+| Kelton | Shared interface, weather configuration, source records and compatibility adapter |
+| Gameplay/UI | `sim.getWeather()`, `sim.forecastWeather()`, and `sim.weather` query methods |
+| Crop genetics | Effective crop traits passed into the demand/advice functions |
+| Game simulation | Existing clock/events plus API-derived solar generation and climate loads |
+
+`BootScene` loads `weather.json` and `weather-observations.json` with the game's base URL. Existing headless callers can still construct `Simulation` with the original game datasets. The adapter derives its defaults from those datasets when weather metadata is absent.
+
+The shared interface exposes storm communications factors for future consumers. The current economy system continues to calculate throughput from powered dishes. Any future comms effect should be applied by that system with an explicit game interpretation.
+
+## Data and scientific meaning
+
+Reference observations and source URLs are bundled in `public/data/weather-observations.json` and `public/data/weather.json`. The observations contain four short NASA summaries with their site and measurement coverage. The annual temperatures are synthetic game values. Seasonal geometry is approximate, and event probabilities, dust penalties and load conversions are balancing values.
+
+MEDA provides Jezero temperature, pressure, wind, humidity and radiation/dust data. REMS provides Gale environmental measurements. InSight supplies historical Elysium temperature, wind and pressure records. These archives support a future screened dataset provider. [MEDA archive](https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/PERSEVERANCE/meda.html), [REMS archive](https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/curiosity.html), [InSight archive](https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/INSIGHT/insight.html)
+
+The calendar uses LMD's unequal 30° solar-longitude intervals. Orbital constants and reference values come from NASA's fact sheet and Mars24. [LMD calendar](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.html), [NASA fact sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html), [Mars24](https://www.giss.nasa.gov/tools/mars24/help/notes.html)
+
+The bundled Jezero summaries preserve initial pressure and surface readings separately from the combined sols 43–44 report. Importing archived air temperatures requires checking sensor type, units, quality flags, coverage and site. A `current()` observation override requires `siteId`, `airTempMinC`, `airTempMaxC`, `sourceUrl` and `coverage`; its midpoint supplies an approximate outside temperature for that sol. Forecasts resume the configured model on subsequent sols. [NASA MEDA report](https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/)
+
+Weather creates the README's engineering trade-offs through power generation, heating demand and the crop growth window. A well-supplied greenhouse can continue growing during a storm. Players respond with batteries, cleaning, load priorities and crop selection. The supplied 2026 challenge text remains the project brief; the official page returned HTTP 502 during the earlier research. [Challenge page](https://www.spaceappschallenge.org/2026/challenges/space-mission-design-game/)
+
+## Run and verify
+
+```sh
+npm install
+npm test
+npm run build
+node examples/weather-api-demo.mjs
+```
+
+On the development host, Vite’s default config-bundling step stalled. `npm run build -- --configLoader native` completed successfully and produced the browser bundle and weather JSON assets.
+
+Tests cover the existing game loop, a Mars year across all sites and difficulties, deterministic saves, event boundaries, immutable forecasts, data mapping, tuning overrides and crop stress caused by API-derived power demand. OpenAI Codex assisted with this implementation, data transcription, tests and documentation.

@@ -1,5 +1,5 @@
 // Adapt Kelton's weather API to Red Harvest's simulation and event scheduler.
-import { createWeatherAPI } from './index.js';
+import { createWeatherAPI, configureWeather } from './index.js';
 import { clearSolarFactor } from '../sim/insolation.js';
 
 export function gameEvents(weather, existing) {
@@ -12,7 +12,7 @@ export function gameEvents(weather, existing) {
   }))];
 }
 
-export function createRedHarvestWeather(data) {
+export function createRedHarvestWeather(data, options = {}) {
   const { seasons, balance } = data;
   const { perihelionMkm: near, aphelionMkm: far } = seasons.orbit;
   const config = data.weather ?? {
@@ -27,15 +27,15 @@ export function createRedHarvestWeather(data) {
     difficulties: Object.fromEntries(Object.entries(data.difficulty).map(([id, mode]) =>
       [id, { eventMult: mode.eventMult, warningSols: 0 }])),
   };
-  return createWeatherAPI({
-    config,
-    overrides: { balance: {
+  const mappedConfig = configureWeather(config, { balance: {
       panelLossPerSol: balance.solarDustLoss,
       minimumPanelCleanliness: balance.solarDustFloor,
       dustMode: 'additive', stormDustMultiplier: 3,
       lightWattsPerPpf: balance.wheatExtraWattsPerPpf,
       heatWattsPerDegree: balance.heatWattsPerDegree,
-    } },
+    } });
+  return createWeatherAPI({
+    config: mappedConfig, overrides: options.overrides,
     observations: data.weatherObservations?.observations ?? [],
     models: {
       solar: ({ site, Ls }) => clearSolarFactor(site.lat, Ls, seasons.orbit),
@@ -44,6 +44,7 @@ export function createRedHarvestWeather(data) {
         return model.baseC - Math.abs(site.lat) * model.latitudePenalty +
           model.seasonSwingC * Math.sin(Ls * Math.PI / 180) * (site.lat < 0 ? -1 : 1);
       } }),
+      ...options.models,
     },
   });
 }
