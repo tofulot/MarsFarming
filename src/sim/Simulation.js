@@ -1,6 +1,7 @@
 // AI-assisted (OpenAI Codex)
 import { createBus } from './bus.js';
 import { checkManifest } from './design.js';
+import { landingSite } from './marsMap.js';
 import { mulberry32 } from './rng.js';
 import { createState } from './state.js';
 import { seasonSystem } from './systems/season.js';
@@ -23,13 +24,22 @@ export class Simulation {
 
   constructor(data, options = {}) {
     const { seed = 42, difficulty = 'medium', objectiveId = data.objectives[0].id,
-      siteId = data.sites[0].id, landerId = data.landers[0].id, manifest = {}, demo = false } = options;
+      siteId = data.sites[0].id, landerId, manifest = {}, demo = false } = options;
     const mode = data.difficulty[difficulty];
     if (!mode || !data.objectives.some(({ id }) => id === objectiveId)) throw new Error('Invalid mission options.');
-    const launch = checkManifest(data, { landerId, items: manifest, budget: mode.budget, siteId });
+    const site = options.site
+      ? landingSite(options.site.lat, options.site.lon, data['neutron-flux'])
+      : data.sites.find(({ id }) => id === siteId);
+    if (!site) throw new Error('Invalid landing site.');
+    // Existing scripted missions can still supply a validated payload.
+    const packed = landerId || Object.keys(manifest).length;
+    const launch = packed
+      ? checkManifest(data, { landerId: landerId ?? data.landers[0].id, items: manifest, budget: mode.budget, siteId })
+      : { ok: true, cost: 0, massKg: 0 };
     if (!launch.ok) throw new Error(launch.reasons.join(' '));
-    const state = createState(data, { seed, difficulty, objectiveId, siteId, landerId, manifest }, launch);
-    const site = data.sites.find(({ id }) => id === siteId);
+    const state = createState(data, { seed, difficulty, objectiveId,
+      siteId: options.site ? undefined : siteId, landerId, manifest }, launch);
+    state.site = site;
     this.#demo = demo;
     this.#ctx = {
       state, data, site, buildings: new Map(data.buildings.map((item) => [item.id, item])),
@@ -39,6 +49,24 @@ export class Simulation {
         unit.id === id && Math.abs(unit.x - plot.x) + Math.abs(unit.y - plot.y) === 1 && predicate(unit)),
     };
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
+    if (packed) this.#unpack(manifest);
+    seasonSystem(state, data, site);
+    state.power.gen = launch.startPower ?? state.buildings.reduce((total, unit) => {
+      const power = this.#ctx.buildings.get(unit.id).powerW;
+      const factor = unit.id === 'solar' ? state.power.clearSolarFactor : 1;
+      return total + Math.max(0, power) * factor;
+    }, 0);
+    state.power.demand = state.buildings.reduce((load, unit) => {
+      const model = this.#ctx.buildings.get(unit.id);
+      return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW);
+    }, 0);
+    rewardSystem(this.#ctx);
+    const location = options.site ? `${site.lat.toFixed(1)}°, ${site.lon.toFixed(1)}°` : site.name;
+    this.#record(`Landed at ${location}.`, `Started surface operations with ${state.res.credits} credits.`);
+  }
+
+  #unpack(manifest) {
+    const state = this.state;
     const open = [];
     for (let y = 0; y < state.grid.h; y++) {
       for (let x = 0; x < state.grid.w; x++) {
@@ -53,15 +81,6 @@ export class Simulation {
         this.#place(id, tile.x, tile.y);
       }
     }
-    seasonSystem(state, data, site);
-    state.power.gen = launch.startPower;
-    state.power.demand = state.buildings.reduce((load, unit) => {
-      const model = this.#ctx.buildings.get(unit.id);
-      return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW);
-    }, 0);
-    rewardSystem(this.#ctx);
-    this.#record(`Landed at ${site.name} on ${data.landers.find(({ id }) => id === landerId).name}.`,
-      `Packed ${launch.massKg} kg and kept ${state.res.credits} credits for surface operations.`);
   }
 
   get state() { return this.#ctx.state; }
@@ -120,7 +139,17 @@ export class Simulation {
         state.res.credits -= model.cost;
         this.#place(id, x, y);
         this.#record(`Built ${model.name}.`, model.why);
+        this.#bus.emit('purchase', state);
         return ok(`Built ${model.name}.`);
+      }
+      case 'buySpares': {
+        const parts = data.balance.kit.find(({ id }) => id === 'spares');
+        if (state.res.credits < parts.cost) return fail('Insufficient credits for spare parts.');
+        state.res.credits -= parts.cost;
+        state.res.spares++;
+        this.#record('Bought a spare part.');
+        this.#bus.emit('purchase', state);
+        return ok('Bought a spare part.');
       }
       case 'plant': {
         const traits = crops.get(id);

@@ -17,7 +17,7 @@ export class TitleScene extends Phaser.Scene {
     graphics.lineStyle(1, colors.line).lineBetween(68, 628, 1210, 628);
     text(this, 68, 117, 'MARS GREENHOUSE MISSION', 18, { color: '#ff805a', fontStyle: 'bold' });
     text(this, 65, 152, 'Red\nHarvest', 112, { fontStyle: 'bold', lineSpacing: -22 });
-    text(this, 69, 412, 'Pack a lander. Grow food on Mars.\nKeep four crew alive through dust season.', 25,
+    text(this, 69, 412, 'Pick a landing site. Grow food on Mars.\nKeep four crew alive through dust season.', 25,
       { color: colors.muted, lineSpacing: 7 });
     const demo = new URLSearchParams(location.search).get('demo') === '1';
     button(this, 69, 532, 243, 55, demo ? 'Launch demo' : 'Design a mission',

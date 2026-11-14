@@ -105,3 +105,19 @@ test('every demo data number is finite and no fields are null', () => {
   }
   verify(data);
 });
+
+test('map landings start with the full base budget and buy equipment on the surface', () => {
+  const grid = read('mars/neutron-flux');
+  assert.equal(grid.length, 4050);
+  const fixture = { ...quietData, 'neutron-flux': grid };
+  const polar = new Simulation(fixture, { site: { lat: -88, lon: -178 } });
+  const equatorial = new Simulation(fixture, { site: { lat: 0, lon: -178 } });
+  assert.ok(polar.state.site.iceFactor > equatorial.state.site.iceFactor);
+  assert.ok(polar.state.power.gen < equatorial.state.power.gen);
+  assert.equal(polar.state.res.credits, data.difficulty.medium.budget);
+  assert.equal(polar.state.buildings.length, data.balance.starter.length);
+  assert.equal(polar.command({ type: 'buySpares' }).ok, true);
+  assert.equal(polar.state.res.spares, 1);
+  assert.equal(polar.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok, true);
+  assert.equal(polar.state.res.credits, data.difficulty.medium.budget - 60);
+});

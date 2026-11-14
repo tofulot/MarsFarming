@@ -9,7 +9,7 @@ export class UIScene extends Phaser.Scene {
     panel(this, 0, 0, 1280, 78, 0x21161d);
     const cards = [
       ['SOL / SEASON', (s) => `${s.sol}/${s.solLimit} · ${s.season} · ${Math.floor(s.Ls)}°`],
-      ['CREDITS / CARGO', (s) => `${fmt(s.res.credits, 'credits')} / ${fmt(s.res.massUsed, 'mass')}`],
+      ['CREDITS', (s) => fmt(s.res.credits, 'credits')],
       ['POWER IN / NEEDED', (s) => `${fmt(s.power.gen)} / ${fmt(s.power.demand, 'power')}`],
       ['WATER / FOOD', (s) => `${fmt(s.res.waterL, 'water')} / ${fmt(s.res.foodKg, 'food')}`],
       ['SCIENCE / COMMS', (s) => `${s.res.sp} SP / ${fmt(s.power.comms, 'comms')}`],
@@ -27,7 +27,7 @@ export class UIScene extends Phaser.Scene {
       extra.setText(`Battery ${fmt(state.res.batteryWh, 'battery')}  ·  Queued data ${state.res.data}  ·  Shed loads ${state.power.shed.length}`);
     };
     refresh(sim.state);
-    const unsubscribe = [sim.on('sol', refresh), sim.on('harvest', () => refresh(sim.state))];
+    const unsubscribe = [sim.on('sol', refresh), sim.on('purchase', refresh), sim.on('harvest', () => refresh(sim.state))];
     this.events.once('shutdown', () => unsubscribe.forEach((fn) => fn()));
   }
 }

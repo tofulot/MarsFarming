@@ -21,7 +21,7 @@ export class ColonyScene extends Phaser.Scene {
     this.selected = null;
     this.buildPage = 0;
     this.tool = null;
-    this.message = 'Choose a building, then click an empty tile. Press 1× to advance time.';
+    this.message = 'Use the base shop to equip the outpost. Press 1× to advance time.';
     this.finished = false;
     this.events.once('shutdown', () => this.scene.stop('UI'));
     this.sim.on('sol', () => this.refreshGrid());
@@ -34,11 +34,11 @@ export class ColonyScene extends Phaser.Scene {
       this.finished = true;
       this.scene.start('Report', { state, options });
     });
-    text(this, 48, 95, this.dataSet.sites.find(({ id }) => id === options.siteId).name, 29, { fontStyle: 'bold' });
+    text(this, 48, 95, this.sim.state.site.name, 29, { fontStyle: 'bold' });
     text(this, 739, 116, 'SURFACE OPERATIONS', 15, { color: '#ff805a', fontStyle: 'bold' });
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
-    this.feedback = text(this, 48, 620, this.message, 17, { color: '#ffc7a8', wordWrap: { width: 665 } });
+    this.feedback = text(this, 48, 620, this.message, 17, { color: '#ffc7a8', wordWrap: { width: 610 } });
     text(this, 48, 676, this.dataSet.demoWeather ? 'SIMULATED WEATHER  /  GAME VALUES' : 'GAME VALUES', 12, { color: colors.muted });
     this.refreshGrid();
     this.drawSide();
@@ -79,7 +79,8 @@ export class ColonyScene extends Phaser.Scene {
   select(x, y) {
     this.selected = { x, y };
     if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
-      if (this.run({ type: 'build', id: this.tool, x, y }).ok) this.tool = null;
+      const result = this.run({ type: 'build', id: this.tool, x, y });
+      if (result.ok) this.tool = null;
       return;
     }
     this.refreshGrid();
@@ -130,7 +131,7 @@ export class ColonyScene extends Phaser.Scene {
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
     add(panel(this, 675, 154, 550, 449));
-    say(695, 169, info ? info.name : 'Build outpost', 24, { fontStyle: 'bold' });
+    say(695, 169, info ? info.name : 'Base shop', 24, { fontStyle: 'bold' });
     if (info) {
       say(695, 207, info.why, 15, { color: colors.muted, wordWrap: { width: 495 } });
       say(695, 245, unit.online ? 'ONLINE' : 'OFFLINE / POWER SHED', 13,
@@ -157,13 +158,13 @@ export class ColonyScene extends Phaser.Scene {
       if (state.events.active.some(({ targetUid }) => targetUid === unit.uid)) {
         action(947, 303, 240, 43, 'Repair equipment', () => doForUnit('repair'));
       }
-      action(690, 548, 190, 36, 'Build menu', () => { this.selected = null; this.refreshGrid(); this.drawSide(); });
+      action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.refreshGrid(); this.drawSide(); });
       action(979, 548, 214, 36, 'Remove structure', unit.id === 'hab' ? null : () => doForUnit('demolish'));
     } else {
       const entries = this.dataSet.buildings.filter(({ id }) => id !== 'hab');
       const pageSize = 10;
       const pages = Math.ceil(entries.length / pageSize);
-      say(695, 207, 'Pick a structure, then click an empty tile.', 16, { color: colors.muted });
+      say(695, 207, 'Choose a structure, then click an empty tile to buy and build.', 16, { color: colors.muted });
       entries.slice(this.buildPage * pageSize, (this.buildPage + 1) * pageSize).forEach((item, i) => {
         const active = this.tool === item.id;
         const cost = state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : `${item.cost} cr`;
@@ -177,7 +178,10 @@ export class ColonyScene extends Phaser.Scene {
         state.power.priority[0] === 'iceDrill' ? 'Power order · Water first' : 'Power order · Farm first',
         () => this.run({ type: 'setPriority', priority: state.power.priority[0] === 'iceDrill'
           ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
-      say(695, 563, 'Life support receives power first.', 14, { color: colors.muted });
+      const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
+      action(695, 550, 220, 35, `Buy spare part · ${spares.cost} cr`,
+        () => this.run({ type: 'buySpares' }), { size: 14 });
+      say(933, 558, `Spares in storage: ${state.res.spares}`, 14, { color: colors.muted });
     }
     for (const [i, speed] of [0, 1, 2, 4].entries()) {
       action(678 + i * 71, 633, 64, 42, speed ? `${speed}×` : 'Pause',

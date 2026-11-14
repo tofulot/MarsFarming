@@ -9,12 +9,16 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     const path = `${import.meta.env.BASE_URL}data/`;
+    this.load.image('mars-terrain', `${path}mars/terrain.jpg`);
+    this.load.json('neutron-flux', `${path}mars/neutron-flux.json`);
     for (const key of keys) this.load.json(key, `${path}${key}.json`);
   }
 
   async create() {
     const message = document.querySelector('#error');
     const missing = keys.filter((key) => !this.cache.json.exists(key));
+    if (!this.textures.exists('mars-terrain')) missing.push('Mars terrain');
+    if (this.cache.json.get('neutron-flux')?.length !== 4050) missing.push('neutron flux');
     if (missing.length) {
       message.textContent = `Could not load mission data: ${missing.join(', ')}.`;
       message.style.position = 'fixed';
@@ -22,6 +26,7 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     const data = Object.fromEntries(keys.map((key) => [key, this.cache.json.get(key)]));
+    data['neutron-flux'] = this.cache.json.get('neutron-flux');
     const events = await fetch(import.meta.env.BASE_URL + 'data/events.json')
       .then((response) => response.ok ? response.json() : null)
       .catch(() => null);
