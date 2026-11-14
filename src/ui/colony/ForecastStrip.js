@@ -5,7 +5,7 @@ export function drawForecastStrip(scene, group) {
   label(scene, group, 32, 682, 'FORECAST · MODEL', 9, { fontStyle: 'bold' });
   const forecast = scene.sim.forecastWeather(12);
   const incoming = forecast.days.find(day => day.sol > scene.sim.state.sol && day.sol <= scene.sim.state.sol + 10 && day.dustFactor < 1);
-  if (incoming) label(scene, group, 340, 682, `DUST STORM IN ${incoming.sol - scene.sim.state.sol} SOL${incoming.sol - scene.sim.state.sol === 1 ? '' : 'S'}`, 10,
+  if (incoming) label(scene, group, 32, 663, `⚠ DUST STORM IN ${incoming.sol - scene.sim.state.sol} SOL${incoming.sol - scene.sim.state.sol === 1 ? '' : 'S'}`, 10,
     { color: '#ffad58', fontStyle: 'bold' });
   forecast.days.forEach((day, index) => {
     const x = 125 + index * 93;
