@@ -1,5 +1,6 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import achievementChime from '../assets/achievement.wav';
 import { hasDustClimatology } from '../weather/dustClimatology.js';
 import { gameEvents } from '../weather/redHarvest.js';
 
@@ -10,6 +11,7 @@ export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
   preload() {
+    this.load.audio('achievement-chime', achievementChime);
     const path = `${import.meta.env.BASE_URL}data/`;
     this.load.image('mars-terrain', `${path}mars/terrain.jpg`);
     this.load.json('dust-climatology', `${path}mars/dust-climatology.json`);

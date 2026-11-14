@@ -23,6 +23,11 @@ export function playAchievementToasts(scene, queue, y = 154) {
         { y, alpha: 1, duration: 160, hold: 2800 },
         { y: y - 10, alpha: 0, duration: 180 },
       ],
+      onStart: () => {
+        if (scene.cache.audio.exists('achievement-chime')) {
+          scene.sound.play('achievement-chime', { volume: 0.55 });
+        }
+      },
       onComplete: () => {
         card.destroy();
         queue.shift();
