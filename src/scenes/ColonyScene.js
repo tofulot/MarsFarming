@@ -1,30 +1,22 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
+import { ColonyPresentation } from '../ui/colony/ColonyPresentation.js';
+import { drawColonyBoard } from '../ui/colony/board.js';
+import { shopCategories } from '../ui/colony/catalog.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { drawColonyWeather } from '../ui/colonyWeather.js';
-import { Simulation, playbackSpeeds } from '../sim/Simulation.js';
+import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 
-const tileSize = 37;
-const origin = { x: 48, y: 159 };
-const palette = { hab: 0x83708f, solar: 0x526995, battery: 0x57566d, plot: 0x597b59,
-  hydroponic: 0x447b79, iceDrill: 0x4b7c94, washer: 0x917053, berm: 0x80624c };
 const washerMessages = {
   queued: '1 sol remaining · Requires power and water',
   power: 'Waiting for power · 1 sol once powered',
   water: 'Waiting for water · 1 sol once supplied',
   complete: 'Batch complete · Soil is ready to plant',
 };
-
-const shopCategories = [
-  { name: 'Farming', items: ['plot', 'washer', 'fertilizer', 'hydroponic'] },
-  { name: 'Power', items: ['solar', 'battery', 'nuclear'] },
-  { name: 'Water', items: ['iceDrill', 'recycler', 'harvester'] },
-  { name: 'Support', items: ['berm', 'shelter', 'comms', 'lab'] },
-];
 
 export class ColonyScene extends Phaser.Scene {
   constructor() { super('Colony'); }
@@ -42,6 +34,9 @@ export class ColonyScene extends Phaser.Scene {
     this.showTimers = false;
     this.showWeather = false;
     this.showAdvancements = false;
+    this.showShopDetails = false;
+    this.seedTool = null;
+    this.dockTab = 'seeds';
     this.achievementSelection = null;
     this.tool = null;
     const { rescue } = this.sim.state;
@@ -68,22 +63,14 @@ export class ColonyScene extends Phaser.Scene {
       this.finished = true;
       this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
     });
-    this.colonyTitle = text(this, 48, 95, rescue ? 'Unnamed colony' : this.sim.state.site.name, 29, { fontStyle: 'bold' });
-    if (rescue) button(this, 1092, 114, 133, 31, 'Achievements', () => {
-      this.showAdvancements = !this.showAdvancements;
-      this.showTimers = false;
-      this.showWeather = false;
-      this.achievementSelection = null;
-      this.drawSide();
-    }, { size: 14 });
-    text(this, 739, 116, 'SURFACE OPERATIONS', 15, { color: '#ff805a', fontStyle: 'bold' });
-    text(this, 48, 133, 'NEXT SOL', 12, { color: colors.muted, fontStyle: 'bold' });
-    this.solProgress = progressBar(this, null, 123, 137, 180, 6, 0);
-    this.solStatus = text(this, 315, 132, 'Paused', 12, { color: colors.muted });
+    this.presentation = new ColonyPresentation(this);
+    this.colonyTitle = text(this, 30, 17, rescue ? 'Unnamed colony' : this.sim.state.site.name, 22, { fontStyle: 'bold' }).setDepth(25);
+    this.solProgress = progressBar(this, null, 360, 28, 100, 4, 0);
+    this.solProgress.setDepth(25);
+    this.solStatus = text(this, 472, 20, 'Paused', 12, { color: '#ecd0a7' }).setDepth(25);
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
-    this.feedback = text(this, 48, 620, this.message, 17, { color: '#ffc7a8', wordWrap: { width: 610 } });
-    text(this, 48, 676, 'MODELED WEATHER  /  GAME VALUES', 12, { color: colors.muted });
+    this.feedback = text(this, 32, 523, this.message, 12, { color: '#f5dfbd', wordWrap: { width: 1200 } }).setDepth(25);
     this.refreshGrid();
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
@@ -96,7 +83,8 @@ export class ColonyScene extends Phaser.Scene {
     }
   }
 
-  update(_, delta) {
+  update(time, delta) {
+    this.presentation?.update(time);
     if (!this.sim || this.finished) return;
     const { speed } = this.sim.state;
     const tick = this.dataSet.balance.solMs;
@@ -129,6 +117,15 @@ export class ColonyScene extends Phaser.Scene {
     this.showWeather = false;
     this.showAdvancements = false;
     this.selected = { x, y };
+    this.showShopDetails = false;
+    if (this.seedTool) {
+      const unit = this.sim.state.buildings.find(item => item.x === x && item.y === y);
+      if (unit) {
+        const result = this.run({ type: 'plant', id: this.seedTool, uid: unit.uid });
+        if (result.ok) this.seedTool = null;
+        return;
+      }
+    }
     if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
       this.placeStructure(this.tool, this.selected);
       return;
@@ -143,37 +140,16 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   refreshGrid() {
-    this.tileLayer.clear(true, true);
-    const { buildings, crops, grid } = this.sim.state;
-    for (let y = 0; y < grid.h; y++) {
-      for (let x = 0; x < grid.w; x++) {
-        const px = origin.x + x * tileSize;
-        const py = origin.y + y * tileSize;
-        const unit = buildings.find((building) => building.x === x && building.y === y);
-        const selected = this.selected?.x === x && this.selected.y === y;
-        const crop = unit && crops.find(({ plotUid }) => plotUid === unit.uid);
-        const fill = unit ? (unit.online ? palette[unit.id] ?? 0x7c5d66 : 0x54333a) :
-          ((x + y) % 2 ? 0x322027 : 0x3d2730);
-        const tile = panel(this, px, py, tileSize - 2, tileSize - 2, fill);
-        if (selected) tile.setStrokeStyle(2, colors.accent);
-        tile.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.select(x, y));
-        this.tileLayer.add(tile);
-        if (unit) {
-          const label = this.dataSet.buildings.find(({ id }) => id === unit.id).sprite;
-          this.tileLayer.add(text(this, px + 17, py + 9, label, 10, { fontStyle: 'bold' }).setOrigin(.5, 0));
-        }
-        if (crop) {
-          progressBar(this, this.tileLayer, px + 3, py + 27, 28, 4, crop.growth,
-            crop.growth === 1 ? colors.mint : colors.accent);
-        } else if (unit?.id === 'washer' && unit.washStatus) {
-          progressBar(this, this.tileLayer, px + 3, py + 27, 28, 4,
-            Number(unit.washStatus === 'complete'), colors.mint);
-        }
-      }
-    }
+    drawColonyBoard(this);
   }
 
   drawSide() {
+    this.presentation?.refresh();
+    this.drawDetails();
+    this.presentation?.finishDetails();
+  }
+
+  drawDetails() {
     this.runningWasherBar = null;
     this.sideLayer.clear(true, true);
     const add = (item) => this.sideLayer.add(item);
@@ -188,7 +164,8 @@ export class ColonyScene extends Phaser.Scene {
     const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
-    add(panel(this, 675, 154, 550, 449));
+    if (!unit && !this.showWeather && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
+    add(panel(this, 675, 154, 550, 449, 0x3b231f).setInteractive());
     const activeTimers = state.events.active.length + Number(state.res.data > 0);
     say(695, 169, this.showAdvancements ? 'Achievement tree' : this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
     action(950, 166, 116, 31, this.showWeather ? 'Back to base' : 'Weather', () => {
@@ -299,18 +276,11 @@ export class ColonyScene extends Phaser.Scene {
         progressBar(this, this.sideLayer, 695, 494, 243, 6, 1 - remaining / (failure.until - failure.startedSol));
         action(947, 465, 240, 39, 'Repair equipment', () => doForUnit('repair'));
       }
-      action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.refreshGrid(); this.drawSide(); });
+      action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.showShopDetails = true; this.refreshGrid(); this.drawSide(); });
       action(979, 548, 214, 36, 'Remove structure', unit.id === 'hab' ? null : () => doForUnit('demolish'));
     } else {
       this.drawBaseShop(cell);
     }
-    for (const [i, speed] of playbackSpeeds.entries()) {
-      action(678 + i * 58, 633, 52, 42, speed ? `${speed}×` : 'Pause',
-        () => this.run({ type: 'setSpeed', speed }, false), { selected: state.speed === speed, size: 14 });
-    }
-    action(915, 633, 86, 42, '+1 sol', () => { this.acc = 0; this.sim.step(); }, { size: 14 });
-    action(1067, 633, 157, 42, state.rescue ? 'Abandon mission' : 'End and report',
-      () => { if (!state.rescue || window.confirm('Abandon this rescue mission?')) this.run({ type: 'endMission' }); }, { size: 14 });
   }
 
   drawBaseShop(cell) {

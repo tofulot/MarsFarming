@@ -1,43 +1,15 @@
-// AI-assisted (OpenAI Codex)
+// Resource HUD kept separate from the colony board and interaction panels.
 import Phaser from 'phaser';
-import { colors, formatUnits, panel, progressBar, text } from '../ui/controls.js';
+import { createResourceHud } from '../ui/colony/ResourceHud.js';
 
 export class UIScene extends Phaser.Scene {
   constructor() { super('UI'); }
-
   create({ sim, foodPerCrew }) {
-    panel(this, 0, 0, 1280, 78, 0x21161d);
-    const cards = [
-      [sim.state.rescue ? 'RESCUE ARRIVES IN' : 'SOL / SEASON',
-        (s) => s.rescue ? `${Math.max(0, s.rescue.arrivalSol - s.sol)} sols` : `${s.sol}/${s.solLimit} · ${s.season}`],
-      ['CREDITS', (s) => fmt(s.res.credits, 'credits')],
-      ['POWER IN / NEEDED', (s) => `${fmt(s.power.gen)} / ${fmt(s.power.demand, 'power')}`],
-      ['WATER / FOOD', (s) => s.rescue
-        ? `${fmt(s.res.waterL, 'water')} / ${Math.floor(s.res.foodKg / foodPerCrew + 1e-9)} sols`
-        : `${fmt(s.res.waterL, 'water')} / ${fmt(s.res.foodKg, 'food')}`],
-      ['SCIENCE / COMMS', (s) => `${s.res.sp} SP / ${fmt(s.power.comms, 'comms')}`],
-      [sim.state.rescue ? 'YOU / DOSE' : 'CREW / DOSE', (s) => `${Math.round(s.crew.health * 100)}% / ${fmt(s.crew.dose_mSv, 'dose')}`],
-    ];
-    const fmt = (value, kind) => formatUnits(value, kind, sim.state.difficulty);
-    const labels = cards.map(([label], i) => {
-      const x = 25 + 210 * i;
-      text(this, x, 14, label, 12, { color: colors.muted, fontStyle: 'bold' });
-      return text(this, x, 36, '', 18, { fontStyle: 'bold' });
+    const hud = createResourceHud(this, sim, foodPerCrew);
+    const unsubscribe = ['sol', 'purchase', 'harvest', 'advancement'].map(event => sim.on(event, hud.refresh));
+    this.events.once('shutdown', () => {
+      unsubscribe.forEach(stop => stop());
+      hud.destroy();
     });
-    const extra = text(this, 735, 92, '', 14, { color: colors.muted });
-    const mission = progressBar(this, null, 25, 63, 185, 5, 0, colors.mint);
-    const refresh = (state) => {
-      cards.forEach(([, get], i) => labels[i].setText(get(state)));
-      extra.setText(`Sol ${state.sol} · ${state.season}  /  Battery ${fmt(state.res.batteryWh, 'battery')}  ·  Queued data ${state.res.data}  ·  Shed loads ${state.power.shed.length}`);
-      mission.scaleX = state.sol / state.solLimit;
-    };
-    refresh(sim.state);
-    const unsubscribe = [
-      sim.on('sol', refresh),
-      sim.on('purchase', refresh),
-      sim.on('harvest', () => refresh(sim.state)),
-      sim.on('advancement', () => refresh(sim.state)),
-    ];
-    this.events.once('shutdown', () => unsubscribe.forEach((fn) => fn()));
   }
 }
