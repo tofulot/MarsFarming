@@ -236,17 +236,19 @@ export class MapScene extends Phaser.Scene {
 
     toggle('weather', 'Weather difficulty', 374);
     say(984, 413, 'Longer marks · More dust, less sunlight', 12, { color: colors.muted });
-    this.dataSet.dustClimatology.frames.forEach((frame, i) => {
-      const control = button(this, 984 + i * 56, 434, 52, 26, `${Math.round(frame.ls)}°`, () => {
+    const seasons = this.dataSet.seasons.seasonNamesNorth;
+    this.dataSet.dustClimatology.frames.forEach((_, i) => {
+      const label = `${seasons[i]}\n${seasons[(i + 2) % 4]}`;
+      const control = button(this, 984 + i * 56, 431, 52, 35, label, () => {
         this.dustSeason = i;
         this.layers.weather = true;
         this.drawLayers(options);
         this.drawMap();
         this.drawSite(options);
-      }, { selected: this.layers.weather && i === this.dustSeason, size: 12 });
+      }, { selected: this.layers.weather && i === this.dustSeason, size: 11 });
       group.addMultiple([control.box, control.copy]);
     });
-    say(984, 465, 'Lₛ · Climatology snapshots by season', 11, { color: colors.muted });
+    say(984, 469, 'North on top · South below', 11, { color: colors.muted });
     group.add(this.add.rectangle(984, 485, 220, 1, colors.line).setOrigin(0));
   }
 
@@ -262,7 +264,8 @@ export class MapScene extends Phaser.Scene {
       const { seasonalLow } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, this.site.lat);
       const frame = this.dataSet.dustClimatology.frames[this.dustSeason];
       const opacity = dustOpacity(frame, this.site.lat, this.site.lon);
-      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\nDust at Lₛ ${Math.round(frame.ls)}° · ${opacity.toFixed(2)} IR optical depth`, 13,
+      const season = this.dataSet.seasons.seasonNamesNorth[(this.dustSeason + (this.site.lat < 0 ? 2 : 0)) % 4];
+      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\n${season} dust · ${opacity.toFixed(2)} IR optical depth`, 13,
         { color: colors.muted, lineSpacing: 5 }));
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {
