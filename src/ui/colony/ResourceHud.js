@@ -4,6 +4,7 @@ import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
 import { boardZoomRange, stepBoardZoom } from './layout.js';
 import { achievementCardCss } from '../achievementToasts.js';
+import { cropSolsRemaining } from '../../sim/systems/crops.js';
 
 const LOW_AMBER = '#ffb05a';
 const PANEL_BG = '#231615';
@@ -330,8 +331,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       for (const crop of definitions.crops) {
         const requirement = current.sim.unlockRequirement(crop);
         const foodCost = current.sim.plantingFoodCost(crop.id);
-        const cropModel = current.dataSet.crops.find(item => item.id === crop.id) ?? crop;
-        const growth = cropModel.growthSols ?? cropModel.growthDays ?? 0;
+        // Use the simulation's traits so rescue-mode growth overrides (e.g. radish 8 sols) are shown.
+        const growth = cropSolsRemaining(current.sim.cropTraits(crop.id) ?? crop, { id: 'plot' }, definitions.balance);
         const selected = current.seedTool === crop.id;
         const icon = crop.emoji ?? '🌱';
         const meta = requirement ? `LOCKED · ${requirement}`
