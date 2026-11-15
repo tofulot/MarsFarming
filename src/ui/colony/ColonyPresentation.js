@@ -28,7 +28,8 @@ export class ColonyPresentation {
   finishDetails() {
     const scene = this.scene;
     if (!scene.sideLayer.getLength()) return;
-    const close = action(scene, scene.sideLayer, 675, 126, 115, 25, 'Close details', () => {
+    const layout = scene.detailsLayout ?? { x: 800, y: 188, width: 460 };
+    const close = action(scene, scene.sideLayer, layout.x + layout.width - 106, layout.y + 9, 96, 23, 'Close', () => {
       scene.selected = null;
       scene.showTimers = false;
       scene.showAdvancements = false;

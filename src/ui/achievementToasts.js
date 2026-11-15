@@ -1,6 +1,6 @@
 import { colors, panel, text } from './controls.js';
 
-export function playAchievementToasts(scene, queue, y = 154) {
+export function playAchievementToasts(scene, queue, y = 154, x = 917) {
   let playing = false;
 
   function showNext() {
@@ -8,7 +8,7 @@ export function playAchievementToasts(scene, queue, y = 154) {
     playing = true;
     const award = queue[0];
     const badge = scene.add.star(27, 33, 5, 6, 13, colors.mint);
-    const card = scene.add.container(917, y - 10, [
+    const card = scene.add.container(x, y - 10, [
       panel(scene, 0, 0, 308, 70, 0x26201f).setStrokeStyle(1, colors.mint),
       badge,
       text(scene, 49, 8, 'ACHIEVEMENT UNLOCKED', 11, { color: '#9bd8ae', fontStyle: 'bold' }),

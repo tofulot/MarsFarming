@@ -23,6 +23,11 @@ const washerMessages = {
   complete: 'Batch complete · Soil is ready to plant',
 };
 
+const detailPanelLayouts = Object.freeze({
+  default: { x: 800, y: 188, width: 460, height: 410 },
+  achievements: { x: 310, y: 158, width: 646, height: 438 },
+});
+
 export class ColonyScene extends Phaser.Scene {
   constructor() { super('Colony'); }
 
@@ -55,7 +60,7 @@ export class ColonyScene extends Phaser.Scene {
     });
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
-    const announceAward = playAchievementToasts(this, pendingAwards);
+    const announceAward = playAchievementToasts(this, pendingAwards, 78, 620);
     this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
@@ -189,13 +194,25 @@ export class ColonyScene extends Phaser.Scene {
     this.runningWasherBar = null;
     this.sideLayer.clear(true, true);
     const add = (item) => this.sideLayer.add(item);
-    const say = (...args) => add(text(this, ...args));
+    const say = (x, y, copy, size, options = {}) => add(text(this, mapX(x), mapY(y), copy, size, {
+      ...options,
+      ...(options.wordWrap ? { wordWrap: { ...options.wordWrap, width: options.wordWrap.width * scaleX } } : {}),
+    }));
     const action = (...args) => {
-      const { box, copy } = button(this, ...args);
+      const [x, y, width, height, ...rest] = args;
+      const { box, copy } = button(this, mapX(x), mapY(y), width * scaleX, height * scaleY, ...rest);
       add(box);
       add(copy);
     };
+    const bar = (x, y, width, height, fraction, color) =>
+      progressBar(this, this.sideLayer, mapX(x), mapY(y), width * scaleX, height * scaleY, fraction, color);
     const state = this.sim.state;
+    const layout = this.showAdvancements ? detailPanelLayouts.achievements : detailPanelLayouts.default;
+    this.detailsLayout = layout;
+    const scaleX = layout.width / 550;
+    const scaleY = layout.height / 449;
+    const mapX = (x) => layout.x + (x - 675) * scaleX;
+    const mapY = (y) => layout.y + (y - 154) * scaleY;
     const cell = this.selected;
     const feature = surfaceFeatureAt(state, cell);
     if (feature) {
@@ -206,7 +223,7 @@ export class ColonyScene extends Phaser.Scene {
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
     if (!unit && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
-    add(panel(this, 675, 154, 550, 449, 0x3b231f).setInteractive());
+    add(panel(this, layout.x, layout.y, layout.width, layout.height, 0x3b231f).setInteractive());
     const title = this.showAdvancements ? 'Achievement tree' : this.showTimers ? 'Operations' : info?.name ?? 'Base shop';
     say(695, 169, title, 24, { fontStyle: 'bold' });
     if (this.showAdvancements) {
@@ -214,7 +231,7 @@ export class ColonyScene extends Phaser.Scene {
       drawAdvancementTree(this, this.sideLayer, state.rescue, selected, (id) => {
         this.achievementSelection = id;
         this.drawSide();
-      });
+      }, { x: mapX(695), y: mapY(208), scaleX, scaleY });
       const canName = Object.hasOwn(state.rescue.earned, 'botanist');
       action(695, 548, 272, 36, canName ? (state.rescue.colonyName ? 'Rename colony' : 'Name colony') : 'Colony naming unlocks with Botanist', canName ? () => {
         this.run({ type: 'setSpeed', speed: 0 }, false);
@@ -251,7 +268,7 @@ export class ColonyScene extends Phaser.Scene {
         const y = 224 + i * 72;
         say(695, y, timer.label, 16, { fontStyle: 'bold' });
         say(695, y + 22, timer.status, 14, { color: colors.muted });
-        progressBar(this, this.sideLayer, 695, y + 44, 496, 6, timer.fraction);
+        bar(695, y + 44, 496, 6, timer.fraction);
       });
       if (pages > 1) {
         action(695, 493, 52, 35, '←', this.timerPage > 0 ? () => { this.timerPage--; this.drawSide(); } : null);
@@ -259,7 +276,7 @@ export class ColonyScene extends Phaser.Scene {
         action(811, 493, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
       }
       const { res, power } = state;
-      add(this.add.rectangle(695, 536, 513, 1, colors.line).setOrigin(0));
+      add(this.add.rectangle(mapX(695), mapY(536), 513 * scaleX, 1, colors.line).setOrigin(0));
       const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
       const sparePrice = this.sim.purchasePrice(spares);
       const waterFirst = power.priority[0] === 'iceDrill';
@@ -296,9 +313,11 @@ export class ColonyScene extends Phaser.Scene {
         const status = !remaining ? 'Ready to harvest' : `${remaining} growing sols remaining`;
         say(695, 318, status, 14, { color: colors.muted, wordWrap: { width: 500 } });
         const geneticsBottom = genetics.length
-          ? drawGeneticsChips(this, this.sideLayer, genetics, { x: 695, y: 338, maxWidth: 500 })
+          ? 154 + (drawGeneticsChips(this, this.sideLayer, genetics, {
+            x: mapX(695), y: mapY(338), maxWidth: 500 * scaleX,
+          }) - layout.y) / scaleY
           : 338;
-        progressBar(this, this.sideLayer, 695, geneticsBottom + 10, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
+        bar(695, geneticsBottom + 10, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
         if (remaining) say(695, geneticsBottom + 22, !unit.online ? 'Growth stalled last sol · No power' :
           unit.watered ? 'Water supplied last sol' :
             state.sol === crop.plantedSol ? 'Growth begins next sol' : 'Growth stalled last sol · No water',
@@ -360,7 +379,7 @@ export class ColonyScene extends Phaser.Scene {
         const status = unit.washStatus ?? 'idle';
         say(695, 280, washerMessages[status] ?? `1 sol per batch · ${this.dataSet.balance.washerBatchWaterL} L water required`,
           15, { color: colors.muted });
-        const fill = progressBar(this, this.sideLayer, 695, 311, 496, 8, Number(status === 'complete'),
+        const fill = bar(695, 311, 496, 8, Number(status === 'complete'),
           status === 'complete' ? colors.mint : colors.accent);
         if (status === 'queued' && unit.online) this.runningWasherBar = fill;
       }
@@ -369,7 +388,7 @@ export class ColonyScene extends Phaser.Scene {
       if (failure) {
         const remaining = failure.until - state.sol;
         say(695, 470, `Equipment outage · ${remaining} sols remaining`, 14, { color: colors.muted });
-        progressBar(this, this.sideLayer, 695, 494, 243, 6, 1 - remaining / (failure.until - failure.startedSol));
+        bar(695, 494, 243, 6, 1 - remaining / (failure.until - failure.startedSol));
         action(947, 465, 240, 39, 'Repair equipment', () => doForUnit('repair'));
       }
       action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.showShopDetails = true; this.refreshGrid(); this.drawSide(); });
@@ -382,13 +401,21 @@ export class ColonyScene extends Phaser.Scene {
   drawBaseShop(cell) {
     const { res, site, rescue } = this.sim.state;
     const group = this.sideLayer;
-    const say = (...args) => {
-      const label = text(this, ...args);
+    const layout = this.detailsLayout ?? detailPanelLayouts.default;
+    const scaleX = layout.width / 550;
+    const scaleY = layout.height / 449;
+    const mapX = (x) => layout.x + (x - 675) * scaleX;
+    const mapY = (y) => layout.y + (y - 154) * scaleY;
+    const say = (x, y, copy, size, options = {}) => {
+      const adjusted = options.wordWrap
+        ? { ...options, wordWrap: { ...options.wordWrap, width: options.wordWrap.width * scaleX } } : options;
+      const label = text(this, mapX(x), mapY(y), copy, size, adjusted);
       group.add(label);
       return label;
     };
     const action = (...args) => {
-      const { box, copy } = button(this, ...args);
+      const [x, y, width, height, ...rest] = args;
+      const { box, copy } = button(this, mapX(x), mapY(y), width * scaleX, height * scaleY, ...rest);
       group.addMultiple([box, copy]);
     };
 
@@ -418,7 +445,7 @@ export class ColonyScene extends Phaser.Scene {
       const canBuild = !requirement && shortfall <= 0 && !lacksMaterials;
       const y = 280 + i * 56;
       const fill = canBuild ? 0x382830 : 0x211a20;
-      const row = panel(this, 695, y, 513, 50, fill);
+      const row = panel(this, mapX(695), mapY(y), 513 * scaleX, 50 * scaleY, fill);
       if (active) row.setStrokeStyle(2, colors.accent);
       group.add(row);
       if (canBuild) {
@@ -434,19 +461,19 @@ export class ColonyScene extends Phaser.Scene {
           }
         });
       }
-      say(708, y + 6, item.name, 17, { fontStyle: 'bold', color: canBuild ? colors.ink : colors.muted });
+      say(708, y + 6, item.name, 15, { fontStyle: 'bold', color: canBuild ? colors.ink : colors.muted });
       const description = id === 'iceDrill'
         ? `Produces ${waterOutput(item, site, this.dataSet.balance, rescue).toFixed(1)} L per sol here when powered.`
         : item.why;
-      say(708, y + 28, description, 12, { color: colors.muted });
+      say(708, y + 28, description, 10, { color: colors.muted, wordWrap: { width: 350 } });
       const priceLabel = [`${price.toLocaleString('en-US')} cr`, formatMaterials(materials)].filter(Boolean).join(' + ');
-      say(1195, y + 6, priceLabel, 16, {
+      say(1195, y + 6, priceLabel, 13, {
         color: canBuild ? colors.ink : colors.muted, fontStyle: 'bold',
       }).setOrigin(1, 0);
       const status = requirement ? `Requires ${requirement}`
         : shortfall > 0 ? `Need ${shortfall} more cr`
           : lacksMaterials ? 'Mine more materials' : active ? 'Ready to place' : '';
-      if (status) say(1195, y + 28, status, 12, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
+      if (status) say(1195, y + 28, status, 10, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
     });
   }
 }

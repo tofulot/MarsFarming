@@ -1,11 +1,12 @@
 import { advancementAvailable, advancements } from '../sim/advancements.js';
 import { colors, panel, text } from './controls.js';
 
-export function drawAdvancementTree(scene, group, rescue, selected, choose) {
-  const width = 120;
-  const height = 34;
+export function drawAdvancementTree(scene, group, rescue, selected, choose,
+  { x: originX = 695, y: originY = 208, scaleX = 1, scaleY = 1 } = {}) {
+  const width = 120 * scaleX;
+  const height = 34 * scaleY;
   const position = ({ position: [column, row] }) =>
-    ({ x: 695 + column * 129, y: 208 + row * 41 });
+    ({ x: originX + column * 129 * scaleX, y: originY + row * 41 * scaleY });
   const earned = (id) => Object.hasOwn(rescue.earned, id);
   const starColor = (entry) => entry.id === 'rescue' ? 0xf08c3c
     : ['stranded', 'greenhouse', 'soil', 'botanist'].includes(entry.id) ? 0x70bd79 : 0xa87be5;
@@ -35,9 +36,9 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
     card.setStrokeStyle(selected === entry.id ? 2 : 1, done ? tier : selected === entry.id ? colors.accent : colors.line);
     card.setInteractive({ useHandCursor: true }).on('pointerdown', () => choose(entry.id));
     group.addMultiple([card,
-      scene.add.star(x + 108, y + 17, 5, 3, 7, tier).setDepth(10),
-      text(scene, x + 6, y + 3, entry.name, 12, { fontStyle: 'bold', color: done || ready ? colors.ink : colors.muted }),
-      text(scene, x + 6, y + 17, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 11,
+      scene.add.star(x + 108 * scaleX, y + 17 * scaleY, 5, 3 * scaleX, 7 * scaleY, tier).setDepth(10),
+      text(scene, x + 6 * scaleX, y + 3 * scaleY, entry.name, 11, { fontStyle: 'bold', color: done || ready ? colors.ink : colors.muted }),
+      text(scene, x + 6 * scaleX, y + 17 * scaleY, done ? `Earned · Sol ${rescue.earned[entry.id]}` : ready ? 'Available' : 'Locked', 10,
         { color: done ? '#9bd8ae' : ready ? '#ffc7a8' : colors.muted }),
     ]);
   }
@@ -45,8 +46,8 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose) {
   const clue = advancements.find(({ id }) => id === selected);
   const missing = clue.requires.filter((id) => !earned(id)).map((id) => advancements.find((entry) => entry.id === id).name);
   const detail = missing.length ? `Unlock ${missing.join(' and ')} first. ${clue.hint}` : clue.hint;
-  group.add(text(scene, 695, 495, clue.credits ? `${detail} Reward · ${clue.credits} cr.` : detail, 13,
-    { wordWrap: { width: 505 }, color: colors.muted }));
+  group.add(text(scene, originX, originY + 287 * scaleY, clue.credits ? `${detail} Reward · ${clue.credits} cr.` : detail, 12,
+    { wordWrap: { width: 505 * scaleX }, color: colors.muted }));
 }
 
 export function openColonyNameDialog(currentName, save) {
