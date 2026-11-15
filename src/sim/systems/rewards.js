@@ -15,7 +15,8 @@ export function rewardSystem({ state, data, emit }) {
     food: food / .5, efficiency: state.res.credits / budget, health: state.crew.health,
     science: objective.id === 'science' ? discoveries / objective.target : metrics.transmitted / 50,
     comms: metrics.transmitted / Math.max(1, metrics.transmitted + state.res.data),
-    survival: metrics.stormSafe / Math.max(1, state.solLimit - Math.ceil(data.seasons.months[6].solFrom)),
+    survival: metrics.stormSafe / Math.max(1,
+      state.plannedStormSeasonSols ?? state.solLimit - Math.ceil(data.seasons.months[6].solFrom)),
     power: metrics.powerSafe / state.solLimit,
   };
   const parts = Object.fromEntries(Object.entries(objective.weights).map(([key, weight]) =>

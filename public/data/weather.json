@@ -9,7 +9,10 @@
     "W1": "https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/",
     "W2": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/PERSEVERANCE/meda.html",
     "W3": "https://atmos.nmsu.edu/data_and_services/atmospheres_data/MARS/curiosity/curiosity.html",
-    "W4": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/INSIGHT/insight.html"
+    "W4": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/INSIGHT/insight.html",
+    "LMD_DUST": "https://www-mars.lmd.jussieu.fr/mars/dust_climatology/",
+    "OPENMARS": "https://doi.org/10.21954/ou.rd.24573205.v3",
+    "CRISM_ICE": "https://doi.org/10.17189/76ha-be75"
   },
   "calendar": {
     "yearSols": 668.6,

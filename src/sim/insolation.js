@@ -1,5 +1,12 @@
 // AI-assisted (OpenAI Codex)
 const radians = (degrees) => degrees * Math.PI / 180;
+
+export const landingLongitudes = [0, 90, 180, 270];
+
+export function landingCalendarSol(Ls, seasons) {
+  if (!landingLongitudes.includes(Ls)) throw new RangeError('Choose a landing season at 0°, 90°, 180°, or 270°.');
+  return seasons.months[Ls / 30].solFrom;
+}
 export function solarLongitude(sol, { months, yearSols }) {
   const yearSol = sol - Math.floor(sol / yearSols) * yearSols;
   const month = months.find(({ solTo }) => yearSol < solTo) ?? months.at(-1);

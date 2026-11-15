@@ -35,24 +35,20 @@ The terrain and hydrogen assets ship with the game. To rebuild them on macOS, ru
 
 ## Weather
 
-The forecast timeline shows upcoming conditions. Storm sols are highlighted in orange, and a warning appears when a storm is due within 10 sols. Solar panels collect dust during normal operations and accumulate it faster in a storm. Select a solar array to clean it and recover output. The landing map’s **Weather difficulty** layer shows regional airborne dust. Longer pink marks mean higher infrared dust optical depth, a measure of how strongly dust absorbs infrared light. Compare snapshots at four solar longitudes (Lₛ) to see how the pattern moves through the Martian year. Site details also show Kelton’s modeled cold-season low.
+The landing map lets you choose a start season and compare expected storm sols and cold exposure at your site. Quick start uses Gale Crater at Lₛ 0°. Each mission follows a seeded historical dust year. Hover or tap a sol in the forecast to see the conditions and the effects on solar power, habitat heat, and ice extraction.
 
-| Event | Gameplay effect |
-|---|---|
-| Regional dust storm | Solar output ×0.4 and comms capacity ×0.75 for 10–30 sols |
-| Global dust storm | Solar output ×0.05 and comms capacity ×0.5 for 40–60 sols on Hard |
-| Cold snap | Crop heating demand ×1.5 for 5 sols |
+Dust dims sunlight and coats solar panels. Select a panel to clean it. Batteries and load priorities can keep greenhouses and water equipment running through storms. Cold raises heating demand and slows the ice drill. A greenhouse that keeps its power and water can keep growing through either hazard.
 
-The weather API and datasets come from [Kelton’s weather integration](https://github.com/tofulot/MarsFarming/commit/1be471dffc18742c303763812de8a0cff23b5f8c). The model, event settings and source links are in `public/data/weather.json`. Archived observations are in `public/data/weather-observations.json`.
+See [Weather data and API](docs/weather.md) for source coverage, game tuning, and the forecast contract.
 
 ## Team handoff
 
 | Owner | Work | Integration point |
 |---|---|---|
 | Tolui | Core gameplay | Phaser scenes in `src/scenes/` call `Simulation.command()` and read `Simulation.state`. |
-| Kelton | Weather and events data | `public/data/weather.json` supplies the model and natural events. `sim.getWeather()` and `sim.forecastWeather()` expose current and predicted conditions. |
+| Kelton | Weather and events data | The bundled archive supplies dust and seasonal conditions. `sim.getWeather()` and `sim.forecastWeather()` expose current and projected conditions. |
 | Edwin | Plant genetics and mutations | `public/data/crops.json` supplies baseline traits, and `src/sim/systems/crops.js` owns growth and harvest. A planted crop is tied to its plot with `plotUid`; mutation and inheritance logic can extend that state. |
 
-The [original playbook](Junior%20Astronaut%20Mars%20Farm%20README.md) describes the full project and source IDs. This implementation uses baseline crop traits and simulated weather. The NASA baseline crop data comes from the [Life Support Baseline Values and Assumptions Document](https://ntrs.nasa.gov/citations/20210024855). The seasonal calendar uses the [LMD solar longitude table](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new). Prices and resource tuning are game values.
+The [original playbook](Junior%20Astronaut%20Mars%20Farm%20README.md) describes the full project and source IDs. The NASA baseline crop data comes from the [Life Support Baseline Values and Assumptions Document](https://ntrs.nasa.gov/citations/20210024855). The seasonal calendar uses the [LMD solar longitude table](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new). Prices and resource tuning are game values.
 
 OpenAI Codex assisted with the project scaffold, simulation, scenes, starter data encoded from the playbook, and tests.

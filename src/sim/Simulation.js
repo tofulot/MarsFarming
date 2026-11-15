@@ -3,11 +3,12 @@ import { createRedHarvestWeather, gameWeatherInput } from '../weather/redHarvest
 import { earnAdvancement, missingAdvancement } from './advancements.js';
 import { createBus } from './bus.js';
 import { checkManifest } from './design.js';
+import { landingCalendarSol, solarLongitude } from './insolation.js';
 import { landingSite } from './marsMap.js';
 import { mulberry32 } from './rng.js';
 import { createState } from './state.js';
 import { seasonSystem } from './systems/season.js';
-import { eventSystem, forecastDustEvents, startEvent } from './systems/events.js';
+import { eventSystem, forecastDustEvents, startEvent, syncArchivedStorms } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { queueSoilWashing, waterSupply, waterSystem } from './systems/water.js';
 import {
@@ -51,6 +52,7 @@ export class Simulation {
     const state = createState(data, { seed, difficulty, objectiveId,
       siteId: options.site ? undefined : siteId, landerId, manifest }, launch);
     state.site = site;
+    state.landingCalendarSol = landingCalendarSol(options.landingLs ?? 0, data.seasons);
     if (options.rescue) {
       const { arrivalSol, rationSols } = data.balance.rescue;
       state.rescue = { arrivalSol, colonyName: '', earned: { stranded: state.sol }, harvestedPlots: [],
@@ -61,6 +63,10 @@ export class Simulation {
       state.res.pantry = { rations: state.res.foodKg };
       state.res.credits = budget - launch.cost;
       state.res.waterL = data.balance.rescue.startingWaterL;
+    }
+    state.plannedStormSeasonSols = 0;
+    for (let sol = 1; sol <= state.solLimit; sol++) {
+      if (solarLongitude(state.landingCalendarSol + sol, data.seasons) >= 180) state.plannedStormSeasonSols++;
     }
     this.#demo = demo;
     this.#ctx = {
@@ -80,17 +86,19 @@ export class Simulation {
     }
     seasonSystem(state, data, site);
     state.weather = this.getWeather();
+    if (this.weather.usesArchive) syncArchivedStorms(this.#ctx);
     state.outsideTempC = state.weather.outsideTempC;
     state.power.clearSolarFactor = state.weather.clearSolarFactor;
     state.power.solarFactor = state.weather.solarFactor;
-    state.power.gen = launch.startPower ?? state.buildings.reduce((total, unit) => {
+    state.power.gen = state.buildings.reduce((total, unit) => {
       const power = this.#ctx.buildings.get(unit.id).powerW;
-      const factor = unit.id === 'solar' ? state.power.clearSolarFactor : 1;
+      const factor = unit.id === 'solar' ? state.power.solarFactor : 1;
       return total + Math.max(0, power) * factor;
     }, 0);
     state.power.demand = state.buildings.reduce((load, unit) => {
       const model = this.#ctx.buildings.get(unit.id);
-      return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW);
+      return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW)
+        + (unit.id === 'hab' ? state.weather.habitatHeatW ?? 0 : 0);
     }, 0);
     const { production, crewDemand } = waterSupply(this.#ctx);
     state.water = { production, demand: crewDemand };
@@ -164,7 +172,7 @@ export class Simulation {
   forecastWeather(sols = 7) {
     if (!Number.isSafeInteger(sols) || sols < 0) throw new RangeError('sols must be a nonnegative integer');
     const { sol } = this.state;
-    const storms = forecastDustEvents(this.#ctx, sol + 1, sol + sols);
+    const storms = this.weather.usesArchive ? [] : forecastDustEvents(this.#ctx, sol + 1, sol + sols);
     return this.weather.forecast(gameWeatherInput(this.#ctx, storms), { sols });
   }
   on(event, fn) { return this.#bus.on(event, fn); }
@@ -208,6 +216,7 @@ export class Simulation {
     seasonSystem(state, data, site);
     eventSystem(this.#ctx);
     state.weather = this.getWeather();
+    if (this.weather.usesArchive) syncArchivedStorms(this.#ctx);
     state.outsideTempC = state.weather.outsideTempC;
     state.power.clearSolarFactor = state.weather.clearSolarFactor;
     queueSoilWashing(this.#ctx);
