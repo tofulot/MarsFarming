@@ -138,6 +138,10 @@ export function readWeatherArchive(manifest, bytes) {
 }
 
 export async function decompressWeatherArchive(bytes) {
+  if (!(bytes instanceof ArrayBuffer)) throw new Error('Missing Mars weather archive');
+  const header = new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 2));
+  // A server can serve the file with Content-Encoding: gzip, which the browser decodes.
+  if (header[0] !== 0x1f || header[1] !== 0x8b) return bytes;
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   return new Response(stream).arrayBuffer();
 }

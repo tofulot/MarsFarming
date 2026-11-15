@@ -5,13 +5,14 @@ import { gunzipSync } from 'node:zlib';
 import { Simulation } from '../src/sim/Simulation.js';
 import { landingCalendarSol } from '../src/sim/insolation.js';
 import { mulberry32 } from '../src/sim/rng.js';
-import { readWeatherArchive } from '../src/weather/archive.js';
+import { decompressWeatherArchive, readWeatherArchive } from '../src/weather/archive.js';
 import { gameEvents } from '../src/weather/redHarvest.js';
 
 const file = (name) => readFileSync(new URL(`../public/data/${name}`, import.meta.url));
 const read = (name) => JSON.parse(file(`${name}.json`));
 const index = read('mars/weather-archive');
-const bytes = Uint8Array.from(gunzipSync(file('mars/weather-archive.bin.gz'))).buffer;
+const compressed = Uint8Array.from(file('mars/weather-archive.bin.gz')).buffer;
+const bytes = Uint8Array.from(gunzipSync(compressed)).buffer;
 const weatherArchive = readWeatherArchive(index, bytes);
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty', 'landers', 'objectives',
   'facts', 'balance', 'mutations', 'soils', 'weather'].map((key) => [key, read(key)]));
@@ -24,6 +25,11 @@ function seedFor(year) {
     if (25 + Math.floor(mulberry32(seed)() * 12) === year) return seed;
   }
 }
+
+test('the loader accepts gzip assets and responses already decoded by the browser', async () => {
+  assert.deepEqual(await decompressWeatherArchive(compressed), bytes);
+  assert.equal(await decompressWeatherArchive(bytes), bytes);
+});
 
 test('the archive contains complete seasonal dust coverage and three planet-encircling event years', () => {
   const dust = weatherArchive.dustProfile({ lat: -5, lon: 140 });
