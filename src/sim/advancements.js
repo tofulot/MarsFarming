@@ -6,7 +6,7 @@ export const advancements = [
   { id: 'soil', name: 'Ready to Grow', requires: ['greenhouse'], position: [0, 2],
     hint: 'Build a Soil Washer and advance one sol. It treats soil automatically with power and water.' },
   { id: 'botanist', name: 'Botanist', requires: ['soil'], position: [0, 3],
-    hint: 'Plant both plots. Radishes mature in 8 healthy sols. Unlocks colony naming and the Ice Drill.' },
+    hint: 'Plant both plots. Radishes mature in 8 healthy sols. Unlocks the Ice Drill.' },
   { id: 'harvest', name: 'First Harvest', requires: ['botanist'], position: [0, 4], credits: 70,
     hint: 'Harvest a mature crop to replenish food. Spend the reward on water or power and replant immediately.' },
   { id: 'repeatHarvest', name: 'Second Harvest', requires: ['harvest'], position: [0, 5], credits: 55,
@@ -15,8 +15,8 @@ export const advancements = [
     hint: 'Harvest from three different plots. Unlocks Hydroponic Bays.' },
   { id: 'water', name: 'Water on Mars', requires: ['botanist'], position: [1, 4], credits: 35,
     hint: 'Power an Ice Drill for one sol. Dry sites may need several drills. Unlocks Water Recyclers and Air Harvesters.' },
-  { id: 'colony', name: 'Colony Named', requires: ['botanist'], position: [2, 4],
-    hint: 'Choose Name colony in Achievements after planting your first crop.' },
+  { id: 'colony', name: 'Colony Named', requires: ['halfway'], position: [3, 3],
+    hint: 'Reach Halfway Home, then click the colony name in the top bar to name your colony.' },
   { id: 'power', name: 'Backup Power', requires: ['stranded'], position: [2, 1],
     hint: 'Build a Battery Bank. Extra solar power charges it for dust storms.' },
   { id: 'charged', name: 'Storm Ready', requires: ['power'], position: [2, 2],
@@ -24,7 +24,7 @@ export const advancements = [
   { id: 'downlink', name: 'First Downlink', requires: ['harvest'], position: [1, 5], credits: 30,
     hint: 'Keep the Comms Dish powered to transmit research from a harvest. Unlocks the Science Lab.' },
   { id: 'halfway', name: 'Halfway Home', requires: ['stranded'], position: [3, 1],
-    hint: 'Survive until the countdown reaches its halfway point. Unlocks the Fission Unit.' },
+    hint: 'Survive until the countdown reaches its halfway point. Unlocks the Fission Unit and colony naming.' },
   { id: 'rescue', name: 'Rescued', requires: ['halfway'], position: [3, 2],
     hint: 'Stay alive until the countdown ends. Keep planting and harvesting to stretch your rations.' },
 ];
@@ -47,6 +47,11 @@ const rewards = {
   nuclear: 'halfway',
 };
 
+// Unlocks that are features rather than shop items.
+const featureUnlocks = {
+  halfway: ['Colony naming'],
+};
+
 export function missingAdvancement(rescue, itemId) {
   const id = rewards[itemId];
   if (rescue && id && !Object.hasOwn(rescue.earned, id)) {
@@ -57,7 +62,8 @@ export function missingAdvancement(rescue, itemId) {
 export function advancementUnlocks(id, data) {
   const names = new Map([...data.buildings, ...data.crops].map(item => [item.id, item.name]));
   return Object.entries(rewards).filter(([, advancementId]) => advancementId === id)
-    .map(([itemId]) => names.get(itemId)).filter(Boolean);
+    .map(([itemId]) => names.get(itemId)).filter(Boolean)
+    .concat(featureUnlocks[id] ?? []);
 }
 
 export function advancementAvailable(rescue, entry) {

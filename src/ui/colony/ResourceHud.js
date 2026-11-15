@@ -1,3 +1,4 @@
+// AI-assisted (OpenAI Codex; Claude Code for tabs, achievement card hooks and the naming gate)
 import { selectColonyUiState } from './selectors.js';
 import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
@@ -71,6 +72,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-left { flex:1 1 auto; }
       .colony-hud-right { flex:0 0 auto; margin-left:auto; }
       .colony-hud-name { max-width:210px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+      .colony-hud-name.is-locked { color:${MUTED}; border-style:dashed!important; }
       .colony-hud-terrain { color:${MUTED}; white-space:nowrap; }
       .colony-hud-sol { font-weight:800; white-space:nowrap; }
       .colony-hud-divider { width:1px; align-self:stretch; background:#6e4b42; margin:0 4px; }
@@ -151,26 +153,13 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   controls.setAttribute('aria-label', 'Colony controls');
   const left = document.createElement('div');
   left.className = 'colony-hud-left';
+  const namingUnlocked = () => Boolean(sim.state.rescue && Object.hasOwn(sim.state.rescue.earned, 'halfway'));
+  const halfwaySol = () => Math.ceil((sim.state.rescue?.arrivalSol ?? 0) / 2);
   const nameNode = makeButton('', () => {
     const current = game();
-    if (current.sim.state.rescue && Object.hasOwn(current.sim.state.rescue.earned, 'botanist')) {
-      current.run({ type: 'setSpeed', speed: 0 }, false);
-      current.nameDialog = document.createElement('dialog');
-      current.nameDialog.className = 'colony-name-dialog';
-      current.nameDialog.innerHTML = `<form method="dialog"><h2>Name your colony</h2><label for="hud-colony-name">Colony name</label><input autofocus id="hud-colony-name" required maxlength="28" autocomplete="off"><p role="alert"></p><div><button value="save">Save name</button><button value="cancel" formnovalidate>Cancel</button></div></form>`;
-      const input = current.nameDialog.querySelector('input');
-      input.value = current.sim.state.rescue.colonyName || '';
-      current.nameDialog.addEventListener('submit', event => {
-        if (event.submitter?.value !== 'save') return;
-        const result = current.sim.command({ type: 'nameColony', name: input.value });
-        if (result.ok) { current.nameDialog.close(); current.drawSide(); }
-        else { event.preventDefault(); current.nameDialog.querySelector('[role="alert"]').textContent = result.reason; }
-      });
-      current.nameDialog.addEventListener('close', () => current.nameDialog.remove(), { once: true });
-      document.body.append(current.nameDialog);
-      current.nameDialog.showModal();
-      input.focus();
-    }
+    if (!current.sim.state.rescue) return;
+    if (namingUnlocked()) current.openNameDialog();
+    else current.notify(`Colony naming unlocks at Halfway Home (sol ${halfwaySol()}).`);
   }, { className: 'colony-hud-name' });
   nameNode.setAttribute('aria-label', 'Colony name. Rename when unlocked.');
   left.append(nameNode);
@@ -670,8 +659,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       node.value.style.color = warning ? LOW_AMBER : '';
     }
     setText(nameNode, snapshot.colonyName || sim.state.site.name);
-    nameNode.title = sim.state.rescue && !Object.hasOwn(sim.state.rescue.earned, 'botanist')
-      ? 'Colony naming unlocks with Botanist' : 'Rename colony';
+    nameNode.title = !sim.state.rescue ? '' : namingUnlocked() ? 'Rename colony'
+      : `Colony naming unlocks at Halfway Home (sol ${halfwaySol()})`;
+    nameNode.classList.toggle('is-locked', Boolean(sim.state.rescue) && !namingUnlocked());
     terrain.textContent = `Terrain · ${snapshot.terrain}`;
     solLabel.textContent = `SOL ${snapshot.sol} · ${String(snapshot.season ?? '').toUpperCase()}`;
     zoomOut.disabled = game().boardZoom <= .75;

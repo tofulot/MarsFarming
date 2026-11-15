@@ -61,8 +61,17 @@ export class ColonyScene extends Phaser.Scene {
     });
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
-    const announceAward = playColonyAchievementToasts(this, pendingAwards);
-    this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
+    const announceAward = playColonyAchievementToasts(this, pendingAwards, {
+      onDone: (award) => { if (award.id === 'halfway') this.promptColonyName(); },
+    });
+    this.sim.on('advancement', (award) => {
+      const prompt = award.id === 'halfway' && !rescue.colonyName;
+      if (prompt) {
+        this.namePromptPending = true;
+        this.sim.command({ type: 'setSpeed', speed: 0 });
+      }
+      announceAward({ ...award, sol: rescue.earned[award.id] }, { urgent: prompt });
+    });
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
@@ -97,11 +106,19 @@ export class ColonyScene extends Phaser.Scene {
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
     if (options.demo) {
-      this.input.keyboard.on('keydown-ONE', () => this.run({ type: 'triggerEvent', id: 'dustRegional' }, false));
-      this.input.keyboard.on('keydown-TWO', () => this.run({ type: 'triggerEvent', id: 'spe' }, false));
-      this.input.keyboard.on('keydown-F', () => { for (let i = 0; i < 30 && !this.finished; i++) this.sim.step(); });
-      this.input.keyboard.on('keydown-CLOSED_BRACKET', () => this.run({ type: 'setSpeed', speed: 4 }, false));
-      this.input.keyboard.on('keydown-R', () => this.run({ type: 'endMission' }, false));
+      // Demo hotkeys must not fire while the player types in a dialog or text field.
+      const demoKey = (handler) => () => {
+        const active = document.activeElement;
+        if (document.querySelector('dialog[open]') || active?.matches?.('input, textarea, [contenteditable="true"]')) return;
+        handler();
+      };
+      this.input.keyboard.on('keydown-ONE', demoKey(() => this.run({ type: 'triggerEvent', id: 'dustRegional' }, false)));
+      this.input.keyboard.on('keydown-TWO', demoKey(() => this.run({ type: 'triggerEvent', id: 'spe' }, false)));
+      this.input.keyboard.on('keydown-F', demoKey(() => {
+        for (let i = 0; i < 30 && !this.finished && !this.namePromptPending; i++) this.sim.step();
+      }));
+      this.input.keyboard.on('keydown-CLOSED_BRACKET', demoKey(() => this.run({ type: 'setSpeed', speed: 4 }, false)));
+      this.input.keyboard.on('keydown-R', demoKey(() => this.run({ type: 'endMission' }, false)));
     }
   }
 
@@ -123,6 +140,33 @@ export class ColonyScene extends Phaser.Scene {
     this.message = copy;
     this.feedback?.setText(copy);
     this.hud?.refresh();
+  }
+
+  // Single colony-name dialog (advancementTree.openColonyNameDialog). Pauses the sim while open.
+  openNameDialog(copy = {}) {
+    const rescue = this.sim.state.rescue;
+    if (!rescue || this.finished || this.nameDialog?.open) return;
+    this.run({ type: 'setSpeed', speed: 0 }, false);
+    this.nameDialog = openColonyNameDialog(rescue.colonyName ?? '', (name) => {
+      this.achievementSelection = null;
+      const result = this.run({ type: 'nameColony', name });
+      if (result.ok) this.hud?.refresh();
+      return result;
+    }, rescue.colonyName ? { heading: 'Rename your colony' } : copy);
+    // Let every key reach the text field: no Phaser key capture while the dialog is open.
+    const keyboard = this.input.keyboard;
+    keyboard?.disableGlobalCapture();
+    this.nameDialog.addEventListener('close', () => {
+      keyboard?.enableGlobalCapture();
+      this.hud?.refresh();
+    }, { once: true });
+  }
+
+  promptColonyName() {
+    this.namePromptPending = false;
+    if (this.sim.state.rescue?.colonyName) return;
+    this.openNameDialog({ heading: 'Halfway Home! Name your colony',
+      intro: 'You have survived half the wait for rescue. Give your outpost a name. You can rename it later by clicking the name in the top bar.' });
   }
 
   run(command, showResult = true) {
@@ -226,16 +270,9 @@ export class ColonyScene extends Phaser.Scene {
         this.achievementSelection = id;
         this.drawSide();
       }, { x: mapX(695), y: mapY(208), scaleX, scaleY });
-      const canName = Object.hasOwn(state.rescue.earned, 'botanist');
-      action(695, 548, 272, 36, canName ? (state.rescue.colonyName ? 'Rename colony' : 'Name colony') : 'Colony naming unlocks with Botanist', canName ? () => {
-        this.run({ type: 'setSpeed', speed: 0 }, false);
-        this.nameDialog = openColonyNameDialog(state.rescue.colonyName, (name) => {
-          this.achievementSelection = null;
-          const result = this.run({ type: 'nameColony', name });
-          if (result.ok) this.hud?.refresh();
-          return result;
-        });
-      } : null, { size: 14 });
+      const canName = Object.hasOwn(state.rescue.earned, 'halfway');
+      action(695, 548, 272, 36, canName ? (state.rescue.colonyName ? 'Rename colony' : 'Name colony') : 'Colony naming unlocks at Halfway Home',
+        canName ? () => this.openNameDialog() : null, { size: 14 });
     } else if (this.showTimers) {
       const timers = state.events.active.map((event) => {
         const total = event.until - event.startedSol;

@@ -46,22 +46,27 @@ export function drawAdvancementTree(scene, group, rescue, selected, choose,
   const clue = advancements.find(({ id }) => id === selected);
   const missing = clue.requires.filter((id) => !earned(id)).map((id) => advancements.find((entry) => entry.id === id).name);
   const detail = missing.length ? `Unlock ${missing.join(' and ')} first. ${clue.hint}` : clue.hint;
-  group.add(text(scene, originX, originY + 287 * scaleY, clue.credits ? `${detail} Reward · ${clue.credits} cr.` : detail, 12,
+  group.add(text(scene, originX, originY + 287 * scaleY, clue.credits ? `${detail} Reward · ${clue.credits} kg materials.` : detail, 12,
     { wordWrap: { width: 505 * scaleX }, color: colors.muted }));
 }
 
-export function openColonyNameDialog(currentName, save) {
+export function openColonyNameDialog(currentName, save, { heading = 'Name your colony', intro = '' } = {}) {
   const dialog = document.createElement('dialog');
   dialog.className = 'colony-name-dialog';
   dialog.innerHTML = `<form method="dialog">
-    <h2>Name your colony</h2>
+    <h2></h2>
+    <p class="colony-name-intro"></p>
     <label for="colony-name">Colony name</label>
     <input autofocus id="colony-name" name="name" required maxlength="28" autocomplete="off">
     <p role="alert"></p>
     <div><button value="save">Save name</button><button value="cancel" formnovalidate>Cancel</button></div>
   </form>`;
+  dialog.querySelector('h2').textContent = heading;
+  const introNode = dialog.querySelector('.colony-name-intro');
+  introNode.textContent = intro;
+  introNode.hidden = !intro;
   const input = dialog.querySelector('input');
-  input.value = currentName;
+  input.value = currentName ?? '';
   dialog.addEventListener('submit', (event) => {
     if (event.submitter?.value !== 'save') return;
     const result = save(input.value);

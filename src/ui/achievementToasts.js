@@ -104,16 +104,28 @@ export const achievementCardCss = `
 `;
 
 // DOM card shown inside the colony HUD root so no HUD panel can cover it.
-// Awards are queued until the HUD has mounted (UIScene launches after ColonyScene.create).
+// Awards are queued until the HUD has mounted (UIScene launches after ColonyScene.create)
+// and while a modal dialog is open. Timers are wall-clock so they match the CSS animations.
 export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
   let playing = false;
   let waiting = false;
+  let disposed = false;
+  const timers = new Set();
+  const later = (ms, fn) => {
+    const id = setTimeout(() => { timers.delete(id); if (!disposed) fn(); }, ms);
+    timers.add(id);
+  };
+  scene.events.once('shutdown', () => {
+    disposed = true;
+    timers.forEach(clearTimeout);
+    timers.clear();
+  });
 
   function finish(node, award) {
     if (node.dataset.leaving) return;
     node.dataset.leaving = '1';
     node.classList.add('is-leaving');
-    scene.time.delayedCall(LEAVE_MS, () => {
+    later(LEAVE_MS, () => {
       node.remove();
       queue.shift();
       playing = false;
@@ -124,12 +136,12 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
   }
 
   function showNext() {
-    if (playing || !queue.length || !scene.sys?.isActive()) return;
+    if (disposed || playing || !queue.length) return;
     const root = scene.hud?.root;
-    if (!root?.isConnected) {
+    if (!root?.isConnected || document.querySelector('dialog[open]')) {
       if (!waiting) {
         waiting = true;
-        scene.time.delayedCall(150, () => { waiting = false; showNext(); });
+        later(200, () => { waiting = false; showNext(); });
       }
       return;
     }
@@ -173,12 +185,14 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
     root.append(node);
     playChime(scene);
     node.addEventListener('click', (event) => { event.stopPropagation(); finish(node, award); });
-    scene.time.delayedCall(queue.length > 1 ? QUEUED_HOLD_MS : HOLD_MS, () => finish(node, award));
+    later(queue.length > 1 ? QUEUED_HOLD_MS : HOLD_MS, () => finish(node, award));
   }
 
   showNext();
-  return (award) => {
-    queue.push(award);
+  // urgent awards jump the queue and play right after the card on screen.
+  return (award, { urgent = false } = {}) => {
+    if (urgent) queue.splice(playing ? 1 : 0, 0, award);
+    else queue.push(award);
     showNext();
   };
 }
