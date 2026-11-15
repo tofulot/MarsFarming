@@ -205,7 +205,9 @@ export function accumulateStress(crop, plot, ctx) {
   if (active.some((event) => event.id === 'spe')) dose *= rules.speDoseMultiplier;
   crop.stress.dose_mSv += dose;
   if (!plot.online) crop.stress.lowPowerSols += 1;
-  if (active.some((event) => (event.effects.heatFactor ?? 1) > 1)) crop.stress.coldSols += 1;
+  if (ctx.state.weather?.archiveYear
+    ? ctx.state.weather.conditions.cold && !plot.online
+    : active.some((event) => (event.effects.heatFactor ?? 1) > 1)) crop.stress.coldSols += 1;
   if (!plot.watered) crop.stress.drySols += 1;
   if (!plot.treated) crop.stress.perchlorateSols += 1;
 }

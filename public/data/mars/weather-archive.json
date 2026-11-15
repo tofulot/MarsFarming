@@ -1,0 +1,376 @@
+{
+  "version": 1,
+  "byteLength": 15732030,
+  "dust": {
+    "grid": {
+      "columns": 36,
+      "rows": 18,
+      "west": -180,
+      "south": -85,
+      "step": 10
+    },
+    "scale": 0.002,
+    "years": [
+      {
+        "year": 25,
+        "angles": {
+          "offset": 0,
+          "length": 668,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 1336,
+          "length": 432864,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 867064,
+          "length": 432864,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 26,
+        "angles": {
+          "offset": 1299928,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 1301266,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 2168290,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 27,
+        "angles": {
+          "offset": 2601802,
+          "length": 668,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 2603138,
+          "length": 432864,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 3468866,
+          "length": 432864,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 28,
+        "angles": {
+          "offset": 3901730,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 3903068,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 4770092,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 29,
+        "angles": {
+          "offset": 5203604,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 5204942,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 6071966,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 30,
+        "angles": {
+          "offset": 6505478,
+          "length": 668,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 6506814,
+          "length": 432864,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 7372542,
+          "length": 432864,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 31,
+        "angles": {
+          "offset": 7805406,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 7806744,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 8673768,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 32,
+        "angles": {
+          "offset": 9107280,
+          "length": 668,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 9108616,
+          "length": 432864,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 9974344,
+          "length": 432864,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 33,
+        "angles": {
+          "offset": 10407208,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 10408546,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 11275570,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 34,
+        "angles": {
+          "offset": 11709082,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 11710420,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 12577444,
+          "length": 433512,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 35,
+        "angles": {
+          "offset": 13010956,
+          "length": 668,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 13012292,
+          "length": 432864,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 13878020,
+          "length": 432864,
+          "type": "u8"
+        }
+      },
+      {
+        "year": 36,
+        "angles": {
+          "offset": 14310884,
+          "length": 669,
+          "type": "u16"
+        },
+        "opacity": {
+          "offset": 14312222,
+          "length": 433512,
+          "type": "u16"
+        },
+        "storm": {
+          "offset": 15179246,
+          "length": 433512,
+          "type": "u8"
+        }
+      }
+    ]
+  },
+  "met": {
+    "grid": {
+      "columns": 36,
+      "rows": 18,
+      "west": -180,
+      "south": -85,
+      "step": 10
+    },
+    "angles": {
+      "offset": 15716438,
+      "length": 8,
+      "type": "u16"
+    },
+    "fields": {
+      "airMinC": {
+        "offset": 15612758,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "airMaxC": {
+        "offset": 15623126,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "airMeanC": {
+        "offset": 15633494,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "airVariationC": {
+        "offset": 15643862,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "groundMinC": {
+        "offset": 15654230,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "pressurePa": {
+        "offset": 15664598,
+        "length": 5184,
+        "type": "u16",
+        "scale": 1
+      },
+      "windEastMs": {
+        "offset": 15674966,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "windNorthMs": {
+        "offset": 15685334,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "windSpeedMs": {
+        "offset": 15695702,
+        "length": 5184,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "surfaceCo2": {
+        "offset": 15706070,
+        "length": 5184,
+        "type": "u16",
+        "scale": 0.1
+      }
+    }
+  },
+  "cloud": {
+    "grid": {
+      "columns": 36,
+      "rows": 18,
+      "west": -180,
+      "south": -85,
+      "step": 10
+    },
+    "angles": {
+      "offset": 15716454,
+      "length": 12,
+      "type": "u16"
+    },
+    "fields": {
+      "cloudOpticalDepth": {
+        "offset": 15716478,
+        "length": 7776,
+        "type": "u16",
+        "scale": 0.001
+      }
+    }
+  },
+  "sources": {
+    "dust": {
+      "url": "https://www-mars.lmd.jussieu.fr/mars/dust_climatology/",
+      "license": "CC BY-SA 3.0",
+      "globalLsWindows": {
+        "25": [
+          193,
+          275
+        ],
+        "28": [
+          273,
+          304
+        ],
+        "34": [
+          193,
+          240
+        ]
+      }
+    },
+    "meteorology": {
+      "url": "https://doi.org/10.21954/ou.rd.24573205.v3",
+      "license": "CC BY 4.0",
+      "marsYear": 30,
+      "chunks": [
+        135,
+        145,
+        154,
+        163,
+        172,
+        179,
+        186,
+        193
+      ]
+    },
+    "cloud": {
+      "url": "https://doi.org/10.17189/76ha-be75",
+      "product": "Khayat2023_nadir_water_ice_opacity"
+    }
+  },
+  "validation": {
+    "mdadMY30": {
+      "overlap": 766,
+      "inferred": 3083,
+      "observed": 8465
+    }
+  }
+}
