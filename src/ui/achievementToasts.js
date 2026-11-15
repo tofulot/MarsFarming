@@ -39,12 +39,13 @@ export function playAchievementToasts(scene, queue, y = 154, x = 917) {
     const detail = [`Sol ${award.sol}`, rewardLine(award), unlocks.length ? `Unlocks ${joinNames(unlocks)}` : '']
       .filter(Boolean).join(' · ');
     const badge = scene.add.star(27, 33, 5, 6, 13, colors.mint);
+    const detailText = text(scene, 49, 47, detail, 12, { color: colors.muted, wordWrap: { width: 252 } });
     const card = scene.add.container(x, y - 10, [
-      panel(scene, 0, 0, 308, 70, 0x26201f).setStrokeStyle(1, colors.mint),
+      panel(scene, 0, 0, 308, Math.max(70, 55 + detailText.height), 0x26201f).setStrokeStyle(1, colors.mint),
       badge,
       text(scene, 49, 8, 'ACHIEVEMENT UNLOCKED', 11, { color: '#9bd8ae', fontStyle: 'bold' }),
       text(scene, 49, 23, award.name, 18, { fontStyle: 'bold' }),
-      text(scene, 49, 47, detail, 12, { color: colors.muted, wordWrap: { width: 252 } }),
+      detailText,
     ]).setAlpha(0).setDepth(10);
 
     scene.tweens.chain({
