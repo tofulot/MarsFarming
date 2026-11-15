@@ -1,6 +1,8 @@
 // AI-assisted (Claude Code): DOM achievement card for the colony HUD; Phaser card kept for ReportScene.
 import { advancementUnlocks } from '../sim/advancements.js';
 import { colors, panel, text } from './controls.js';
+import { startLifetime } from './colony/messages.js';
+import { theme } from './theme.js';
 
 const HOLD_MS = 3600;
 const QUEUED_HOLD_MS = 2400;
@@ -82,12 +84,13 @@ const STAR_SVG = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="t
 </svg>`;
 
 export const achievementCardCss = `
-  .colony-award { position:absolute; left:640px; top:134px; z-index:40; width:440px; box-sizing:border-box; display:grid;
+  .colony-award { position:absolute; left:640px; top:134px; z-index:40; width:440px; box-sizing:border-box; display:grid; overflow:hidden;
     grid-template-columns:72px minmax(0,1fr); gap:6px 16px; align-items:center; padding:16px 20px 16px 16px; pointer-events:auto; cursor:pointer;
     color:#f5e9e2; background:linear-gradient(160deg,#3a2623 0%,#231615 70%); border:2px solid #f0b45a; border-radius:14px;
     box-shadow:0 0 0 4px #f0b45a22, 0 10px 34px #0b0505cc, 0 0 40px #f0b45a44; transform-origin:50% 0;
     animation:colony-award-in .42s cubic-bezier(.2,1.5,.4,1) both; }
   .colony-award.is-leaving { animation:colony-award-out ${LEAVE_MS}ms ease-in both; }
+  .colony-award .colony-life-bar { background:${theme.amber}; }
   .colony-award-badge { grid-row:1 / span 4; width:72px; height:72px; display:grid; place-items:center;
     animation:colony-award-badge 1.6s ease-in-out .3s infinite; filter:drop-shadow(0 0 8px #f0b45a99); }
   .colony-award-kicker { color:#ffd27a; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
@@ -102,6 +105,11 @@ export const achievementCardCss = `
   @keyframes colony-award-out { 0% { opacity:1; transform:translate(-50%,0) scale(1); }
     100% { opacity:0; transform:translate(-50%,-18px) scale(.92); } }
   @keyframes colony-award-badge { 0%,100% { transform:scale(1) rotate(0); } 50% { transform:scale(1.1) rotate(-8deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .colony-award,.colony-award.is-leaving,.colony-award-badge { animation:none; }
+    .colony-award { transform:translateX(-50%); }
+    .colony-award.is-leaving { opacity:0; }
+  }
 `;
 
 // DOM card shown inside the colony HUD root so no HUD panel can cover it.
@@ -125,6 +133,7 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
   function finish(node, award) {
     if (node.dataset.leaving) return;
     node.dataset.leaving = '1';
+    node.cancelLifetime?.();
     node.classList.add('is-leaving');
     later(LEAVE_MS, () => {
       node.remove();
@@ -186,7 +195,10 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
     root.append(node);
     playChime(scene);
     node.addEventListener('click', (event) => { event.stopPropagation(); finish(node, award); });
-    later(queue.length > 1 ? QUEUED_HOLD_MS : HOLD_MS, () => finish(node, award));
+    // Same bottom lifetime bar as the message box (messages.js); hovering the card holds it.
+    node.cancelLifetime = startLifetime(node, queue.length > 1 ? QUEUED_HOLD_MS : HOLD_MS, () => {
+      if (!disposed) finish(node, award);
+    });
   }
 
   showNext();

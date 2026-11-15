@@ -5,6 +5,7 @@ import { surfaceFeatureAt } from '../surfaceActions.js';
 import { boardZoomRange, stepBoardZoom } from './layout.js';
 import { achievementCardCss } from '../achievementToasts.js';
 import { cropSolsRemaining } from '../../sim/systems/crops.js';
+import { createMessageBox } from './messages.js';
 
 const LOW_AMBER = '#ffb05a';
 const PANEL_BG = '#231615';
@@ -277,15 +278,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   panel.addEventListener('click', event => event.stopPropagation());
   root.append(panel);
 
-  const toast = document.createElement('div');
-  toast.className = 'colony-hud-toast';
-  toast.setAttribute('role', 'status');
-  toast.setAttribute('aria-live', 'polite');
-  const toastText = document.createElement('span');
-  const dismissToast = makeButton('×', () => { toast.hidden = true; }, { className: 'colony-hud-toast-close', title: 'Dismiss message' });
-  dismissToast.setAttribute('aria-label', 'Dismiss message');
-  toast.append(toastText, dismissToast);
-  root.append(toast);
+  // Lane 3 mount point: message box (messages.js).
+  const messages = createMessageBox(root);
 
   let activeCategory = 'Farming';
   const categoryNames = ['Farming', 'Power', 'Water', 'Support', 'Seeds'];
@@ -659,10 +653,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     Object.assign(statsBar.style, { left: '8px', top: '8px', width: '1264px', height: '56px' });
     Object.assign(controls.style, { left: '8px', top: '72px', width: '1264px', height: '52px' });
     Object.assign(panel.style, { left: '812px', top: '132px', width: '460px', height: '516px' });
-    Object.assign(toast.style, { left: '24px', top: '566px', maxWidth: `${Math.min(600, currentMapWidth() - 48)}px` });
   }
-
-  function currentMapWidth() { return game().activePanel ? 1272 - Math.min(460, 1280 * .37) : 1272; }
 
   function refresh() {
     if (!game()?.sim) return;
@@ -699,11 +690,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       button.disabled = sim.state.status !== 'active';
     });
     stepButton.disabled = sim.state.status !== 'active';
-    const message = game().message;
-    if (message && toastText.textContent !== message) {
-      setText(toastText, message);
-      toast.hidden = false;
-    }
+    messages.sync(game());
     position();
   }
 
@@ -724,5 +711,5 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     tab.addEventListener('animationend', () => tab.classList.remove('is-pulsing'), { once: true });
   }
 
-  return { root, refresh, renderPanel, openPanel, pulseTab };
+  return { root, refresh, renderPanel, openPanel, pulseTab, messages };
 }

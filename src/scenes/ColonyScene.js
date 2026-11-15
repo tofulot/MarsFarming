@@ -59,6 +59,7 @@ export class ColonyScene extends Phaser.Scene {
     this.message = rescue
       ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Start with two Greenhouse Plots and a Soil Washer.`
       : 'Use the base shop to equip the outpost. Press 1× to advance time.';
+    this.messageSeq = 1;
     this.finished = false;
     this.events.once('shutdown', () => {
       this.nameDialog?.remove();
@@ -78,16 +79,18 @@ export class ColonyScene extends Phaser.Scene {
       announceAward({ ...award, sol: rescue.earned[award.id] }, { urgent: prompt });
     });
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
-    this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
+    // Equipment outages (events aimed at one building) are warnings: amber border, 9 s.
+    this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`,
+      { severity: event.targetUid != null ? 'warning' : 'info' }));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
     this.sim.on('supply:seeds', ({ crops: names }) => {
       this.notify(`Supply drop arrived · New seeds: ${names.join(', ')}.`);
       this.drawSide();
     });
     this.sim.on('power:shortage', () => {
-      if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.');
+      if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.', { severity: 'warning' });
     });
-    this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`));
+    this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`, { severity: 'warning' }));
     this.sim.on('mutation:alleleFlip', ({ name, flips, solarBoosted }) => {
       const loci = flips.map((flip) => `${flip.locus} ${flip.from}→${flip.to}`).join(', ');
       this.notify(solarBoosted
@@ -190,8 +193,11 @@ export class ColonyScene extends Phaser.Scene {
     this.refreshGrid();
   }
 
-  notify(copy) {
+  /** Show a message above the weather strip. severity 'warning' = amber border, 9 s (see ui/colony/messages.js). */
+  notify(copy, { severity = 'info' } = {}) {
     this.message = copy;
+    this.messageSeverity = severity;
+    this.messageSeq = (this.messageSeq ?? 0) + 1;
     this.feedback?.setText(copy);
     this.hud?.refresh();
   }
