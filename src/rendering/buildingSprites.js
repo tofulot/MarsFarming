@@ -1,7 +1,8 @@
 // AI-assisted (Claude): code-drawn building sprites on a 36x36 unit canvas, one visual language for every building.
 // Dark base, light shell, teal trim, one status light (green online, dim red offline), soft ground shadow, no text.
+// The comms dish is a three.js model (src/assets/buildings/commsDish.js) drawn by the board's model layer.
 const spriteTypes = new Set(['hab', 'battery', 'washer', 'autoHarvester', 'fertilizer', 'iceDrill', 'harvester',
-  'recycler', 'rockProp', 'berm', 'shelter', 'comms', 'lab', 'nuclear']);
+  'recycler', 'rockProp', 'berm', 'shelter', 'lab', 'nuclear']);
 
 export const buildingSpriteIds = Object.freeze([...spriteTypes]);
 
@@ -51,19 +52,6 @@ const draw = {
     g.fillStyle(DARK).fillRoundedRect(29, 19, 3.5, 6, 1);
     g.fillStyle(p.trim).fillRect(25, 17, 9, 1.6);
     statusLight(g, 16, 10, online);
-  },
-  comms(g, p, online) {
-    shadow(g, 20);
-    g.fillStyle(DARK).fillRoundedRect(11, 25, 14, 5, 2);
-    g.lineStyle(3, p.shade).lineBetween(18, 26, 18, 14);
-    g.lineStyle(1.5, p.shade).lineBetween(13, 26, 18, 18).lineBetween(23, 26, 18, 18);
-    // Dish tilted up and to the left, with a feed horn on a boom.
-    g.fillStyle(p.shell).fillEllipse(15, 11, 22, 11);
-    g.fillStyle(p.shade).fillEllipse(15, 11.5, 15, 6.5);
-    g.lineStyle(2, p.trim).strokeEllipse(15, 11, 22, 11);
-    g.lineStyle(1.5, p.shade).lineBetween(15, 11, 24, 4);
-    g.fillStyle(p.trim).fillCircle(24, 4, 2);
-    statusLight(g, 22, 27.5, online);
   },
   battery(g, p, online) {
     shadow(g, 30);

@@ -1,9 +1,41 @@
-// AI-assisted (Claude Code: world-sized board, shared transform, single input zone)
+// AI-assisted (Claude Code: world-sized board, shared transform, single input zone, 3D dish and crate)
 import { drawBuildingSprite } from '../../rendering/buildingSprites.js';
 import { boardTransform, panBoard, playArea, tileAtPoint, tileFullyVisible, visibleTiles, zoomBoard } from './layout.js';
 
+/** Buildings drawn as three.js models by the board's model layer instead of 2D sprites. */
+const modelBuildings = new Set(['comms']);
+
+/** Layer key of the supply crate; a new crate (new landing) gets a fresh model. */
+export const supplyCrateKey = (crate) => `supply-crate-${crate.x}-${crate.y}-${crate.landedSol ?? 0}`;
+
+/**
+ * Comms dish state for the model. The sim marks only the crashed starter dish `broken` (rescue mode, cleared
+ * on repair); classic mode and dishes built later are whole.
+ */
+function commsDishState(state, unit) {
+  return { repaired: !unit.broken, online: unit.online !== false, ordering: Boolean(state.comms?.order) };
+}
+
+/** Model items for the board's 3D buildings and the supply crate, in canvas pixels. */
+function modelItem(key, model, transform, cell, state) {
+  const { x, y, tile, row, zoom } = transform;
+  return { key, model, x: x + cell.x * tile + tile / 2, y: y + cell.y * row + row - 4 * zoom, size: row * 0.96, state };
+}
+
+/** Listen once per simulation for the crate landing, so only a live landing plays the drop-in. */
+function ensureBoardEvents(scene) {
+  if (scene.boardEventsSim === scene.sim) return;
+  scene.boardEventsSim = scene.sim;
+  scene.pendingCrateDrop = null;
+  scene.sim.on?.('supply:landed', (crate) => {
+    const landed = crate?.x !== undefined ? crate : scene.sim.state.comms?.crate;
+    if (landed) scene.pendingCrateDrop = supplyCrateKey(landed);
+  });
+}
+
 /** Individual building silhouettes are presentation-only; IDs come from building data. */
 function building(scene, group, unit, x, y, size, model, labels) {
+  if (modelBuildings.has(unit.id)) return;
   const graphic = scene.add.graphics().setDepth(5).setMask(scene.boardMask);
   const color = unit.online ? 0xd8c6a6 : 0x83796e;
   // Drawn sprites carry their own ground shadow; only plots and solar keep the pad.
@@ -35,10 +67,6 @@ function building(scene, group, unit, x, y, size, model, labels) {
     graphic.fillStyle(color).fillRoundedRect(x + 7, y + 4, size - 14, size - 10, unit.id === 'hab' ? 10 : 4);
     graphic.fillStyle(0x78968d).fillRect(x + 11, y + 9, size - 22, 6);
     graphic.lineStyle(2, 0x6d6757).lineBetween(x + 10, y + size - 9, x + size - 10, y + size - 9);
-    if (unit.id === 'comms') {
-      graphic.fillStyle(0xe8debf).fillEllipse(x + size / 2, y + 6, size - 12, 12);
-      graphic.lineStyle(2, 0x847c67).lineBetween(x + size / 2, y + 6, x + size / 2 + 6, y - 1);
-    }
     if (labels) {
       group.add(scene.add.text(x + size / 2, y + size * 0.6, model.sprite, {
         fontFamily: 'Arial', fontSize: Math.max(7, Math.round(size / 4.5)), fontStyle: 'bold', color: '#403a31'
@@ -121,6 +149,7 @@ function ensureBoardInput(scene) {
 
 export function drawColonyBoard(scene) {
   ensureBoardInput(scene);
+  ensureBoardEvents(scene);
   scene.tileLayer.clear(true, true);
   const transform = boardTransform(scene);
   const { x: left, y: top, tile, row } = transform;
@@ -150,6 +179,7 @@ export function drawColonyBoard(scene) {
     const px = left + unit.x * tile, py = top + unit.y * row;
     const whole = tileFullyVisible(transform, unit.x, unit.y);
     building(scene, scene.tileLayer, unit, px + (tile - row) / 2, py, row - 1, definitions.get(unit.id), whole);
+    if (unit.id === 'comms') plants.push(modelItem(`comms-${unit.uid}`, 'commsDish', transform, unit, commsDishState(scene.sim.state, unit)));
     const crop = crops.find(item => item.plotUid === unit.uid);
     if (!crop) continue;
     plants.push({ key: `crop-${crop.uid}`, id: crop.cropId, x: px + tile / 2, y: py + row - 7 * transform.zoom,
@@ -160,6 +190,13 @@ export function drawColonyBoard(scene) {
       bars.fillStyle(0x8fca6d).fillCircle(px + tile - 7, py + 5, 5);
       scene.tileLayer.add(scene.add.text(px + tile - 7, py + 5, '✓', { fontSize: 8, color: '#26351f', fontStyle: 'bold' }).setOrigin(0.5).setDepth(20));
     }
+  }
+  const crate = scene.sim.state.comms?.crate;
+  if (crate && crate.x >= x0 && crate.x <= x1 && crate.y >= y0 && crate.y <= y1) {
+    const key = supplyCrateKey(crate);
+    const drop = scene.pendingCrateDrop === key;
+    if (drop) scene.pendingCrateDrop = null;
+    plants.push(modelItem(key, 'supplyCrate', transform, crate, { drop }));
   }
   scene.presentation?.setPlants(plants);
 }
