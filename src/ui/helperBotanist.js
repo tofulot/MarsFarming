@@ -36,11 +36,8 @@ export function drawHelperBotanist(scene, x = helperSlot.x, y = helperSlot.y, sc
 
   const hit = scene.add.rectangle(0, 4 * s, 40 * s, 56 * s, 0x000000, 0.001)
     .setInteractive({ useHandCursor: true });
-  const hint = scene.add.text(0, 34 * s, 'Tap for a space fact', {
-    fontFamily: 'Arial', fontSize: 10, color: '#cba58c',
-  }).setOrigin(0.5, 0).setAlpha(0.9);
 
-  root.add([g, hit, hint]);
+  root.add([g, hit]);
 
   const bob = scene.tweens.add({
     targets: root, y: y + 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
