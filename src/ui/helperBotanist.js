@@ -66,16 +66,6 @@ export function drawHelperBotanist(scene, x = helperSlot.x, y = helperSlot.y, sc
   };
 }
 
-/** Draw a speech-tail from the helper toward the fact bubble. */
-export function drawFactTail(scene, fromX, fromY, toX, toY) {
-  const g = scene.add.graphics().setDepth(27);
-  g.fillStyle(0x241c1b, 1);
-  g.fillTriangle(fromX, fromY, toX, toY - 8, toX, toY + 8);
-  g.lineStyle(1, 0xd4a574, 1);
-  g.strokeTriangle(fromX, fromY, toX, toY - 8, toX, toY + 8);
-  return g;
-}
-
 /** Pick a general space/NASA fact (prefer non-milestone encyclopedia cards). */
 export function pickSpaceFact(facts, random = Math.random) {
   const general = (facts ?? []).filter((fact) => !fact.milestone);
