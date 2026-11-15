@@ -19,7 +19,9 @@ export function createState(data, options, launch) {
       satiety: 1, nutrition: 1, meal: null, rationing: 'normal',
     },
     buildings: [], crops: [], lineages: {}, seedVault: {}, nextLineageId: 1,
-    rocks: [], rocket: null, events: { active: [], log: [] }, journal: {}, objectives: {},
+    rocks: [], rocket: null,
+    // Comms dish seed orders (see docs/DESIGN_HUD_COMMS.md): dish starts broken; a crate sits on the board until collected.
+    comms: { repaired: false, order: null, delivered: [], crate: null }, events: { active: [], log: [] }, journal: {}, objectives: {},
     badges: [], decisions: [], score: { total: 0, parts: {} },
     metrics: { grownKg: 0, consumedKg: 0, transmitted: 0, packets: [],
       stormSols: 0, stormSafe: 0, powerSafe: 0, lowWaterSols: 0, shortages: 0 },
