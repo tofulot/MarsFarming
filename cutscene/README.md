@@ -1,6 +1,11 @@
-# Red Harvest intro cutscene (Remotion)
+# Red Harvest cutscenes (Remotion)
 
-Pre-rendered clip that plays after **Start survival**: a burning rocket descends toward Mars, crashes, then fades to black into gameplay.
+Two pre-rendered clips:
+
+- **IntroCrash** (7 s, `src/Composition.tsx`): plays after **Start survival** or **Land**. A burning rocket descends, crashes, then fades to black into gameplay.
+- **OutroRescue** (8 s, `src/Outro.tsx`): plays after a successful rescue. Top-down: the rescue ship lifts off the pad, the base (hab, greenhouse plots, comms dish, solar panels, old crash site) shrinks until Mars is a small globe, and the ship leaves. The game overlays the "Rescued · <colony> · Sol N" card so it can show the player's colony name.
+
+Shared palette and pixel helpers live in `src/pixel.ts`.
 
 ## Setup
 
@@ -13,12 +18,12 @@ npm run dev            # Remotion Studio preview at the printed URL
 The clip is `src/Composition.tsx`: a 320×180 canvas drawn frame by frame (pixel art in the game's palette) and scaled 4× with hard edges. Beats: 0–4.5 s burning descent, 4.5 s impact flash and shake, 4.5–7 s burning wreck, 6–7 s stepped fade to black.
 
 ```sh
-npm run sfx          # regenerate public/sfx/fire.wav (procedural fire, impact and crackle)
-npm run render:game  # render ../public/assets/cutscene/intro.webm and intro.mp4 for the game
-npm run stills       # a few PNG frames in out/ for review
+npm run sfx          # regenerate public/sfx/fire.wav and liftoff.wav (procedural, no samples)
+npm run render:game  # render intro.* and outro.* (WebM + MP4) into ../public/assets/cutscene/
+npm run stills       # a few PNG frames in out/ for review (stills:outro for the ending)
 ```
 
-The game plays the WebM (MP4 fallback) in `src/scenes/CutsceneScene.js` and re-renders are picked up on the next game build.
+The game plays the WebM (MP4 fallback) in `src/scenes/CutsceneScene.js`; `src/ui/startMission.js` decides when each clip plays and re-renders are picked up on the next game build.
 
 If Remotion can't download its own browser (sandboxed machines), point it at an installed Chrome:
 

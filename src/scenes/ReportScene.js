@@ -3,11 +3,14 @@ import Phaser from 'phaser';
 import { advancements } from '../sim/advancements.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { button, colors, heading, label, panel, targetBackground, text } from '../ui/controls.js';
+import { liftVeil } from '../ui/veil.js';
 
 export class ReportScene extends Phaser.Scene {
   constructor() { super('Report'); }
 
-  create({ state, options, journal = false, pendingAwards = [] }) {
+  create({ state, options, journal = false, pendingAwards = [], fromCutscene = false }) {
+    // After the rescue cutscene: fade in from black, then play the awards.
+    const fadeInMs = fromCutscene ? liftVeil() : 0;
     targetBackground(this);
     const data = this.registry.get('missionData');
     const objective = data.objectives.find(({ id }) => id === state.objectiveId);
@@ -52,7 +55,8 @@ Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
       button(this, 221, 636, 187, 48, 'Crop journal', () => this.scene.restart({ ...report, journal: true }));
       button(this, 950, 636, 274, 48, 'Try another landing site →',
         () => this.scene.start('Map', options), { selected: true });
-      playAchievementToasts(this, pendingAwards, 42);
+      if (fadeInMs) this.time.delayedCall(fadeInMs, () => playAchievementToasts(this, pendingAwards, 42));
+      else playAchievementToasts(this, pendingAwards, 42);
       return;
     }
     heading(this, 'MISSION REPORT', objective.name, `${state.endReason}  ${result.completed ? 'Objective met.' : 'Objective incomplete.'}`);

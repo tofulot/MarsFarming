@@ -3,19 +3,10 @@
 import Phaser from 'phaser';
 import { colors, targetBackground, text } from '../ui/controls.js';
 import { introEnabled, startMission } from '../ui/startMission.js';
-import { introSources } from './CutsceneScene.js';
+import { prefetchClip } from './CutsceneScene.js';
 
 // Warm the cache for the intro clip while the player reads the title screen.
-function prefetchIntro() {
-  if (!introEnabled() || document.querySelector('link[data-intro-prefetch]')) return;
-  const probe = document.createElement('video');
-  const { src } = introSources().find(({ type }) => probe.canPlayType(type)) ?? introSources()[1];
-  const link = document.createElement('link');
-  link.rel = 'prefetch';
-  link.href = src;
-  link.dataset.introPrefetch = '';
-  document.head.append(link);
-}
+const prefetchIntro = () => { if (introEnabled()) prefetchClip('intro'); };
 
 // Power-of-two size: WebGL tiles it directly instead of resampling (which caused banding).
 const GROUND = { key: 'title-ground', w: 512, h: 512, scale: 2 };

@@ -18,6 +18,8 @@ import { boardTransform, boardZoomRange, panBoard, stepBoardZoom } from '../ui/c
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 import { usesCommsPanel } from '../ui/colony/CommsPanel.js';
 import { liftVeil } from '../ui/veil.js';
+import { finishMission, outroEnabled } from '../ui/startMission.js';
+import { prefetchClip } from './CutsceneScene.js';
 
 const washerMessages = {
   queued: '1 sol remaining · Requires power and water',
@@ -128,8 +130,9 @@ export class ColonyScene extends Phaser.Scene {
     });
     this.sim.on('mission:end', (state) => {
       this.finished = true;
-      this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
+      finishMission(this, { state, options, pendingAwards: pendingAwards.slice() });
     });
+    if (this.sim.state.rescue && outroEnabled()) prefetchClip('outro');
     this.presentation = new ColonyPresentation(this);
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();

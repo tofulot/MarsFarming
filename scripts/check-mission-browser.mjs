@@ -187,7 +187,18 @@ try {
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').sim.state.rescue.colonyName === 'Fort Radish');
   assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.status), 'active');
   await page.keyboard.press('f');
+  // A rescue plays the liftoff cutscene; watch it to the end, including the title card with the colony name.
+  await active('Cutscene');
+  await page.waitForSelector('.intro-cutscene[data-clip="outro"] video', { timeout: 5000 });
+  await page.waitForFunction(() => {
+    const card = document.querySelector('.cutscene-card');
+    return card && getComputedStyle(card).opacity > 0.5;
+  }, undefined, { timeout: 15000 });
+  const cardText = await page.locator('.cutscene-card').textContent();
+  assert.match(cardText, /Rescued/);
+  assert.match(cardText, /Fort Radish · Sol 3/);
   await active('Report');
+  await page.waitForFunction(() => !document.getElementById('red-harvest-veil'), undefined, { timeout: 10000 });
   await hasText('Report', 'Rescue successful');
   await pressButton('Report', 'Crop journal');
   await hasText('Report', 'Crop discoveries');
@@ -260,7 +271,7 @@ try {
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected != null);
 
   assert.deepEqual(errors, []);
-  console.log('Intro cutscene (played, key skip, button skip), rescue, colony naming, crop journal, re-fly, abandon confirmation, archived weather, zoom, and sol transitions verified.');
+  console.log('Intro cutscene (played, key skip, button skip), rescue cutscene with title card, rescue, colony naming, crop journal, re-fly, abandon confirmation, archived weather, zoom, and sol transitions verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });

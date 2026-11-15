@@ -30,8 +30,11 @@
     "render:intro": "remotion render IntroCrash ../public/assets/cutscene/intro.mp4 --codec=h264 --crf=20",
     "render:intro:webm": "remotion render IntroCrash ../public/assets/cutscene/intro.webm --codec=vp9 --crf=30",
     "stills": "remotion render IntroCrash out/frames --frames=30,75,110,128,150,175 --image-format=png",
-    "sfx": "node scripts/make-fire-sfx.mjs",
-    "render:game": "npm run render:intro:webm && npm run render:intro"
+    "sfx": "node scripts/make-fire-sfx.mjs && node scripts/make-liftoff-sfx.mjs",
+    "render:game": "npm run render:intro:webm && npm run render:intro && npm run render:outro:webm && npm run render:outro",
+    "render:outro": "remotion render OutroRescue ../public/assets/cutscene/outro.mp4 --codec=h264 --crf=20",
+    "render:outro:webm": "remotion render OutroRescue ../public/assets/cutscene/outro.webm --codec=vp9 --crf=30",
+    "stills:outro": "remotion render OutroRescue out/oframes --frames=4,50,130,195 --image-format=png"
   },
   "allowScripts": {
     "esbuild": false
