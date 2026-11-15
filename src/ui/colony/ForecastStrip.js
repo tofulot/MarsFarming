@@ -1,5 +1,6 @@
 // AI-assisted (Claude): DOM forecast strip with code-drawn weather icons and a selected-sol detail card.
 import { createForecastViewModel, forecastDetailLines } from './forecastViewModel.js';
+import { fontBody } from '../theme.js';
 
 /** 24x24 stroke icons drawn in code; `currentColor` picks up the cell's icon colour. */
 const iconPaths = {
@@ -65,7 +66,7 @@ function detailCard(scene, cell, { pinned, anchorX, rootWidth, gap }) {
     position: 'absolute', bottom: `calc(100% + ${gap}px)`, left: `${Math.max(0, Math.min(rootWidth - width, anchorX - width / 2))}px`,
     width: `${width}px`, boxSizing: 'border-box', padding: '9px 11px 10px', borderRadius: '8px',
     background: '#231614f2', border: `2px solid ${pinned ? '#ffe1a0' : '#6e4034'}`, boxShadow: '0 6px 18px #0009',
-    color: '#f3e6dc', font: '600 12px system-ui, sans-serif', pointerEvents: pinned ? 'auto' : 'none',
+    color: '#f3e6dc', font: `600 12px ${fontBody}`, pointerEvents: pinned ? 'auto' : 'none',
   });
   card.dataset.weatherDetail = '';
   card.setAttribute('role', 'tooltip');
@@ -84,7 +85,7 @@ function detailCard(scene, cell, { pinned, anchorX, rootWidth, gap }) {
   if (cell.tone === 'storm') head.append(pipRow(cell, 8));
   if (pinned) {
     const close = el('button', { pointerEvents: 'auto', alignSelf: 'flex-start', marginLeft: '2px', padding: '0 6px', height: '22px',
-      border: '1px solid #6e4034', borderRadius: '5px', background: '#3a2623', color: '#f3e6dc', font: '700 13px system-ui', cursor: 'pointer' }, '×');
+      border: '1px solid #6e4034', borderRadius: '5px', background: '#3a2623', color: '#f3e6dc', font: `700 13px ${fontBody}`, cursor: 'pointer' }, '×');
     close.type = 'button';
     close.setAttribute('aria-label', 'Close weather details');
     close.addEventListener('click', () => { scene.forecastPinnedSol = null; scene.presentation?.refresh(); });
@@ -166,7 +167,7 @@ function syncWeatherBar(scene, model) {
     display: 'flex', alignItems: 'center', gap: '6px', width: '100%', height: '100%',
     boxSizing: 'border-box', padding: '3px 6px', overflow: 'hidden', color: '#f3e6dc',
     background: '#231614', border: '2px solid #6e4034', borderRadius: '6px',
-    font: '600 12px system-ui, sans-serif', pointerEvents: 'auto',
+    font: `600 12px ${fontBody}`, pointerEvents: 'auto',
   });
   bar.setAttribute('aria-label', 'Weather forecast strip');
 
@@ -213,7 +214,7 @@ function syncWeatherBar(scene, model) {
         cell.tone === 'storm' ? 'repeating-linear-gradient(135deg, #ffffff18 0 5px, transparent 5px 10px)' : null,
       ].filter(Boolean).join(', ') || 'none',
       color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start',
-      font: '700 10px system-ui, sans-serif', lineHeight: '10px', cursor: 'pointer', overflow: 'hidden',
+      font: `700 10px ${fontBody}`, lineHeight: '10px', cursor: 'pointer', overflow: 'hidden',
     });
     button.type = 'button';
     button.dataset.sol = String(cell.sol);

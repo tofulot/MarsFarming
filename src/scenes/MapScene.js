@@ -1,4 +1,4 @@
-// AI-assisted (OpenAI Codex; restyled with Claude to the colony HUD tokens)
+// AI-assisted (OpenAI Codex; restyled with Claude to the colony HUD tokens and font pair)
 import Phaser from 'phaser';
 import { dustOpacity } from '../weather/dustClimatology.js';
 import { landingWeatherOutlook } from '../weather/archive.js';
@@ -240,18 +240,20 @@ export class MapScene extends Phaser.Scene {
 
     toggle('weather', 'Weather difficulty', 335);
     caption(371, 'Longer marks: more dust, less sunlight');
-    say(984, 393, 'North', 10, { color: colors.label, fontStyle: '700' });
-    say(984, 409, 'South', 10, { color: colors.label, fontStyle: '700' });
+    // Hemisphere initials keep the four season buttons wide enough for 15 px labels.
+    say(986, 389, 'N', 15, { color: colors.label }).setName('north-hemisphere');
+    say(986, 406, 'S', 15, { color: colors.label }).setName('south-hemisphere');
     const seasons = this.dataSet.seasons.seasonNamesNorth;
     this.dataSet.dustClimatology.frames.forEach((_, i) => {
       const name = `${seasons[i]}\n${seasons[(i + 2) % 4]}`;
-      const control = button(this, 1021 + i * 46, 389, 43, 34, name, () => {
+      const control = button(this, 1003 + i * 51, 388, 49, 36, name, () => {
         this.dustSeason = i;
         this.layers.weather = true;
         this.drawLayers(options);
         this.drawMap();
         this.drawSite(options);
-      }, { selected: i === this.dustSeason, size: 10 });
+      }, { selected: i === this.dustSeason, size: 15 });
+      control.copy.setLineSpacing(-4);
       group.addMultiple([control.box, control.copy]);
     });
     caption(429, `Landing season · Lₛ ${landingLongitudes[this.dustSeason]}°`);
@@ -262,7 +264,7 @@ export class MapScene extends Phaser.Scene {
     const group = this.siteUi;
     group.clear(true, true);
     group.add(label(this, 984, 461, 'Landing target'));
-    group.add(text(this, 984, 481, this.site ? coordinates(this.site) : 'Select a point on Mars', 17,
+    group.add(text(this, 984, 479, this.site ? coordinates(this.site) : 'Select a point on Mars', 17,
       { fontStyle: '800', color: this.site ? colors.ink : colors.muted }));
     if (this.site) {
       const flux = normalizedNeutronFlux(this.flux, this.site.lat, this.site.lon);
@@ -279,18 +281,18 @@ export class MapScene extends Phaser.Scene {
         ['Coldest', `${minus(Math.round(outlook.minimumC))} °C`],
         ...(soil ? [['Soil', soil.analog], ['Chemistry', `${soil.perchlorate_wt_pct} wt% ClO₄⁻ · pH ${soil.pH}`]] : []),
       ];
-      let y = 506;
+      let y = 500;
       for (const [name, value] of rows) {
-        group.add(text(this, 984, y + 1, name.toUpperCase(), 9, { color: colors.label, fontStyle: '700', letterSpacing: .6 }));
-        const copy = text(this, 1070, y, value, 12, { wordWrap: { width: 136 } });
+        group.add(text(this, 984, y, name, 15, { color: colors.label }));
+        const copy = text(this, 1070, y, value, 15, { wordWrap: { width: 136 } });
         group.add(copy);
-        y += Math.max(14, copy.height) + 1;
+        y += Math.max(17, copy.height - 2);
       }
       // Storm outlook as a chip, in the colony forecast strip's colours.
       const stormy = outlook.stormSols >= 1;
-      const chip = text(this, 994, y + 7, `~${outlook.stormSols.toFixed(1)} storm sols in a ${duration}-sol window`, 11,
-        { color: '#ffffff', fontStyle: '700' });
-      const pill = panel(this, 984, y + 2, Math.min(220, chip.width + 20), chip.height + 10,
+      const chip = text(this, 994, y + 5, `~${outlook.stormSols.toFixed(1)} storm sols in a ${duration}-sol window`, 15,
+        { color: '#ffffff' });
+      const pill = panel(this, 984, y + 2, Math.min(220, chip.width + 20), chip.height + 6,
         stormy ? 0x8c4a16 : 0x3f5a70, 99).setStrokeStyle();
       group.addMultiple([pill, chip]);
       chip.setDepth(1);

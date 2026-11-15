@@ -1,24 +1,43 @@
-// AI-assisted (OpenAI Codex; restyled with Claude to match the colony DOM HUD tokens)
-// Tokens mirror src/ui/colony/ResourceHud.js so Phaser screens and the DOM HUD read as one product.
+// AI-assisted (OpenAI Codex; restyled with Claude to match the colony DOM HUD tokens and font pair)
+// Tokens mirror src/ui/theme.js so Phaser screens and the DOM HUD read as one product.
+import { fontBody, fontDisplay, theme } from './theme.js';
+
 export const colors = {
   background: 0x150d0c, // page backdrop for menu screens, a shade below the sunken panel
   panel: 0x231615, raised: 0x3a2623, sunken: 0x1b1110, line: 0x6e4b42, divider: 0x4a3330,
   accent: 0xf0886a, accentHover: 0xf7a68c, mint: 0x9bd8ae,
   ink: '#f5e9e2', muted: '#c9b3a8', label: '#d6b4a1', accentText: '#f0886a', onAccent: '#1b1110',
-  font: 'Inter, system-ui, sans-serif',
+  font: fontBody, fontDisplay,
 };
 export const radii = { panel: 10, button: 6 };
 
+const BOLD = /^(bold|[7-9]00)$/;
+// Amatic SC is tall and condensed: at the same pixel size it reads ~25 % smaller than the body face.
+const DISPLAY_SCALE = 1.3;
+
+/**
+ * Phaser text in the shared font pair. Bold copy of 20 px or more with no digits is a heading and
+ * gets the display face (scaled up, letter-spaced); everything else, and every number, uses the
+ * body face at 15 px or more. Pass `display: true / false` to choose explicitly.
+ */
 export function text(scene, x, y, copy, size = 18, options = {}) {
-  return scene.add.text(x, y, copy, {
-    fontFamily: colors.font, fontSize: size, color: colors.ink, ...options,
-  });
+  const { display, ...rest } = options;
+  const bold = BOLD.test(String(rest.fontStyle ?? ''));
+  const useDisplay = display ?? (bold && size >= 20 && !/\d/.test(String(copy)));
+  const style = useDisplay
+    ? { fontFamily: fontDisplay, fontSize: Math.max(theme.displayMinPx, Math.round(size * DISPLAY_SCALE)), fontStyle: 'bold' }
+    : { fontFamily: fontBody, fontSize: Math.max(theme.bodyMinPx, size), fontStyle: bold ? 'bold' : 'normal' };
+  if (useDisplay) style.letterSpacing = Math.round(style.fontSize * 0.06 * 10) / 10;
+  const { fontStyle, ...overrides } = rest;
+  void fontStyle;
+  return scene.add.text(x, y, copy, { ...style, color: colors.ink, ...overrides });
 }
 
-/** Small uppercase, letter-spaced label, the HUD's section-title treatment. */
+/** Section label: the display face at 20 px, letter-spaced (Amatic SC is all small caps). */
 export function label(scene, x, y, copy, options = {}) {
-  return text(scene, x, y, copy.toUpperCase(), options.size ?? 13, {
-    color: colors.accentText, fontStyle: '800', letterSpacing: 1.4, ...options,
+  const { size, ...rest } = options;
+  return text(scene, x, y, copy, Math.max(theme.displayMinPx, size ?? 20) / DISPLAY_SCALE, {
+    color: colors.accentText, display: true, ...rest,
   });
 }
 
@@ -70,8 +89,8 @@ export function button(scene, x, y, width, height, label, callback, { selected =
 }
 
 export function heading(scene, phase, title, description) {
-  label(scene, 56, 38, phase);
-  text(scene, 55, 62, title, 44, { fontStyle: '800' });
+  label(scene, 56, 30, phase);
+  text(scene, 54, 52, title, 44, { fontStyle: '800', display: true });
   text(scene, 57, 128, description, 18, { color: colors.muted });
 }
 
