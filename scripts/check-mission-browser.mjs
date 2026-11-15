@@ -22,8 +22,11 @@ try {
       },
     }],
   });
+  // CHROME_PATH lets the check run against an installed Chrome when Playwright's Chromium is absent.
   browser = await chromium.launch({
-    args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    executablePath: process.env.CHROME_PATH || undefined,
+    args: ['--enable-webgl', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+      ...(process.env.CHROME_PATH ? ['--no-sandbox'] : [])],
   });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
@@ -82,10 +85,15 @@ try {
   await active('Title');
   await pressButton('Title', 'Start survival');
   await active('UI');
-  await hasText('Colony', '+5 Cloud');
-  await pressButton('Colony', '+1 Haze');
-  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
-    text?.includes('Dust haze · Ice clouds') && text.includes('Overnight water-ice frost') && text.includes('Peak')));
+  // The DOM forecast strip lists 15 forecast sols plus today; a cell opens a card with the colony effects.
+  const forecastCells = '[data-weather-forecast] button[data-sol]';
+  await page.waitForFunction((selector) => document.querySelectorAll(selector).length >= 16, forecastCells);
+  await page.locator(forecastCells).nth(1).click();
+  await page.waitForFunction(() => {
+    const card = document.querySelector('[data-weather-detail]')?.textContent ?? '';
+    return card.includes('Hab heat') && card.includes('Ice yield') && card.includes('Pa');
+  });
+  await page.locator('[aria-label="Close weather details"]').click();
 
   const lighting = await page.evaluate(() => {
     const scene = window.missionTestGame.scene.getScene('Colony');
@@ -125,6 +133,15 @@ try {
   assert.ok(Math.abs(nextDawn.day - afterRollover.day) < 1e-9);
   assert.ok(Math.abs(nextDawn.night - afterRollover.night) < 1e-9);
 
+  // Halfway Home (sol 2 of 3 here) pauses fast-forward and asks for a colony name.
+  // Typing R and F must not trigger the demo hotkeys while the dialog is open.
+  await page.keyboard.press('f');
+  await page.waitForSelector('dialog[open] input', { timeout: 15000 });
+  await page.locator('dialog[open] input').fill('');
+  await page.keyboard.type('Fort Radish');
+  await page.locator('dialog[open] button[value="save"]').click();
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').sim.state.rescue.colonyName === 'Fort Radish');
+  assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.status), 'active');
   await page.keyboard.press('f');
   await active('Report');
   await hasText('Report', 'Rescue successful');
@@ -141,13 +158,12 @@ try {
   assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.sol), 0);
 
   const respondToAbandon = async (accept) => {
-    const respond = page.waitForEvent('dialog', { timeout: 10000 }).then(async (dialog) => {
-      const message = dialog.message();
-      if (accept) await dialog.accept();
-      else await dialog.dismiss();
-      assert.match(message, /abandon/i);
-    });
-    await Promise.all([respond, pressButton('UI', 'Abandon')]);
+    const abandon = page.getByRole('button', { name: 'Abandon colony' });
+    if (!(await abandon.isVisible())) await page.locator('#colony-tab-ops').click();
+    await abandon.click();
+    const dialog = page.locator('dialog[open]');
+    assert.match(await dialog.textContent(), /abandon/i);
+    await dialog.locator(`button[value="${accept ? 'confirm' : 'cancel'}"]`).click();
   };
   await respondToAbandon(false);
   await active('UI');
@@ -184,7 +200,7 @@ try {
     const scene = window.missionTestGame.scene.getScene('Colony');
     return scene.presentation.weatherLayer.weather?.conditions.storm === 'dustRegional';
   });
-  await pressButton('Colony', '+');
+  await page.locator('[aria-label="Zoom in"]').click();
   await page.waitForFunction(() => {
     const scene = window.missionTestGame.scene.getScene('Colony');
     const layer = scene.presentation.weatherLayer;
@@ -193,18 +209,12 @@ try {
   const canvas = await page.locator('canvas').first().boundingBox();
   assert.ok(canvas);
   const point = (x, y) => [canvas.x + x * canvas.width / 1280, canvas.y + y * canvas.height / 720];
-  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').input._list.some((item) =>
-    item.x === 120 && item.y === 44 && item.listenerCount('pointerdown')));
-  await page.mouse.move(...point(100, 50));
-  await page.mouse.move(...point(144, 51), { steps: 4 });
-  await page.mouse.click(...point(144, 51));
-  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
-    text?.includes('Hab heat') && text.includes('Ice yield')), undefined, { timeout: 5000 });
-  await page.mouse.click(...point(96, 110));
-  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected?.x === 1);
+  await page.evaluate(() => { window.missionTestGame.scene.getScene('Colony').selected = null; });
+  await page.mouse.click(...point(300, 300));
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected != null);
 
   assert.deepEqual(errors, []);
-  console.log('Rescue, crop journal, re-fly, abandon confirmation, archived weather, and sol transitions verified.');
+  console.log('Rescue, colony naming, crop journal, re-fly, abandon confirmation, archived weather, zoom, and sol transitions verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });
