@@ -20,7 +20,7 @@ const BUBBLE = Object.freeze({
  * A new fact replaces any visible bubble immediately.
  * Helper sits lower-left; bubbles open upward.
  */
-export function playFactCards(scene, { facts = [], y = 300 } = {}) {
+export function playFactCards(scene, { facts = [], y = 180 } = {}) {
   const helper = drawHelperBotanist(scene, helperSlot.x, helperSlot.y, 1);
   scene.events.once('shutdown', () => {
     dismissActive(true);
@@ -58,10 +58,12 @@ export function playFactCards(scene, { facts = [], y = 300 } = {}) {
     dismissActive();
     helper.wave();
 
-    const bubbleY = Math.min(y, 300);
     const bubbleX = 22;
     const view = buildFactBubble(scene, card);
-    view.setPosition(bubbleX, bubbleY + 12).setAlpha(0).setScale(0.96).setDepth(27);
+    // Sit above the helper so the mascot never covers title/body/survival copy.
+    const clearAboveHelper = helperSlot.y - 56 - (view.getData('height') ?? 120);
+    const bubbleY = Math.min(y, clearAboveHelper);
+    view.setPosition(bubbleX, bubbleY + 12).setAlpha(0).setScale(0.96).setDepth(29);
 
     const enter = scene.tweens.add({
       targets: view,
@@ -178,5 +180,7 @@ function buildFactBubble(scene, card) {
 
   const kids = [g, eyebrow, title, body, source];
   if (survival) kids.push(survival);
-  return scene.add.container(0, 0, kids);
+  const view = scene.add.container(0, 0, kids);
+  view.setData('height', height);
+  return view;
 }
