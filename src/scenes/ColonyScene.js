@@ -9,7 +9,10 @@ import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
+import { lineagePhenotype } from '../sim/systems/mutations.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
+import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.js';
+import { colonyBoardAtZoom } from '../ui/colony/layout.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 
 const washerMessages = {
@@ -39,6 +42,7 @@ export class ColonyScene extends Phaser.Scene {
     this.seedTool = null;
     this.achievementSelection = null;
     this.tool = null;
+    this.breedMotherUid = null;
     const { rescue } = this.sim.state;
     this.message = rescue
       ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Start with two Greenhouse Plots and a Soil Washer.`
@@ -63,6 +67,18 @@ export class ColonyScene extends Phaser.Scene {
       if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.');
     });
     this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`));
+    this.sim.on('mutation:alleleFlip', ({ name, flips, solarBoosted }) => {
+      const loci = flips.map((flip) => `${flip.locus} ${flip.from}→${flip.to}`).join(', ');
+      this.notify(solarBoosted
+        ? `Solar flare mutation in ${name}: ${loci}`
+        : `Allele flip in ${name}: ${loci}`);
+    });
+    attachMutationSparks(this, this.sim, (plotUid) => {
+      const plot = this.sim.state.buildings.find(({ uid }) => uid === plotUid);
+      if (!plot) return null;
+      const { x: left, y: top, tile, row } = colonyBoardAtZoom(this.boardZoom);
+      return { x: left + plot.x * tile + tile / 2, y: top + plot.y * row + row / 2 };
+    });
     this.sim.on('mission:end', (state) => {
       this.finished = true;
       this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
@@ -263,29 +279,85 @@ export class ColonyScene extends Phaser.Scene {
       const doForUnit = (type, id) => this.run({ type, id, uid: unit.uid });
       if (crop) {
         const traits = this.sim.cropTraits(crop.cropId);
-        say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health`, 18);
-        const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth);
+        const lineage = state.lineages[crop.lineageId];
+        const pheno = lineagePhenotype(state, crop, this.dataSet.mutations);
+        const gen = lineage?.generation ? `  ·  gen ${lineage.generation}` : '';
+        const genetics = this.sim.cropGenetics(crop);
+        say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health${gen}`, 18);
+        const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth, pheno.growth);
         const status = !remaining ? 'Ready to harvest' : `${remaining} growing sols remaining`;
-        say(695, 327, status, 15, { color: colors.muted });
-        progressBar(this, this.sideLayer, 695, 355, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
-        if (remaining) say(695, 375, !unit.online ? 'Growth stalled last sol · No power' :
+        say(695, 318, status, 14, { color: colors.muted, wordWrap: { width: 500 } });
+        const geneticsBottom = genetics.length
+          ? drawGeneticsChips(this, this.sideLayer, genetics, { x: 695, y: 338, maxWidth: 500 })
+          : 338;
+        progressBar(this, this.sideLayer, 695, geneticsBottom + 10, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
+        if (remaining) say(695, geneticsBottom + 22, !unit.online ? 'Growth stalled last sol · No power' :
           unit.watered ? 'Water supplied last sol' :
             state.sol === crop.plantedSol ? 'Growth begins next sol' : 'Growth stalled last sol · No water',
-        14, { color: colors.muted });
-        action(695, 416, 210, 41, 'Harvest', crop.growth === 1 ? () => doForUnit('harvest') : null);
-        action(922, 416, 270, 41, 'Harvest and replant', crop.growth === 1 ? () => {
-          if (doForUnit('harvest').ok) doForUnit('plant', traits.id);
-        } : null);
+        13, { color: colors.muted });
+        const mature = crop.growth === 1;
+        const actionY = remaining ? geneticsBottom + 50 : geneticsBottom + 32;
+        action(695, actionY, 180, 38, 'Harvest', mature ? () => doForUnit('harvest') : null);
+        if (this.breedMotherUid == null) {
+          action(890, actionY, 150, 38, 'Set mother', mature ? () => {
+            this.breedMotherUid = crop.uid;
+            this.notify(`Mother set: ${traits.name}. Select a mature father of the same crop, or self-cross.`);
+            this.drawSide();
+          } : null);
+          action(1055, actionY, 140, 38, 'Replant', mature ? () => {
+            if (doForUnit('harvest').ok) doForUnit('plant', traits.id);
+          } : null);
+        } else if (this.breedMotherUid === crop.uid) {
+          action(890, actionY, 140, 38, 'Self-cross', mature ? () => {
+            const result = this.run({ type: 'cross', motherUid: crop.uid, fatherUid: crop.uid });
+            this.breedMotherUid = null;
+            if (result.ok) this.drawSide();
+          } : null);
+          action(1045, actionY, 140, 38, 'Cancel', () => {
+            this.breedMotherUid = null;
+            this.notify('Breeding cancelled.');
+            this.drawSide();
+          });
+        } else {
+          const mother = state.crops.find(({ uid }) => uid === this.breedMotherUid);
+          const canCross = mature && mother && mother.cropId === crop.cropId;
+          action(890, actionY, 140, 38, 'Cross here', canCross ? () => {
+            const result = this.run({
+              type: 'cross', motherUid: this.breedMotherUid, fatherUid: crop.uid,
+            });
+            this.breedMotherUid = null;
+            if (result.ok) this.drawSide();
+          } : null);
+          action(1045, actionY, 140, 38, 'Cancel', () => {
+            this.breedMotherUid = null;
+            this.notify('Breeding cancelled.');
+            this.drawSide();
+          });
+        }
       } else if (info.plot) {
-        say(695, 279, unit.treated ? 'Choose a crop' : 'Untreated soil. A powered Soil Washer will treat it automatically.', 17);
+        const soilLine = unit.id === 'plot' && unit.soil
+          ? `${unit.soil.analog} · ${unit.soil.perchlorate_wt_pct.toFixed(2)} wt% ClO₄⁻ · pH ${unit.soil.pH} · ${Math.round(unit.soil.fertility * 100)}% fertility`
+          : null;
+        say(695, 279, unit.treated
+          ? (soilLine ? `Washed · ${soilLine}` : 'Choose a crop')
+          : (soilLine
+            ? `Toxic · ${soilLine}`
+            : 'Untreated soil. A powered Soil Washer will treat it automatically.'),
+        14, { color: colors.muted, wordWrap: { width: 500 } });
+        say(695, 318, unit.treated ? 'Choose a crop' : 'Wait for auto-wash or queue a Soil Washer batch.', 16);
+        const vaulted = Object.entries(state.seedVault ?? {});
+        if (unit.treated && vaulted.length) {
+          say(695, 338, `Seed vault: ${vaulted.map(([cropId]) => cropId).join(', ')} ★`, 13, { color: colors.muted });
+        }
         this.dataSet.crops.slice(0, 8).forEach(({ id }, i) => {
           const item = this.sim.cropTraits(id);
           const requirement = this.sim.unlockRequirement(item);
           const foodCost = this.sim.plantingFoodCost(id);
           const affordable = state.res.foodKg + 1e-9 >= foodCost;
-          action(695 + i % 2 * 252, 318 + Math.floor(i / 2) * 48, 238, 40,
+          const vaultMark = state.seedVault[id] ? ' ★' : '';
+          action(695 + i % 2 * 252, 358 + Math.floor(i / 2) * 48, 238, 40,
             requirement ? `${item.name}\nRequires ${requirement}`
-              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols · ${foodCost.toFixed(1)} kg food`,
+              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols · ${foodCost.toFixed(1)} kg food${vaultMark}`,
             unit.treated && !requirement && affordable ? () => doForUnit('plant', id) : null, { size: 14 });
         });
       }

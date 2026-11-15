@@ -1,4 +1,6 @@
 // AI-assisted (OpenAI Codex)
+import { washPlotSoil } from './soil.js';
+
 export function irrigationMakeup(grossLiters, balance, rescue) {
   return grossLiters * (rescue ? 1 - balance.rescue.greenhouseRecovery : 1);
 }
@@ -38,7 +40,8 @@ export function queueSoilWashing({ state, data: { balance } }) {
 }
 
 export function waterSystem(ctx) {
-  const { state, data: { balance }, buildings, emit } = ctx;
+  const { state, data, buildings, emit } = ctx;
+  const { balance } = data;
   const { production, crewDemand } = waterSupply(ctx);
   state.water = { production, demand: 0 };
   state.res.waterL = Math.min(balance.waterCapacity, state.res.waterL + production);
@@ -65,7 +68,9 @@ export function waterSystem(ctx) {
         unit.washStatus = unit.online ? 'water' : 'power';
         continue;
       }
-      plots.forEach((plot) => { plot.treated = true; });
+      plots.forEach((plot) => washPlotSoil(plot, data.soils ?? {
+        washerResidual_wt_pct: 0.02, safePerchlorate_wt_pct: 0.05,
+      }));
       unit.pending = false;
       unit.washStatus = 'complete';
       emit('wash:complete', { plots: plots.length });

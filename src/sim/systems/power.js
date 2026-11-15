@@ -1,4 +1,6 @@
 // AI-assisted (OpenAI Codex)
+import { lineagePhenotype } from './mutations.js';
+
 export function powerSystem({ state, data, buildings, crops, emit, weather }) {
   const active = state.events.active;
   const hours = data.seasons.orbit.solHours;
@@ -24,8 +26,20 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }) {
     } else if (config.powerW < 0) {
       const crop = state.crops.find(({ plotUid }) => plotUid === unit.uid);
       const traits = crops.get(crop?.cropId);
-      const watts = traits ? weather.cropEffects(traits, state.weather,
-        { basePowerW: -config.powerW, includedPpf: 28 }).totalW : -config.powerW;
+      const mods = lineagePhenotype(state, crop, data.mutations);
+      const adjusted = traits ? {
+        ...traits,
+        ppf: traits.ppf * (mods?.ppf ?? 1),
+        tempDayC: traits.tempDayC,
+      } : null;
+      const heatScale = mods?.heat ?? 1;
+      const watts = adjusted
+        ? (() => {
+          const effect = weather.cropEffects(adjusted, state.weather,
+            { basePowerW: -config.powerW, includedPpf: 28 });
+          return effect.baseW + effect.lightW + effect.heatW * heatScale;
+        })()
+        : -config.powerW;
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;
       loads.push({ unit, watts });
     }

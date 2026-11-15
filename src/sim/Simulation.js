@@ -10,7 +10,13 @@ import { seasonSystem } from './systems/season.js';
 import { eventSystem, forecastDustEvents, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { queueSoilWashing, waterSupply, waterSystem } from './systems/water.js';
-import { cropSolsRemaining, cropSystem, expectedFoodPerSol, harvestCrop, harvestPreview } from './systems/crops.js';
+import {
+  cropSolsRemaining, cropSystem, expectedFoodPerSol, harvestCrop, harvestPreview, queueCrossDiscovery,
+} from './systems/crops.js';
+import {
+  crossGenotypes, describeGenetics, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
+} from './systems/mutations.js';
+import { createPlotSoil, fertilizeAdjacentPlots } from './systems/soil.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
@@ -52,6 +58,7 @@ export class Simulation {
       state.solLimit = arrivalSol;
       state.crew.n = 1;
       state.res.foodKg = rationSols * data.balance.foodPerCrew;
+      state.res.pantry = { rations: state.res.foodKg };
       state.res.credits = budget - launch.cost;
       state.res.waterL = data.balance.rescue.startingWaterL;
     }
@@ -113,6 +120,12 @@ export class Simulation {
   get state() { return this.#ctx.state; }
   get expectedFoodPerSol() { return expectedFoodPerSol(this.#ctx); }
   cropTraits(id) { return this.#ctx.crops.get(id); }
+  cropGenetics(crop) {
+    const rules = this.#ctx.data.mutations;
+    const lineage = this.state.lineages[crop?.lineageId];
+    if (!rules || !lineage?.genotype) return [];
+    return describeGenetics(lineage.genotype, rules, lineage.mutation?.flips);
+  }
   plantingFoodCost(id) {
     return this.state.rescue && this.#ctx.crops.has(id)
       ? this.#ctx.data.balance.rescue.plantingFoodKg ?? 0 : 0;
@@ -162,8 +175,9 @@ export class Simulation {
   }
 
   #place(id, x, y) {
-    const unit = { uid: ++this.#uid, id, x, y, online: true, dust: 0, watered: false,
-      treated: id !== 'plot' || this.state.difficulty === 'easy' };
+    const treated = id !== 'plot' || this.state.difficulty === 'easy';
+    const unit = { uid: ++this.#uid, id, x, y, online: true, dust: 0, watered: false, treated };
+    if (id === 'plot') unit.soil = createPlotSoil(this.#ctx.site, this.#ctx.data, { treated });
     this.state.buildings.push(unit);
     return unit;
   }
@@ -199,6 +213,7 @@ export class Simulation {
     queueSoilWashing(this.#ctx);
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
+    fertilizeAdjacentPlots(this.#ctx);
     if (state.rescue) {
       if (state.buildings.some(({ id, online }) => id === 'iceDrill' && online)) earnAdvancement(this.#ctx, 'water');
       if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) earnAdvancement(this.#ctx, 'soil');
@@ -304,7 +319,11 @@ export class Simulation {
         const foodCost = this.plantingFoodCost(id);
         if (state.res.foodKg + 1e-9 < foodCost) return fail(`Planting requires ${foodCost} kg of food.`);
         state.res.foodKg = Math.max(0, state.res.foodKg - foodCost);
-        state.crops.push({ uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0 });
+        const lineage = data.mutations ? lineageForPlant(state, id, data.mutations) : null;
+        state.crops.push({
+          uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
+          ...(lineage ? { lineageId: lineage.id, stress: emptyStress() } : {}),
+        });
         if (state.rescue) {
           earnAdvancement(this.#ctx, 'greenhouse');
           earnAdvancement(this.#ctx, 'soil');
@@ -329,6 +348,56 @@ export class Simulation {
         this.#record(result, 'Harvest added food and research.');
         rewardSystem(this.#ctx);
         return ok(result);
+      }
+      case 'cross': {
+        if (!data.mutations) return fail('Breeding is unavailable.');
+        const mother = state.crops.find(({ uid }) => uid === cmd.motherUid);
+        const father = state.crops.find(({ uid }) => uid === (cmd.fatherUid ?? cmd.motherUid));
+        if (!mother || !father) return fail('Select two mature crops of the same kind.');
+        if (mother.growth < 1 || father.growth < 1) return fail('Both parents must be mature.');
+        if (mother.cropId !== father.cropId) return fail('Crosses require the same crop.');
+        const motherPlot = state.buildings.find(({ uid }) => uid === mother.plotUid);
+        const traits = crops.get(mother.cropId);
+        const motherLine = state.lineages[mother.lineageId];
+        const fatherLine = state.lineages[father.lineageId];
+        if (!motherPlot || !traits || !motherLine || !fatherLine) return fail('Missing crop lineage.');
+        const solarActive = state.events.active.some((event) => event.id === 'spe');
+        const result = crossGenotypes(
+          motherLine.genotype,
+          fatherLine.genotype,
+          mother.stress?.dose_mSv ?? 0,
+          father.stress?.dose_mSv ?? 0,
+          data.mutations,
+          this.#ctx.random,
+          state.difficulty,
+          { solarActive },
+        );
+        const child = storeCrossChild(
+          state, mother.cropId, motherLine.id, fatherLine.id, result, data.mutations, state.sol,
+        );
+        const lab = state.buildings.some((entry) => entry.id === 'lab' && entry.online && entry.watered);
+        queueCrossDiscovery(this.#ctx, mother, traits, child, lab);
+        state.crops = state.crops.filter(({ uid }) => uid !== mother.uid);
+        const label = formatGenotype(child.genotype, data.mutations);
+        if (result.mutation) {
+          this.#bus.emit('mutation:alleleFlip', {
+            cropId: mother.cropId,
+            name: traits.name,
+            flips: result.mutation.flips,
+            solarBoosted: result.solarBoosted,
+            genetics: describeGenetics(child.genotype, data.mutations, result.mutation.flips),
+            plotUid: motherPlot.uid,
+          });
+        }
+        const note = result.mutation
+          ? (result.solarBoosted
+            ? ' Solar particle event boosted allele flips (game).'
+            : ' New allele flip under dose (game).')
+          : '';
+        const text = `Crossed ${traits.name}. Seed vault holds generation ${child.generation}: ${label}.${note}`;
+        this.#record(text, 'Mendelian cross; mother harvested for seed.');
+        rewardSystem(this.#ctx);
+        return ok(text);
       }
       case 'nameColony': {
         const rescue = state.rescue;

@@ -1,0 +1,80 @@
+{
+  "_game": true,
+  "_doseNote": "Each sol adds balance.crewRadiationPerSol, the Curiosity surface figure of about 0.67 mSv/day (S11). That number is a dose counter. Alleles, dominance, and mutation chance are game rules.",
+  "bermDoseFactor": 0.4,
+  "speDoseMultiplier": 3,
+  "speMutationMult": 2.8,
+  "_speMutationNote": "Game: while an SPE is active, allele-flip chance in crosses is multiplied (solar weather → more mutations).",
+  "baseMutationPerAllele": 0.08,
+  "doseScale_mSv": 40,
+  "maxMutationPerAllele": 0.85,
+  "difficultyMult": {
+    "easy": 0.7,
+    "medium": 1,
+    "hard": 1.3
+  },
+  "sciencePointsOnDownlink": 15,
+  "stressPriority": ["dose", "cold", "lowPower", "dry", "perchlorate"],
+  "loci": [
+    {
+      "id": "rad",
+      "alleles": ["R", "r"],
+      "dominance": "complete",
+      "dominant": "R",
+      "phenotype": {
+        "dominant": { "rad": 0.6 },
+        "recessive": { "rad": 0 }
+      }
+    },
+    {
+      "id": "perchlorate",
+      "alleles": ["P", "p"],
+      "dominance": "complete",
+      "dominant": "P",
+      "phenotype": {
+        "dominant": { "perchlorate": 0.1 },
+        "recessive": { "perchlorate": 0 }
+      }
+    },
+    {
+      "id": "light",
+      "alleles": ["L", "l"],
+      "dominance": "complete",
+      "dominant": "L",
+      "phenotype": {
+        "dominant": { "ppf": 0.65 },
+        "recessive": { "ppf": 1 }
+      }
+    },
+    {
+      "id": "cold",
+      "alleles": ["C", "c"],
+      "dominance": "complete",
+      "dominant": "C",
+      "phenotype": {
+        "dominant": { "heat": 0.65 },
+        "recessive": { "heat": 1 }
+      }
+    },
+    {
+      "id": "yield",
+      "alleles": ["Y", "y"],
+      "dominance": "incomplete",
+      "phenotype": {
+        "YY": { "yield": 1.5 },
+        "Yy": { "yield": 1.1 },
+        "yy": { "yield": 0.85 }
+      }
+    },
+    {
+      "id": "growth",
+      "alleles": ["G", "g"],
+      "dominance": "complete",
+      "dominant": "G",
+      "phenotype": {
+        "dominant": { "growth": 1 },
+        "recessive": { "growth": 1.4 }
+      }
+    }
+  ]
+}

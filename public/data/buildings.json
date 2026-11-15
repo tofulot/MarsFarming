@@ -71,7 +71,7 @@
     "massKg": 300,
     "powerW": -500,
     "waterLPerSol": 0,
-    "why": "Automatically treats up to four soil plots per sol with power and water.",
+    "why": "Washes perchlorate from up to four NASA-analog soil plots per sol with power and water.",
     "unlockSP": 0,
     "_game": true
   },
@@ -96,7 +96,7 @@
     "massKg": 200,
     "powerW": -400,
     "waterLPerSol": -5,
-    "why": "Boosts yields beside the building.",
+    "why": "Raises fertility on adjacent plots and boosts harvest yield.",
     "unlockSP": 0,
     "_game": true
   },

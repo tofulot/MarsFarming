@@ -38,6 +38,24 @@
     }
   },
   "foodPerCrew": 0.8,
+  "diet": {
+    "_game": true,
+    "_note": "Daily targets are game balance. Mass need still follows BVAD-style dry food solids (0.8 kg/crew).",
+    "kcalPerCrew": 2500,
+    "protein_gPerCrew": 70,
+    "micronutrientTarget": 0.65,
+    "healthLossHunger": 0.02,
+    "healthLossPoorDiet": 0.01,
+    "healthRecoveryWellFed": 0.006,
+    "wellFedSatiety": 1,
+    "wellFedNutrition": 0.75,
+    "starterRations": {
+      "id": "rations",
+      "kcal_per_kg": 3200,
+      "protein_g_per_kg": 120,
+      "micronutrient": 0.7
+    }
+  },
   "waterCapacity": 5000,
   "plotAreaM2": 42,
   "crewRadiationPerSol": 0.67,

@@ -5,6 +5,7 @@ import { landingWeatherDifficulty } from '../weather/redHarvest.js';
 import { button, colors, panel, text, targetBackground } from '../ui/controls.js';
 import { clearSolarFactor } from '../sim/insolation.js';
 import { landingSite, normalizedNeutronFlux } from '../sim/marsMap.js';
+import { resolveSoilProfile } from '../sim/systems/soil.js';
 
 const map = { x: 76, y: 173, w: 864, h: 432 };
 const hydrogen = [[32, 52, 78], [37, 130, 163], [95, 231, 244]];
@@ -267,8 +268,12 @@ export class MapScene extends Phaser.Scene {
       const frame = this.dataSet.dustClimatology.frames[this.dustSeason];
       const opacity = dustOpacity(frame, this.site.lat, this.site.lon);
       const season = this.dataSet.seasons.seasonNamesNorth[(this.dustSeason + (this.site.lat < 0 ? 2 : 0)) % 4];
-      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\n${season} dust · ${opacity.toFixed(2)} IR optical depth`, 13,
-        { color: colors.muted, lineSpacing: 5 }));
+      const soil = resolveSoilProfile(this.site, this.dataSet);
+      const soilLine = soil
+        ? `Soil · ${soil.analog} · ${soil.perchlorate_wt_pct} wt% ClO₄⁻ · pH ${soil.pH}`
+        : '';
+      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\n${season} dust · ${opacity.toFixed(2)} IR optical depth${soilLine ? `\n${soilLine}` : ''}`, 12,
+        { color: colors.muted, lineSpacing: 4 }));
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {
       const seed = options.demo ? this.dataSet.balance.demoSeed : Math.floor(Math.random() * 2 ** 32);

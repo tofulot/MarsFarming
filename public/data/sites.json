@@ -14,6 +14,7 @@
       "soil": 3
     },
     "why": "Balanced sunlight with limited shallow ice.",
+    "soilProfileId": "jezero_regolith",
     "_src_coords": "S8",
     "_game_iceFactor": true,
     "_game_stars": true
@@ -33,6 +34,7 @@
       "soil": 2
     },
     "why": "Strong solar output. Water is harder to produce.",
+    "soilProfileId": "gale_rocknest",
     "_src_coords": "S8",
     "_game_iceFactor": true,
     "_game_stars": true
@@ -52,6 +54,7 @@
       "soil": 3
     },
     "why": "Strong sunlight. Dust management matters here.",
+    "soilProfileId": "elysium_insight",
     "_src_coords": "S8",
     "_game_iceFactor": true,
     "_game_stars": true
@@ -71,6 +74,7 @@
       "soil": 3
     },
     "why": "Good ice access trades off against seasonal sunlight.",
+    "soilProfileId": "utopia_viking2",
     "_src_coords": "S8",
     "_game_iceFactor": true,
     "_game_stars": true
@@ -90,6 +94,7 @@
       "soil": 3
     },
     "why": "NASA orbiters identified promising shallow ice in this region.",
+    "soilProfileId": "arcadia_ice_margin",
     "_src_coords": "S14",
     "_game_iceFactor": true,
     "_game_stars": true,
@@ -110,6 +115,7 @@
       "soil": 1
     },
     "why": "Phoenix exposed shallow ice and detected perchlorate.",
+    "soilProfileId": "phoenix_hecht2009",
     "_src_coords": "S10",
     "_game_iceFactor": true,
     "_game_stars": true
