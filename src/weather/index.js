@@ -79,7 +79,7 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
       }
       Object.assign(weather, sample);
       weather.active = events;
-      weather.label = 'Archived dust replay, seasonal meteorology, and game effects';
+      weather.label = 'Archived dust replay and OpenMARS meteorology';
     }
     if (modelFns.temperature && !input.observation) {
       weather.outsideTempC = number(modelFns.temperature(contextFor({ ...input, Ls: weather.Ls })), 'temperature model');
@@ -123,7 +123,7 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
       days.push(current({ ...input, observation: undefined, sol: input.sol + offset, calendarSol: calendarSol + offset,
         Ls: seasonAt(calendarSol + offset, input.site.lat, config).Ls }));
     }
-    return { kind: 'projection', basis: archive ? 'Archived dust replay, seasonal reanalysis, and known events'
+    return { kind: 'projection', basis: archive ? 'Archived dust replay, OpenMARS meteorology, and known events'
       : 'Seasonal model and known events; future random events are uncertain', days };
   }
 

@@ -6,14 +6,15 @@ import gzip
 import json
 from pathlib import Path
 
+import h5py
 from netCDF4 import Dataset
-from numcodecs import blosc, Zstd
 import numpy as np
 from scipy import ndimage
 
 
 DUST_URL = 'https://www-mars.lmd.jussieu.fr/mars/dust_climatology/'
-MET_CHUNKS = [135, 145, 154, 163, 172, 179, 186, 193]
+MET_YEAR = 30
+ATMOSPHERE_SAMPLE_STRIDE = 3  # Retain four evenly spaced samples per sol from the two-hour source.
 GLOBAL_WINDOWS = {25: (193, 275), 28: (273, 304), 34: (193, 240)}
 GRID = {'columns': 36, 'rows': 18, 'west': -180, 'south': -85, 'step': 10}
 DTYPES = {'u8': 'u1', 'u16': '<u2', 'i16': '<i2'}
@@ -165,53 +166,82 @@ def compare_mdad(path, angles, predicted):
     return summary
 
 
-def unpack_zarr(path, zstd=False):
-    data = path.read_bytes()
-    return np.frombuffer(Zstd().decode(data) if zstd else blosc.decompress(data), dtype='<f4')
+def read_openmars(path):
+    with h5py.File(path, 'r') as source:
+        lat, lon, levels = (source[key][:] for key in ('lat', 'lon', 'lev'))
+        bottom = int(np.argmax(levels))
+        day = np.floor(source['time'][:] + 1e-4).astype(int)
+        year = source['MY'][:] == MET_YEAR
+        sample = np.arange(0, day.size, ATMOSPHERE_SAMPLE_STRIDE)
+        included = sample[year[sample]]
+        surface = {key: source[key][year] for key in ('Ls', 'tsurf', 'ps', 'co2ice')}
+        atmosphere = {key: source[key][included, bottom] for key in ('temp', 'u', 'v')}
+    return lat, lon, day[year], surface, day[included], atmosphere
+
+
+def daily_values(days, fields, samples_per_sol):
+    """Keep complete sols, including sols split across OpenMARS files."""
+    result = {}
+    for day in np.unique(days):
+        rows = days == day
+        if np.count_nonzero(rows) == samples_per_sol:
+            result[day] = {key: field[rows] for key, field in fields.items()}
+    return result
 
 
 def pack_meteorology(archive, folder):
-    lat, lon, levels = [unpack_zarr(folder / key / 'c/0', zstd=True) for key in ('lat', 'lon', 'lev')]
-    bottom = int(np.argmax(levels))
+    paths = sorted(folder.glob('openmars_*.nc'))
+    if not paths:
+        raise ValueError(f'No OpenMARS files found in {folder}')
+    records = [read_openmars(path) for path in paths]
+    lat, lon, *_ = records[0]
+    if any(not np.array_equal(lat, row[0]) or not np.array_equal(lon, row[1]) for row in records):
+        raise ValueError('OpenMARS files use different coordinate grids')
+
+    def aggregate(day_index, field_index, samples):
+        days = np.concatenate([row[day_index] for row in records])
+        fields = {key: np.concatenate([row[field_index][key] for row in records]) for key in records[0][field_index]}
+        return daily_values(days, fields, samples)
+
+    surface = aggregate(2, 3, 12)
+    atmosphere = aggregate(4, 5, 12 // ATMOSPHERE_SAMPLE_STRIDE)
+    days = sorted(surface.keys() & atmosphere.keys())
+    if not 667 <= len(days) <= 669 or np.any(np.diff(days) != 1):
+        raise ValueError(f'Expected a continuous OpenMARS year, found {len(days)} complete sols')
+
     angles = []
-    fields = {key: [] for key in ('airMinC', 'airMaxC', 'airMeanC', 'airVariationC', 'groundMinC', 'pressurePa',
-                                  'windEastMs', 'windNorthMs', 'windSpeedMs', 'surfaceCo2')}
-    for chunk in MET_CHUNKS:
-        Ls = unpack_zarr(folder / f'Ls/c/{chunk}')
-        year = unpack_zarr(folder / f'MY/c/{chunk}')
-        if not (year == 30).all():
-            raise ValueError(f'Expected Mars year 30 in OpenMARS chunk {chunk}')
-        angles.append(float(Ls.mean()))
+    metrics = {key: [] for key in ('airMinC', 'airMaxC', 'airMeanC', 'groundMinC', 'pressurePa',
+                                    'windEastMs', 'windNorthMs', 'windSpeedMs', 'windPeakMs', 'surfaceCo2')}
+    for day in days:
+        surface_day = surface[day]
+        wind = atmosphere[day]
+        air = wind['temp'] - 273.15
+        if not np.isfinite(air).all() or air.min() < -175:
+            raise ValueError(f'Invalid OpenMARS temperatures on sol {day}')
+        speed = np.hypot(wind['u'], wind['v'])
+        angles.append(surface_day['Ls'].mean())
+        metrics['airMinC'].append(air.min(axis=0))
+        metrics['airMaxC'].append(air.max(axis=0))
+        metrics['airMeanC'].append(air.mean(axis=0))
+        metrics['groundMinC'].append(surface_day['tsurf'].min(axis=0) - 273.15)
+        metrics['pressurePa'].append(surface_day['ps'].mean(axis=0))
+        metrics['surfaceCo2'].append(surface_day['co2ice'].mean(axis=0))
+        metrics['windEastMs'].append(wind['u'].mean(axis=0))
+        metrics['windNorthMs'].append(wind['v'].mean(axis=0))
+        metrics['windSpeedMs'].append(speed.mean(axis=0))
+        metrics['windPeakMs'].append(speed.max(axis=0))
+    if np.any(np.diff(angles) <= 0):
+        raise ValueError('OpenMARS solar longitudes must increase throughout the year')
 
-        def read(key, vertical=False):
-            suffix = '/0/0/0' if vertical else '/0/0'
-            values = unpack_zarr(folder / f'{key}/c/{chunk}{suffix}')
-            if vertical:
-                values = values.reshape(120, len(levels), len(lat), len(lon))[:, bottom]
-            return values.reshape(10, 12, len(lat), len(lon))
-
-        air = read('temp', vertical=True) - 273.15
-        ground = read('tsurf') - 273.15
-        east = read('u', vertical=True)
-        north = read('v', vertical=True)
-        metrics = {
-            'airMinC': air.min(axis=1).mean(axis=0), 'airMaxC': air.max(axis=1).mean(axis=0),
-            'airMeanC': air.mean(axis=(0, 1)), 'groundMinC': ground.min(axis=1).mean(axis=0),
-            'airVariationC': air.mean(axis=1).std(axis=0),
-            'pressurePa': read('ps').mean(axis=(0, 1)), 'surfaceCo2': read('co2ice').mean(axis=(0, 1)),
-            'windEastMs': east.mean(axis=(0, 1)), 'windNorthMs': north.mean(axis=(0, 1)),
-            'windSpeedMs': np.hypot(east, north).mean(axis=(0, 1)),
-        }
-        for key, array in metrics.items():
-            fields[key].append(regrid(array, lat, lon))
-        print(f'OpenMARS: Ls {angles[-1]:.2f}°, lowest sigma level {levels[bottom]:.5f}', flush=True)
-    values = {}
-    for key, field in fields.items():
-        kind, scale = {'pressurePa': ('u16', 1), 'surfaceCo2': ('u16', .1)}.get(key, ('i16', .1))
-        # NetCDF has insignificant negative roundoff for some surface ice cells.
-        field = np.maximum(0, field) if key == 'surfaceCo2' else field
-        values[key] = {**archive.pack(field, kind, scale), 'scale': scale}
-    return {'grid': GRID, 'angles': archive.pack(angles, scale=.01), 'fields': values}
+    fields = {}
+    for key, values in metrics.items():
+        kind, scale = {'pressurePa': ('u16', 1), 'surfaceCo2': ('u16', .25)}.get(key, ('i16', .1))
+        values = regrid(np.asarray(values), lat, lon)
+        if key == 'surfaceCo2':
+            values = np.maximum(values, 0)  # The source can include small negative roundoff.
+        fields[key] = {**archive.pack(values, kind, scale), 'scale': scale}
+    print(f'OpenMARS MY{MET_YEAR}: {len(days)} daily frames, Ls {angles[0]:.2f}–{angles[-1]:.2f}°', flush=True)
+    return {'grid': GRID, 'sampling': 'daily', 'angles': archive.pack(angles, scale=.01), 'fields': fields}
 
 
 def pack_clouds(archive, path):
@@ -247,14 +277,15 @@ def main():
     args = parser.parse_args()
     archive = Archive()
     dust, checks = pack_dust(archive, args.input, args.input / 'MDADMY30.nc')
-    met = pack_meteorology(archive, args.input / 'openmars')
+    met = pack_meteorology(archive, args.input / 'openmars-my30')
     cloud = pack_clouds(archive, args.input / 'Khayat2023_nadir_water_ice_opacity.csv')
     manifest = {
         'version': 1, 'byteLength': len(archive.payload), 'dust': dust, 'met': met, 'cloud': cloud,
         'sources': {
             'dust': {'url': DUST_URL, 'license': 'CC BY-SA 3.0', 'globalLsWindows': GLOBAL_WINDOWS},
             'meteorology': {'url': 'https://doi.org/10.21954/ou.rd.24573205.v3', 'license': 'CC BY 4.0',
-                            'marsYear': 30, 'chunks': MET_CHUNKS},
+                            'marsYear': MET_YEAR, 'atmosphereSamplesPerSol': 12 // ATMOSPHERE_SAMPLE_STRIDE,
+                            'surfaceSamplesPerSol': 12},
             'cloud': {'url': 'https://doi.org/10.17189/76ha-be75', 'product': 'Khayat2023_nadir_water_ice_opacity'},
         },
         'validation': checks,

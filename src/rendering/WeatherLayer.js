@@ -42,7 +42,8 @@ export class WeatherLayer {
     graphics.clear();
     const conditions = weather.conditions ?? {};
     const storm = conditions.storm ?? weather.active.find(({ id }) => id in dustStrength)?.id;
-    const dust = dustStrength[storm] ?? (conditions.haze ? 0.16 : 0);
+    const haze = conditions.haze ? Math.min(0.32, 0.07 + (weather.dustOpticalDepth ?? 0.3) * 0.3) : 0;
+    const dust = dustStrength[storm] ?? haze;
     const seconds = this.motion?.matches ? 0 : time / 1000;
     const east = (weather.windEastMs ?? 5) / 75;
     const north = (weather.windNorthMs ?? 0) / 100;
@@ -51,15 +52,16 @@ export class WeatherLayer {
     if (conditions.waterIceCloud || conditions.co2Cloud || conditions.fog) {
       const bandY = conditions.fog ? 0.73 : 0.13;
       const tint = conditions.co2Cloud ? 0xc6bce3 : 0xd7e5ee;
-      graphics.fillStyle(tint, 0.08);
+      const opacity = Math.min(0.16, 0.045 + (weather.cloudOpticalDepth ?? 0.15) * 0.23);
+      graphics.fillStyle(tint, opacity);
       for (const particle of this.particles.slice(0, 5)) {
         graphics.fillEllipse(x + wrap(particle.x + east * seconds * 0.18) * width,
           y + (bandY + particle.y * 0.15) * height, 110 + 120 * particle.size, 10 + 17 * particle.speed);
       }
     }
 
-    if (conditions.frost) {
-      graphics.fillStyle(conditions.frost === 'co2' ? 0xd3e3ed : 0xc7e6ee, 0.17);
+    if (conditions.surfaceFrost) {
+      graphics.fillStyle(0xd3e3ed, 0.17);
       for (const particle of this.particles.slice(0, 28)) {
         const frostX = x + Math.floor(particle.x * scene.sim.state.grid.w) * tile;
         const frostY = y + Math.floor(particle.y * scene.sim.state.grid.h) * row;

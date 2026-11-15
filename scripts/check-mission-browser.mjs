@@ -82,6 +82,10 @@ try {
   await active('Title');
   await pressButton('Title', 'Start survival');
   await active('UI');
+  await hasText('Colony', '+5 Cloud');
+  await pressButton('Colony', '+1 Haze');
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
+    text?.includes('Dust haze · Ice clouds') && text.includes('Overnight water-ice frost') && text.includes('Peak')));
   await page.keyboard.press('f');
   await active('Report');
   await hasText('Report', 'Rescue successful');

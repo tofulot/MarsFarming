@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "byteLength": 15732030,
+  "byteLength": 24286950,
   "dust": {
     "grid": {
       "columns": 36,
@@ -237,71 +237,72 @@
       "south": -85,
       "step": 10
     },
+    "sampling": "daily",
     "angles": {
-      "offset": 15716438,
-      "length": 8,
+      "offset": 24270038,
+      "length": 668,
       "type": "u16"
     },
     "fields": {
       "airMinC": {
         "offset": 15612758,
-        "length": 5184,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "airMaxC": {
-        "offset": 15623126,
-        "length": 5184,
+        "offset": 16478486,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "airMeanC": {
-        "offset": 15633494,
-        "length": 5184,
-        "type": "i16",
-        "scale": 0.1
-      },
-      "airVariationC": {
-        "offset": 15643862,
-        "length": 5184,
+        "offset": 17344214,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "groundMinC": {
-        "offset": 15654230,
-        "length": 5184,
+        "offset": 18209942,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "pressurePa": {
-        "offset": 15664598,
-        "length": 5184,
+        "offset": 19075670,
+        "length": 432864,
         "type": "u16",
         "scale": 1
       },
       "windEastMs": {
-        "offset": 15674966,
-        "length": 5184,
+        "offset": 19941398,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "windNorthMs": {
-        "offset": 15685334,
-        "length": 5184,
+        "offset": 20807126,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "windSpeedMs": {
-        "offset": 15695702,
-        "length": 5184,
+        "offset": 21672854,
+        "length": 432864,
+        "type": "i16",
+        "scale": 0.1
+      },
+      "windPeakMs": {
+        "offset": 22538582,
+        "length": 432864,
         "type": "i16",
         "scale": 0.1
       },
       "surfaceCo2": {
-        "offset": 15706070,
-        "length": 5184,
+        "offset": 23404310,
+        "length": 432864,
         "type": "u16",
-        "scale": 0.1
+        "scale": 0.25
       }
     }
   },
@@ -314,13 +315,13 @@
       "step": 10
     },
     "angles": {
-      "offset": 15716454,
+      "offset": 24271374,
       "length": 12,
       "type": "u16"
     },
     "fields": {
       "cloudOpticalDepth": {
-        "offset": 15716478,
+        "offset": 24271398,
         "length": 7776,
         "type": "u16",
         "scale": 0.001
@@ -350,16 +351,8 @@
       "url": "https://doi.org/10.21954/ou.rd.24573205.v3",
       "license": "CC BY 4.0",
       "marsYear": 30,
-      "chunks": [
-        135,
-        145,
-        154,
-        163,
-        172,
-        179,
-        186,
-        193
-      ]
+      "atmosphereSamplesPerSol": 4,
+      "surfaceSamplesPerSol": 12
     },
     "cloud": {
       "url": "https://doi.org/10.17189/76ha-be75",

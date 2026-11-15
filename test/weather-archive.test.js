@@ -50,6 +50,32 @@ test('the archive contains complete seasonal dust coverage and three planet-enci
     .some(([local, distant]) => ['dustLocal', 'dustRegional'].includes(local) && !distant));
 });
 
+test('meteorology selects a complete daily OpenMARS frame, including at the new year', () => {
+  assert.equal(index.met.angles.length, 668);
+  const at = weatherArchive.meteorology({ lat: -5, lon: 140 });
+  const first = at(0.44);
+  const second = at(0.95);
+  assert.deepEqual(at(0), first);
+  assert.deepEqual(at(0.60), first);
+  assert.deepEqual(at(0.80), second);
+  assert.equal(first.windSpeedMs.toFixed(1), '4.6');
+  assert.equal(second.windSpeedMs.toFixed(1), '4.3');
+  assert.equal(second.pressurePa, 645);
+  assert.ok(first.windPeakMs > first.windSpeedMs);
+});
+
+test('Gale forecasts surface daytime changes alongside overnight frost', () => {
+  const sim = new Simulation(data, { seed: 42, siteId: 'gale', rescue: true });
+  const days = sim.forecastWeather(120).days;
+  const primary = new Set(days.map((day) => day.primary));
+  for (const condition of ['Dust devil', 'Ice clouds', 'Dust haze']) {
+    assert.ok(days.some((day) => day.primary === condition && day.conditions.overnightFrost === 'water'));
+  }
+  assert.equal(primary.has('Surface frost'), false);
+  const wind = days.map((day) => day.windSpeedMs);
+  assert.ok(Math.max(...wind) - Math.min(...wind) > 2);
+});
+
 test('current and forecast provide the same weather across a calendar wrap without advancing play', () => {
   const seed = seedFor(36);
   const sim = new Simulation({ ...data, events: [] }, { seed, siteId: 'gale', landingLs: 270 });
