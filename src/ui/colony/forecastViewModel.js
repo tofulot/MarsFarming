@@ -2,7 +2,7 @@ const stormIds = new Set(['dustGlobal', 'dustRegional']);
 const knownWeatherIds = new Set(['dustGlobal', 'dustRegional', 'cold', 'coldSnap', 'spe']);
 const warnedUnknown = new Set();
 
-function conditionFor(day) {
+function conditionFor(day, futureUncertain = false) {
   const events = day.active ?? [];
   const storm = events.find(event => stormIds.has(event.id));
   const spaceWeather = events.find(event => event.id === 'spe');
@@ -26,14 +26,16 @@ function conditionFor(day) {
       icon: '≋', tone: 'storm', intensity };
   }
   if (cold) return { id: 'cold', label: 'Cold snap', icon: 'COLD', tone: 'cold', intensity: 0 };
+  if (futureUncertain) return { id: 'unknown', label: 'Forecast uncertain', icon: '?', tone: 'unknown', intensity: 0 };
   return { id: 'clear', label: 'Clear', icon: 'sun', tone: 'clear', intensity: 0 };
 }
 
 /** Pure adapter from Simulation.forecastWeather to HUD-ready cells. */
 export function createForecastViewModel(current, projection, sol, count = 15) {
   const days = [current, ...(projection?.days ?? [])].slice(0, count + 1);
+  const randomEventsUncertain = /future random events are uncertain/i.test(projection?.basis ?? '');
   const cells = days.map((day, index) => {
-    const condition = conditionFor(day);
+    const condition = conditionFor(day, index > 0 && randomEventsUncertain);
     const offset = index;
     return {
       sol: day.sol,
@@ -57,7 +59,8 @@ export function createForecastViewModel(current, projection, sol, count = 15) {
   }
   const incomingStorm = stormIndex > 0 && stormIndex <= 10 ? cells[stormIndex] : null;
   const chip = stormIndex < 0
-    ? { text: `No storms in ${Math.max(0, cells.length - 1)} sols`, storm: false }
+    ? randomEventsUncertain ? { text: 'Future weather uncertain', storm: false }
+      : { text: `No storms in ${Math.max(0, cells.length - 1)} sols`, storm: false }
     : stormIndex === 0
       ? { text: `Sandstorm now · lasts ${stormLength} ${stormLength === 1 ? 'sol' : 'sols'}`, storm: true }
       : { text: `Sandstorm in ${stormIndex} ${stormIndex === 1 ? 'sol' : 'sols'} · lasts ${stormLength} ${stormLength === 1 ? 'sol' : 'sols'}`, storm: true };

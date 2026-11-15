@@ -3,12 +3,7 @@ import { solarLongitude } from '../insolation.js';
 import { mulberry32 } from '../rng.js';
 import { lineagePhenotype } from './mutations.js';
 
-const isDust = ({ id }) => id === 'dustGlobal' || id === 'dustRegional';
-// Weather events are forecastable and stored in GameState. Keep narrative and
-// equipment events on the ordinary simulation RNG stream.
-const isWeather = (event) => isDust(event) || event.group === 'cold' ||
-  event.effects?.heatingFactor > 1 || event.effects?.heatFactor > 1 ||
-  event.effects?.crewDose_mSv > 0;
+const isDust = ({ id }) => ['dustLocal', 'dustRegional', 'dustGlobal'].includes(id);
 const available = (event, state, history) =>
   (!event.difficulties || event.difficulties.includes(state.difficulty))
   && (!event.hardOnly || state.difficulty === 'hard')
@@ -39,38 +34,6 @@ export function forecastDustEvents({ state, data }, from, through) {
     forecast.push({ ...event, startedSol: sol, until: clearSol });
   }
   return forecast;
-}
-
-function weatherRandom(seed, sol) {
-  return mulberry32(seed ^ Math.imul(sol, 0x9e3779b1) ^ 0x6d2b79f5);
-}
-
-/** Pre-generate weather events into state so the HUD and simulation use one schedule. */
-export function initializeWeatherSchedule(ctx) {
-  const { state, data } = ctx;
-  const scheduled = {};
-  const dust = forecastDustEvents(ctx, state.sol + 1, state.solLimit);
-  for (const event of dust) (scheduled[event.startedSol] ??= []).push(event);
-
-  const history = new Set(state.events.log.map(({ id }) => id));
-  const activeUntil = new Map(state.events.active.filter(isWeather).map(event => [event.id, event.until]));
-  const coldEvents = data.events.filter(event => isWeather(event) && !isDust(event));
-  const firstWeatherSol = state.rescue ? data.balance.rescue.rationSols + 1 : 1;
-  for (let sol = Math.max(state.sol + 1, firstWeatherSol); sol <= state.solLimit; sol++) {
-    const random = weatherRandom(state.seed, sol);
-    const Ls = solarLongitude(sol, data.seasons);
-    for (const event of coldEvents) {
-      if (!available(event, state, history) || sol < (activeUntil.get(event.id) ?? 0)) continue;
-      if (random() >= eventChance(event, Ls, data.difficulty[state.difficulty])) continue;
-      const [min, max] = event.durationSols;
-      const active = { ...event, startedSol: sol,
-        until: sol + min + Math.floor(random() * (max - min + 1)) };
-      (scheduled[sol] ??= []).push(active);
-      activeUntil.set(event.id, active.until);
-      history.add(event.id);
-    }
-  }
-  state.events.weatherSchedule = scheduled;
 }
 
 export function startEvent(ctx, id, until) {
@@ -110,29 +73,16 @@ export function eventSystem(ctx) {
   for (const event of state.events.active.filter(({ until }) => until <= state.sol)) emit('event:end', event);
   state.events.active = state.events.active.filter(({ until }) => until > state.sol);
   if (state.rescue && state.sol <= data.balance.rescue.rationSols) return;
-  const scheduled = state.events.weatherSchedule?.[state.sol] ?? [];
+  if (!ctx.weather?.usesArchive) {
+    const [dust] = forecastDustEvents(ctx, state.sol, state.sol);
+    if (dust) startEvent(ctx, dust.id, dust.until);
+  }
   const history = new Set(state.events.log.map(({ id }) => id));
   for (const event of data.events) {
-    if (!available(event, state, history)) continue;
-    if (isDust(event)) {
-      const dust = scheduled.find(candidate => candidate.id === event.id);
-      if (dust) startEvent(ctx, dust.id, dust.until);
-      continue;
-    }
-    if (isWeather(event)) {
-      // Preserve the simulation RNG stream's previous draw count while weather
-      // itself comes from the stored forecast schedule.
-      random();
-      const forecast = scheduled.find(candidate => candidate.id === event.id);
-      if (forecast) {
-        random();
-        startEvent(ctx, forecast.id, forecast.until);
-      }
-      continue;
-    }
+    if (isDust(event) || (ctx.weather?.usesArchive && ['cold', 'coldSnap'].includes(event.id)) ||
+        !available(event, state, history)) continue;
     if (random() < eventChance(event, state.Ls, data.difficulty[state.difficulty])) {
       startEvent(ctx, event.id);
     }
   }
-  delete state.events.weatherSchedule?.[state.sol];
 }

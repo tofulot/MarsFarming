@@ -109,40 +109,14 @@ test('live game forecast and effect queries leave RNG, resources and future play
   assert.equal(sim.forecastWeather(6).days.at(-1).heatingFactor, 1);
 });
 
-test('stored weather forecast matches live weather over multiple seeds without query side effects', () => {
-  const cold = read('demo-events').find(event => event.id === 'cold');
-  const storm = read('demo-events').find(event => event.id === 'dustRegional');
-  const spaceWeather = read('demo-events').find(event => event.id === 'spe');
-  const scenario = { ...data, events: [
-    { ...cold, baseChancePerSol: 0.18, durationSols: [2, 4] },
-    { ...storm, baseChancePerSol: 0.12, durationSols: [2, 5] },
-    { ...spaceWeather, baseChancePerSol: 0.08, durationSols: [2, 3] },
-  ] };
-  for (const seed of [7, 42, 2026]) {
-    const sim = new Simulation(scenario, { difficulty: 'easy', siteId: 'gale', seed });
-    for (let offset = 0; offset < 36 && sim.state.status === 'active'; offset++) {
-      const before = JSON.stringify(sim.state);
-      const forecast = sim.forecastWeather(15).days[0];
-      assert.equal(JSON.stringify(sim.state), before, 'forecast query must be read-only');
-      sim.step();
-      const live = sim.getWeather();
-      assert.equal(live.sol, forecast.sol);
-      assert.equal(live.dustFactor, forecast.dustFactor, `dust mismatch for seed ${seed}, sol ${live.sol}`);
-      assert.equal(live.heatingFactor, forecast.heatingFactor, `cold mismatch for seed ${seed}, sol ${live.sol}`);
-      assert.equal(live.commsFactor, forecast.commsFactor);
-    }
-  }
-});
-
-test('rescue ration protection keeps pre-generated weather inactive until the first eligible sol', () => {
-  const storm = read('demo-events').find(event => event.id === 'dustRegional');
-  const scenario = { ...data, events: [{ ...storm, baseChancePerSol: 10, durationSols: [2, 2] }] };
-  const sim = new Simulation(scenario, { difficulty: 'easy', siteId: 'gale', seed: 5, rescue: true });
-  assert.equal(sim.forecastWeather(11).days.every(day => day.dustFactor === 1), true);
-  for (let sol = 0; sol < data.balance.rescue.rationSols; sol++) sim.step();
-  assert.equal(sim.state.events.active.some(event => event.id === 'dustRegional'), false);
-  sim.step();
-  assert.equal(sim.state.events.active.some(event => event.id === 'dustRegional'), true);
+test('game forecast uses the main weather API without storing a second event schedule', () => {
+  const sim = new Simulation(data, { difficulty: 'easy', siteId: 'gale', seed: 7 });
+  const snapshot = JSON.stringify(sim.state);
+  const projection = sim.forecastWeather(15);
+  assert.equal(projection.kind, 'projection');
+  assert.match(projection.basis, /future random events are uncertain/i);
+  assert.equal(JSON.stringify(sim.state), snapshot, 'forecast query must be read-only');
+  assert.equal(Object.hasOwn(sim.state.events, 'weatherSchedule'), false);
 });
 
 test('live crop load consumes shared API outputs and changes when configured', () => {

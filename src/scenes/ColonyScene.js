@@ -426,12 +426,50 @@ export class ColonyScene extends Phaser.Scene {
     say(695, 207, instruction, 14, { color: colors.muted });
 
     shopCategories.forEach((category, i) => {
-      action(695 + i * 130, 235, 123, 34, category.name, () => {
+      action(695 + i * 103, 235, 98, 34, category.name, () => {
         this.shopCategory = category;
         this.tool = null;
         this.drawSide();
-      }, { selected: category === this.shopCategory, size: 15 });
+      }, { selected: category === this.shopCategory, size: 13 });
     });
+
+    if (this.shopCategory.seeds) {
+      this.dataSet.crops.forEach((crop, index) => {
+        const column = index % 2;
+        const rowIndex = Math.floor(index / 2);
+        const x = 695 + column * 258;
+        const y = 286 + rowIndex * 58;
+        const requirement = this.sim.unlockRequirement(crop);
+        const foodCost = this.sim.plantingFoodCost(crop.id);
+        const selected = this.seedTool === crop.id;
+        const fill = requirement ? 0x211a20 : selected ? 0x654333 : 0x382830;
+        const card = panel(this, mapX(x), mapY(y), 250 * scaleX, 53 * scaleY, fill);
+        card.setStrokeStyle(selected ? 2 : 1, selected ? colors.accent : colors.line, 0.8);
+        card.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
+          if (requirement) {
+            this.notify(`${crop.name} requires ${requirement}.`);
+            return;
+          }
+          const selectedUnit = this.selected && this.sim.state.buildings.find(({ x: bx, y: by }) =>
+            bx === this.selected.x && by === this.selected.y);
+          const selectedBuilding = selectedUnit && this.dataSet.buildings.find(({ id }) => id === selectedUnit.id);
+          if (selectedUnit && selectedBuilding?.plot) {
+            this.run({ type: 'plant', id: crop.id, uid: selectedUnit.uid });
+            return;
+          }
+          this.seedTool = crop.id;
+          this.tool = null;
+          this.notify(`Select a greenhouse plot to plant ${crop.name}${foodCost ? ` · ${foodCost.toFixed(1)} kg food` : ''}.`);
+          this.drawSide();
+        });
+        group.add(card);
+        say(x + 10, y + 5, crop.name, 15, { fontStyle: 'bold', color: requirement ? colors.muted : colors.ink });
+        const detail = requirement ? `LOCKED · ${requirement}`
+          : `${cropSolsRemaining(crop, { id: 'plot' }, this.dataSet.balance)} sols${foodCost ? ` · ${foodCost.toFixed(1)} kg food` : ''}`;
+        say(x + 10, y + 29, detail, 11, { color: requirement ? colors.muted : colors.muted });
+      });
+      return;
+    }
 
     this.shopCategory.items.forEach((id, i) => {
       const item = this.dataSet.buildings.find((entry) => entry.id === id);

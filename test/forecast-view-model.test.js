@@ -28,3 +28,17 @@ test('forecast view model carries optional wind only when present and does not m
   assert.equal(model.cells[1].windSpeedMps, 3.2);
   assert.deepEqual([today, tomorrow], before);
 });
+
+test('future event uncertainty stays neutral unless the weather API supplies a known event', () => {
+  const projection = {
+    basis: 'Seasonal model and known events; future random events are uncertain',
+    days: [weather(21), weather(22, [{ id: 'dustRegional', name: 'Regional dust storm' }],
+      { dustFactor: 0.4, solarFactor: 0.32 }), weather(23)],
+  };
+  const model = createForecastViewModel(weather(20), projection, 20);
+  assert.equal(model.cells[1].tone, 'unknown');
+  assert.equal(model.cells[2].id, 'dustRegional');
+  assert.equal(model.cells[3].tone, 'unknown');
+  assert.equal(model.chip.text, 'Sandstorm in 2 sols · lasts 1 sol');
+  assert.equal(model.basis, projection.basis);
+});
