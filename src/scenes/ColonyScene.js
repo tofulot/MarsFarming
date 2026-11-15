@@ -4,6 +4,7 @@ import { ColonyPresentation } from '../ui/colony/ColonyPresentation.js';
 import { drawColonyBoard } from '../ui/colony/board.js';
 import { shopCategories } from '../ui/colony/catalog.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
+import { playFactCards } from '../ui/factCards.js';
 import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeatureAt } from '../ui/surfaceActions.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
@@ -56,7 +57,12 @@ export class ColonyScene extends Phaser.Scene {
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
     const announceAward = playAchievementToasts(this, pendingAwards);
+    const announceFact = playFactCards(this);
     this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
+    this.sim.on('fact:card', (card) => {
+      announceFact(card);
+      this.notify(`${card.title}: ${card.survival || card.text}`);
+    });
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));

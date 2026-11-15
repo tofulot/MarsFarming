@@ -19,6 +19,6 @@ export function createState(data, options, launch) {
     rocks: [], rocket: null, events: { active: [], log: [] }, journal: {}, objectives: {},
     badges: [], decisions: [], score: { total: 0, parts: {} },
     metrics: { grownKg: 0, consumedKg: 0, transmitted: 0, packets: [],
-      stormSols: 0, stormSafe: 0, powerSafe: 0, lowWaterSols: 0, shortages: 0 },
+      stormSols: 0, stormSafe: 0, powerSafe: 0, lowWaterSols: 0, shortages: 0, seenFacts: {} },
   };
 }

@@ -80,8 +80,14 @@ Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
     const event = state.events.log.find(({ id }) => id.startsWith('dust')) ?? state.events.log.at(-1);
     if (event) text(this, 527, 419, `${event.name} on sol ${event.sol}. ${event.fact}`, 16,
       { color: '#ffc7a8', wordWrap: { width: 665 } });
-    const fact = data.facts[0];
-    text(this, 527, 502, `${fact.text} [${fact.source}]`, 15, { color: colors.muted, wordWrap: { width: 644 } });
+    const seen = Object.keys(state.metrics.seenFacts ?? {});
+    const fact = data.facts.find((entry) => entry.milestone && seen.includes(entry.milestone))
+      ?? data.facts.find((entry) => entry.milestone)
+      ?? data.facts[0];
+    const survival = fact.survival ? ` Survival: ${fact.survival}` : '';
+    text(this, 527, 502, `${fact.text} [${fact.source}].${survival}`, 15, {
+      color: colors.muted, wordWrap: { width: 644 },
+    });
     button(this, 56, 636, 139, 48, 'Main menu', () => this.scene.start('Title'));
     button(this, 221, 636, 187, 48, 'Crop journal', () => this.scene.restart({ ...report, journal: true }));
     button(this, 950, 636, 274, 48, 'Redesign and re-fly →',
