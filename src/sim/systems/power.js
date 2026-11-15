@@ -1,4 +1,4 @@
-// AI-assisted (OpenAI Codex)
+// AI-assisted (OpenAI Codex; broken comms dish by Claude Code)
 import { lineagePhenotype } from './mutations.js';
 
 export function powerSystem({ state, data, buildings, crops, emit, weather }, { elapsed = true } = {}) {
@@ -15,7 +15,7 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }, { 
     const config = buildings.get(unit.id);
     unit.requestedW = 0;
     unit.online = !active.some(({ targetUid }) => targetUid === unit.uid);
-    if (unit.loadEnabled === false) unit.online = false;
+    if (unit.loadEnabled === false || unit.broken) unit.online = false; // a crashed, unrepaired dish draws nothing
     if (!unit.online) continue;
     if (config.capacityWh) capacityWh += config.capacityWh;
     if (unit.id === 'solar') {

@@ -1,3 +1,4 @@
+// AI-assisted (OpenAI Codex; comms goals and top-bar trends by Claude Code)
 import { advancements, advancementUnlocks } from '../../sim/advancements.js';
 import { powerLoadSnapshot } from '../../sim/powerLoads.js';
 
@@ -26,6 +27,8 @@ function goalProgress(id, state) {
     colony: [Number(Boolean(state.rescue?.colonyName)), 1, ''],
     power: [Number(built('battery')), 1, ''],
     charged: [Math.min(10000, state.res.batteryWh), 10000, 'Wh'],
+    phoneHome: [Number(Boolean(state.comms?.repaired)), 1, ''],
+    delivery: [Math.min(1, state.comms?.delivered?.length ?? 0), 1, 'crates'],
     downlink: [Math.min(5, state.metrics.transmitted), 5, 'packets'],
     halfway: [Math.min(Math.ceil(targetSols / 2), state.sol), Math.ceil(targetSols / 2), 'sols'],
     rescue: [Math.min(targetSols, state.sol), targetSols, 'sols'],
@@ -53,6 +56,29 @@ export function selectGoals(state, data) {
   });
 }
 
+/**
+ * Per-sol rates for the top bar. materialsPerSol is the change in build materials between the last two
+ * sol ends (player spending included); waterPerSol is current production minus demand (L/sol), falling
+ * back to the last-sol change; foodRunsOutSol is the sol stored food runs out with no new harvests
+ * (null when nobody eats); powerSurplusW is generation minus demand right now.
+ */
+export function selectTrends(state, balance) {
+  const history = state.history ?? [];
+  const [previous, last] = history.slice(-2);
+  const delta = (key) => previous && last ? last[key] - previous[key] : 0;
+  const water = state.water;
+  const waterPerSol = Number.isFinite(water?.production) && Number.isFinite(water?.demand)
+    ? water.production - water.demand : delta('waterL');
+  const factor = balance.rationing?.[state.crew.rationing] ?? 1;
+  const eaten = state.crew.n * balance.foodPerCrew * factor;
+  return {
+    materialsPerSol: delta('credits'),
+    waterPerSol,
+    foodRunsOutSol: eaten > 0 ? state.sol + selectFoodRunway(state, balance) : null,
+    powerSurplusW: (state.power.gen ?? 0) - (state.power.demand ?? 0),
+  };
+}
+
 export function selectColonyUiState(sim, data, foodPerCrew = data.balance.foodPerCrew) {
   const state = sim.state;
   const foodSols = selectFoodRunway(state, data.balance);
@@ -76,5 +102,6 @@ export function selectColonyUiState(sim, data, foodPerCrew = data.balance.foodPe
     loads: powerLoadSnapshot(state, data),
     rationing: state.crew.rationing ?? 'normal',
     goals: selectGoals(state, data),
+    trends: selectTrends(state, data.balance),
   };
 }

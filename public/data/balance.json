@@ -11,24 +11,6 @@
     "priceMultiplier": 1.15,
     "starvationDamage": 0.05,
     "plantingFoodKg": 0.2,
-    "seedDropIntervalSols": 15,
-    "seedDropTiers": [
-      [
-        "radish",
-        "lettuce"
-      ],
-      [
-        "tomato",
-        "soybean"
-      ],
-      [
-        "potato",
-        "sweetPotato"
-      ],
-      [
-        "wheat"
-      ]
-    ],
     "surface": {
       "regolithNodes": 5,
       "metalNodes": 4,

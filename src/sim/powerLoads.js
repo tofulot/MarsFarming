@@ -13,7 +13,8 @@ export function powerLoadGroupFor(buildingId) {
 export function powerLoadSnapshot(state, data) {
   const definitions = new Map(data.buildings.map(item => [item.id, item]));
   return groups.map(group => {
-    const buildings = state.buildings.filter(unit => group.buildingIds.includes(unit.id));
+    // A crashed, unrepaired Comms Dish is not a load until it is repaired.
+    const buildings = state.buildings.filter(unit => group.buildingIds.includes(unit.id) && !unit.broken);
     const units = buildings.filter(unit => definitions.get(unit.id)?.powerW < 0);
     return {
       id: group.id,
