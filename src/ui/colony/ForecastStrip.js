@@ -21,12 +21,12 @@ export function drawForecastStrip(scene, group, currentWeather = scene.sim.getWe
     const cold = day.conditions?.cold ?? day.heatingFactor > 1;
     const offset = index ? `+${index}` : 'Now';
     const condition = storm ? ' Dust' : cold ? ' Cold' : '';
-    plate(scene, group, left, 44, slotWidth - 3, 14, storm ? 0xc66c2b : cold ? 0x607c86 : 0x3d5364);
+    const cell = plate(scene, group, left, 44, slotWidth - 3, 14, storm ? 0xc66c2b : cold ? 0x607c86 : 0x3d5364);
     label(scene, group, left + (slotWidth - 3) / 2, 51, offset + condition, 9, {
       align: 'center', fontStyle: index === 0 ? 'bold' : 'normal',
     }).setOrigin(0.5);
     if (!day.conditions) return;
-    const hit = scene.add.zone(left, 44, slotWidth - 3, 15).setOrigin(0).setDepth(23).setInteractive();
+    cell.setInteractive({ useHandCursor: true });
     let detail;
     const show = () => {
       detail?.destroy();
@@ -36,7 +36,6 @@ export function drawForecastStrip(scene, group, currentWeather = scene.sim.getWe
         backgroundColor: '#352720', padding: { x: 5, y: 4 },
       }).setDepth(90);
     };
-    hit.on('pointerover', show).on('pointerdown', show).on('pointerout', () => detail?.destroy());
-    group.add(hit);
+    cell.on('pointerover', show).on('pointerdown', show).on('pointerout', () => detail?.destroy());
   });
 }

@@ -150,8 +150,11 @@ try {
   const canvas = await page.locator('canvas').first().boundingBox();
   assert.ok(canvas);
   const point = (x, y) => [canvas.x + x * canvas.width / 1280, canvas.y + y * canvas.height / 720];
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').input._list.some((item) =>
+    item.x === 120 && item.y === 44 && item.listenerCount('pointerdown')));
   await page.mouse.move(...point(100, 50));
   await page.mouse.move(...point(144, 51), { steps: 4 });
+  await page.mouse.click(...point(144, 51));
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
     text?.includes('Hab heat') && text.includes('Ice yield')), undefined, { timeout: 5000 });
   await page.mouse.click(...point(96, 110));
