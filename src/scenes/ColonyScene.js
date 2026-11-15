@@ -57,7 +57,7 @@ export class ColonyScene extends Phaser.Scene {
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
     const announceAward = playAchievementToasts(this, pendingAwards);
-    const announceFact = playFactCards(this);
+    const announceFact = playFactCards(this, { facts: this.dataSet.facts });
     this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
     this.sim.on('fact:card', (card) => {
       announceFact(card);

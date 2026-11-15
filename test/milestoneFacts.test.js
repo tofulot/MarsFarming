@@ -19,6 +19,14 @@ test('milestone facts include survival copy and NASA sources', () => {
   }
 });
 
+test('click helper can pick a general space fact without a milestone id', async () => {
+  const { pickSpaceFact } = await import('../src/ui/helperBotanist.js');
+  const card = pickSpaceFact(data.facts, () => 0);
+  assert.ok(card.text);
+  assert.ok(card.source);
+  assert.equal(data.facts.some((fact) => !fact.milestone && fact.text === card.text), true);
+});
+
 test('first plant emits a once-per-mission fact card', () => {
   const sim = new Simulation(data, { difficulty: 'easy', siteId: 'gale' });
   const cards = [];
