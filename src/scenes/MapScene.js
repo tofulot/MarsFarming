@@ -1,9 +1,9 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
 import { dustOpacity } from '../weather/dustClimatology.js';
-import { landingWeatherDifficulty } from '../weather/redHarvest.js';
+import { landingWeatherOutlook } from '../weather/archive.js';
 import { button, colors, panel, text, targetBackground } from '../ui/controls.js';
-import { clearSolarFactor } from '../sim/insolation.js';
+import { clearSolarFactor, landingCalendarSol, landingLongitudes } from '../sim/insolation.js';
 import { landingSite, normalizedNeutronFlux } from '../sim/marsMap.js';
 import { resolveSoilProfile } from '../sim/systems/soil.js';
 
@@ -34,7 +34,7 @@ export class MapScene extends Phaser.Scene {
     targetBackground(this);
     this.dataSet = this.registry.get('missionData');
     this.flux = this.dataSet['neutron-flux'];
-    this.dustSeason = 2;
+    this.dustSeason = Math.max(0, landingLongitudes.indexOf(options.landingLs ?? 0));
     this.layers = { hydrogen: false, solar: false, weather: false };
     this.view = { zoom: 1, x: .5, y: .5 };
     this.site = options.site ?? null;
@@ -248,10 +248,10 @@ export class MapScene extends Phaser.Scene {
         this.drawLayers(options);
         this.drawMap();
         this.drawSite(options);
-      }, { selected: this.layers.weather && i === this.dustSeason, size: 11 });
+      }, { selected: i === this.dustSeason, size: 11 });
       group.addMultiple([control.box, control.copy]);
     });
-    say(984, 469, 'Each column shows both seasons at once.', 11, { color: colors.muted });
+    say(984, 469, `Landing season · Lₛ ${landingLongitudes[this.dustSeason]}°`, 11, { color: colors.muted });
     group.add(this.add.rectangle(984, 485, 220, 1, colors.line).setOrigin(0));
   }
 
@@ -262,22 +262,22 @@ export class MapScene extends Phaser.Scene {
     group.add(text(this, 984, 517, this.site ? coordinates(this.site) : 'Select a point on Mars', 18, { fontStyle: 'bold' }));
     if (this.site) {
       const flux = normalizedNeutronFlux(this.flux, this.site.lat, this.site.lon);
-      const sun = clearSolarFactor(this.site.lat, 0, this.dataSet.seasons.orbit);
-      const equator = clearSolarFactor(0, 0, this.dataSet.seasons.orbit);
-      const { seasonalLow } = landingWeatherDifficulty(this.dataSet.weather.temperatureModel, this.site.lat);
-      const frame = this.dataSet.dustClimatology.frames[this.dustSeason];
-      const opacity = dustOpacity(frame, this.site.lat, this.site.lon);
-      const season = this.dataSet.seasons.seasonNamesNorth[(this.dustSeason + (this.site.lat < 0 ? 2 : 0)) % 4];
+      const { seasons, weatherArchive, balance } = this.dataSet;
+      const Ls = landingLongitudes[this.dustSeason];
+      const sun = clearSolarFactor(this.site.lat, Ls, seasons.orbit);
+      const equator = clearSolarFactor(0, Ls, seasons.orbit);
+      const duration = options.rescue ? balance.rescue.arrivalSol : Math.ceil(seasons.yearSols);
+      const outlook = landingWeatherOutlook(weatherArchive, this.site, landingCalendarSol(Ls, seasons), seasons, duration);
       const soil = resolveSoilProfile(this.site, this.dataSet);
       const soilLine = soil
         ? `Soil · ${soil.analog} · ${soil.perchlorate_wt_pct} wt% ClO₄⁻ · pH ${soil.pH}`
         : '';
-      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Cold low ~${Math.round(seasonalLow)} °C\n${season} dust · ${opacity.toFixed(2)} IR optical depth${soilLine ? `\n${soilLine}` : ''}`, 12,
+      group.add(text(this, 984, 541, `Neutron flux    ${(flux * .26).toFixed(3)} counts/s\nSun ${Math.round(100 * sun / equator)}% of equator · Low ~${Math.round(outlook.minimumC)} °C\n~${outlook.stormSols.toFixed(1)} storm sols in a ${duration}-sol window${soilLine ? `\n${soilLine}` : ''}`, 12,
         { color: colors.muted, lineSpacing: 4 }));
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {
       const seed = options.demo ? this.dataSet.balance.demoSeed : Math.floor(Math.random() * 2 ** 32);
-      this.scene.start('Colony', { ...options, seed, site: this.site });
+      this.scene.start('Colony', { ...options, seed, site: this.site, landingLs: landingLongitudes[this.dustSeason] });
     } : null, { selected: Boolean(this.site), size: 16 });
     group.addMultiple([action.box, action.copy]);
   }

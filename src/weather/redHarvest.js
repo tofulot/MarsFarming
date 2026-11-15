@@ -1,6 +1,7 @@
 // Adapt Kelton's weather API to Red Harvest's simulation and event scheduler.
 import { createWeatherAPI, configureWeather } from './index.js';
 import { clearSolarFactor } from '../sim/insolation.js';
+import { createArchiveProvider } from './archive.js';
 
 export function gameEvents(weather, existing) {
   const weatherIds = new Set(['dustGlobal', 'dustRegional', 'cold', 'coldSnap']);
@@ -37,9 +38,10 @@ export function createRedHarvestWeather(data, options = {}) {
   return createWeatherAPI({
     config: mappedConfig, overrides: options.overrides,
     observations: data.weatherObservations?.observations ?? [],
+    archive: data.weatherArchive && createArchiveProvider(data.weatherArchive, seasons),
     models: {
       solar: ({ site, Ls }) => clearSolarFactor(site.lat, Ls, seasons.orbit),
-      ...(data.weather ? {} : { temperature: ({ site, Ls }) => {
+      ...(data.weather || data.weatherArchive ? {} : { temperature: ({ site, Ls }) => {
         const model = balance.temperatureModel;
         return model.baseC - Math.abs(site.lat) * model.latitudePenalty +
           model.seasonSwingC * Math.sin(Ls * Math.PI / 180) * (site.lat < 0 ? -1 : 1);
@@ -51,8 +53,9 @@ export function createRedHarvestWeather(data, options = {}) {
 
 export function gameWeatherInput({ state, site }, forecastEvents = []) {
   return {
-    sol: state.sol, Ls: state.Ls, site: { id: 'landing', ...site }, seed: state.seed, difficulty: state.difficulty,
-    events: [...state.events.active, ...forecastEvents].map((event) => ({
+    sol: state.sol, calendarSol: state.sol + (state.landingCalendarSol ?? 0), Ls: state.Ls,
+    site: { id: 'landing', ...site }, seed: state.seed, difficulty: state.difficulty,
+    events: [...state.events.active.filter(({ archive }) => !archive), ...forecastEvents].map((event) => ({
       ...event, startSol: event.startedSol, endSol: event.until,
       effects: { ...event.effects, heatingFactor: event.effects.heatingFactor ?? event.effects.heatFactor },
     })),

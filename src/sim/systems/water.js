@@ -16,7 +16,8 @@ export function waterOutput(building, site, balance, rescue) {
 export function waterSupply({ state, data: { balance }, site, buildings }) {
   const live = state.buildings.filter(({ online }) => online);
   const production = live.reduce((sum, unit) =>
-    sum + waterOutput(buildings.get(unit.id), site, balance, state.rescue), 0);
+    sum + waterOutput(buildings.get(unit.id), site, balance, state.rescue)
+      * (unit.id === 'iceDrill' ? state.weather?.iceDrillFactor ?? 1 : 1), 0);
   const crewWater = -buildings.get('hab').waterLPerSol * state.crew.n / balance.crew;
   const recycled = live.some(({ id }) => id === 'recycler') ? balance.recycleFraction : 0;
   return { production, crewDemand: crewWater * (1 - recycled) };

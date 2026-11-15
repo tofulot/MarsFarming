@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import achievementChime from '../assets/achievement.wav';
 import { hasDustClimatology } from '../weather/dustClimatology.js';
 import { gameEvents } from '../weather/redHarvest.js';
+import { decompressWeatherArchive, readWeatherArchive } from '../weather/archive.js';
 
 const keys = ['sites', 'crops', 'buildings', 'demo-events', 'seasons', 'difficulty', 'landers',
   'objectives', 'facts', 'balance', 'mutations', 'soils', 'weather', 'weather-observations'];
@@ -17,6 +18,8 @@ export class BootScene extends Phaser.Scene {
     this.load.svg('weather-sun', `${import.meta.env.BASE_URL}assets/weather/sun.svg`, { width: 24, height: 24 });
     this.load.svg('weather-sandstorm', `${import.meta.env.BASE_URL}assets/weather/sandstorm.svg`, { width: 24, height: 24 });
     this.load.json('dust-climatology', `${path}mars/dust-climatology.json`);
+    this.load.json('weather-archive-index', `${path}mars/weather-archive.json`);
+    this.load.binary('weather-archive', `${path}mars/weather-archive.bin.gz`);
     this.load.json('neutron-flux', `${path}mars/neutron-flux.json`);
     for (const key of keys) this.load.json(key, `${path}${key}.json`);
   }
@@ -28,6 +31,15 @@ export class BootScene extends Phaser.Scene {
     if (this.cache.json.get('neutron-flux')?.length !== 4050) missing.push('neutron flux');
     const dust = this.cache.json.get('dust-climatology');
     if (!hasDustClimatology(dust)) missing.push('dust climatology');
+    let weatherArchive;
+    try {
+      const bytes = await decompressWeatherArchive(this.cache.binary.get('weather-archive'));
+      weatherArchive = readWeatherArchive(this.cache.json.get('weather-archive-index'), bytes);
+      this.cache.binary.remove('weather-archive');
+    } catch (error) {
+      console.error('Could not load archive-backed Mars weather', error);
+      missing.push('Mars weather archive');
+    }
     if (missing.length) {
       message.textContent = `Could not load mission data: ${missing.join(', ')}.`;
       message.style.position = 'fixed';
@@ -35,6 +47,7 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     const data = Object.fromEntries(keys.map((key) => [key, this.cache.json.get(key)]));
+    data.weatherArchive = weatherArchive;
     data.dustClimatology = dust;
     data['neutron-flux'] = this.cache.json.get('neutron-flux');
     const events = await fetch(import.meta.env.BASE_URL + 'data/events.json')

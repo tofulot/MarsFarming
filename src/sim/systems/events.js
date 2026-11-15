@@ -24,7 +24,7 @@ export function forecastDustEvents({ state, data }, from, through) {
   for (let sol = Math.max(from, clearSol, firstStormSol); sol <= Math.min(through, state.solLimit); sol++) {
     if (sol < clearSol) continue;
     const random = mulberry32(state.seed ^ Math.imul(sol, 0x9e3779b1));
-    const Ls = solarLongitude(sol, data.seasons);
+    const Ls = solarLongitude(sol + (state.landingCalendarSol ?? 0), data.seasons);
     const event = dustEvents.find((candidate) =>
       available(candidate, state, history) && random() < eventChance(candidate, Ls, data.difficulty[state.difficulty]));
     if (!event) continue;
@@ -39,7 +39,7 @@ export function forecastDustEvents({ state, data }, from, through) {
 export function startEvent(ctx, id, until) {
   const { state, data, random, emit } = ctx;
   const event = data.events.find((entry) => entry.id === id);
-  if (!event || state.events.active.some((entry) => entry.id === id)) return false;
+  if (!event || state.events.active.some((entry) => entry.id === id && !entry.archive)) return false;
   const [min, max] = event.durationSols;
   const active = { ...event, startedSol: state.sol,
     until: until ?? state.sol + min + Math.floor(random() * (max - min + 1)) };
@@ -66,6 +66,19 @@ export function startEvent(ctx, id, until) {
   state.events.log.push({ id, name: event.name, sol: state.sol, fact: event.fact });
   emit('event:start', active);
   return true;
+}
+
+export function syncArchivedStorms({ state, emit }) {
+  for (const event of state.weather.active.filter((item) => item.archive && isDust(item))) {
+    const { id, name, startSol, endSol } = event;
+    if (state.events.active.some((entry) => entry.archive && entry.id === id && entry.startedSol === startSol)) continue;
+    const duration = endSol - startSol;
+    const active = { id, name, startedSol: startSol, until: endSol, archive: true, effects: {},
+      durationSols: [duration, duration] };
+    state.events.active.push(active);
+    state.events.log.push({ id, name, sol: state.sol });
+    emit('event:start', active);
+  }
 }
 
 export function eventSystem(ctx) {

@@ -106,7 +106,6 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    this.presentation?.update(time);
     if (!this.sim || this.finished) return;
     const { speed } = this.sim.state;
     const tick = this.dataSet.balance.solMs;
@@ -115,6 +114,8 @@ export class ColonyScene extends Phaser.Scene {
       this.acc -= tick;
       this.sim.step();
     }
+    const progress = Math.min(1, this.acc / tick);
+    this.presentation?.update(time, progress);
     if (this.runningWasherBar) this.runningWasherBar.scaleX = this.acc / tick;
   }
 

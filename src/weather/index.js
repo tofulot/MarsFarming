@@ -58,7 +58,7 @@ function validateConfig(config) {
  * models.temperature(context) and models.solar(context) are optional pure functions.
  * External-event mode uses current()/forecast(); standalone mode uses advance().
  */
-export function createWeatherAPI({ config: base, overrides = {}, models = {}, observations = [] }) {
+export function createWeatherAPI({ config: base, overrides = {}, models = {}, observations = [], archive }) {
   const config = configureWeather(base, overrides);
   validateConfig(config);
   const records = structuredClone(observations);
@@ -69,21 +69,45 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
   function current(input) {
     const weather = stepWeather(undefined, input, quiet).weather;
     weather.apiVersion = 1;
+    if (archive) {
+      const { events, ...sample } = archive({ ...input, Ls: weather.Ls });
+      if (input.observation) {
+        sample.outsideTempC = weather.outsideTempC;
+        sample.temperatureBasis = weather.temperatureBasis;
+        sample.airMinC = input.observation.airTempMinC;
+        sample.airMaxC = input.observation.airTempMaxC;
+      }
+      Object.assign(weather, sample);
+      weather.active = events;
+      weather.label = 'Archived dust replay and OpenMARS meteorology';
+    }
     if (modelFns.temperature && !input.observation) {
       weather.outsideTempC = number(modelFns.temperature(contextFor({ ...input, Ls: weather.Ls })), 'temperature model');
       weather.temperatureBasis = 'Configured game temperature model';
     }
     if (modelFns.solar) weather.clearSolarFactor = number(modelFns.solar(contextFor({ ...input, Ls: weather.Ls })), 'solar model', 0);
-    weather.active = structuredClone(input.events ?? []).filter(event =>
+    const suppliedEvents = structuredClone(input.events ?? []).filter(event =>
       (event.startSol ?? 0) <= input.sol && (event.endSol ?? Infinity) > input.sol);
-    for (const event of weather.active) {
+    weather.active = [...(archive ? weather.active.filter(({ id }) => !suppliedEvents.some(event => event.id === id)) : []),
+      ...suppliedEvents];
+    for (const event of suppliedEvents) {
       const effects = event.effects ?? {};
       // Most severe event wins, matching Red Harvest's existing event composition.
       weather.dustFactor = Math.min(weather.dustFactor, number(effects.solarFactor ?? 1, 'solarFactor', 0));
       weather.heatingFactor = Math.max(weather.heatingFactor, number(effects.heatingFactor ?? 1, 'heatingFactor', 0));
       weather.commsFactor = Math.min(weather.commsFactor, number(effects.commsFactor ?? 1, 'commsFactor', 0));
     }
-    weather.solarFactor = weather.clearSolarFactor * weather.dustFactor;
+    if (archive) {
+      const manualStorm = suppliedEvents.find(({ id }) => id === 'dustGlobal')
+        ?? suppliedEvents.find(({ id }) => id === 'dustRegional' || id === 'dustLocal');
+      if (manualStorm) {
+        weather.conditions.storm = manualStorm.id;
+        weather.primary = manualStorm.name ?? 'Dust storm';
+        weather.panelDustMultiplier = Math.max(weather.panelDustMultiplier, config.balance.stormDustMultiplier ?? 1);
+      }
+      weather.atmosphereFactor = Math.min(weather.atmosphereFactor, weather.dustFactor);
+    }
+    weather.solarFactor = weather.clearSolarFactor * (weather.atmosphereFactor ?? weather.dustFactor);
     return weather;
   }
 
@@ -92,14 +116,15 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
     const now = current(input);
     const month = Math.floor(now.Ls / 30);
     const starts = config.calendar.monthStartSols;
-    const calendarSol = starts[month] + (now.Ls / 30 - month) * (starts[month + 1] - starts[month]);
+    const calendarSol = input.calendarSol ?? starts[month] + (now.Ls / 30 - month) * (starts[month + 1] - starts[month]);
     const days = [];
     for (let offset = 1; offset <= sols; offset++) {
       // Historical observations apply to their supplied sol only.
-      days.push(current({ ...input, observation: undefined, sol: input.sol + offset,
+      days.push(current({ ...input, observation: undefined, sol: input.sol + offset, calendarSol: calendarSol + offset,
         Ls: seasonAt(calendarSol + offset, input.site.lat, config).Ls }));
     }
-    return { kind: 'projection', basis: 'Seasonal model and known events; future random events are uncertain', days };
+    return { kind: 'projection', basis: archive ? 'Archived dust replay, OpenMARS meteorology, and known events'
+      : 'Seasonal model and known events; future random events are uncertain', days };
   }
 
   function powerEffects({ weather, ratedW, dust = 0, advanceDust = false }) {
@@ -109,7 +134,8 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
     if (dust > 1) throw new RangeError('dust must be <= 1');
     let nextDust = dust;
     if (advanceDust) {
-      const loss = config.balance.panelLossPerSol * (weather.dustFactor < 1 ? (config.balance.stormDustMultiplier ?? 1) : 1);
+      const multiplier = weather.panelDustMultiplier ?? (weather.dustFactor < 1 ? config.balance.stormDustMultiplier ?? 1 : 1);
+      const loss = config.balance.panelLossPerSol * multiplier;
       const increase = config.balance.dustMode === 'additive' ? loss : (1 - dust) * loss;
       nextDust = Math.max(dust, Math.min(1 - config.balance.minimumPanelCleanliness, dust + increase));
     }
@@ -131,6 +157,7 @@ export function createWeatherAPI({ config: base, overrides = {}, models = {}, ob
 
   return Object.freeze({
     version: 1,
+    usesArchive: Boolean(archive),
     current,
     forecast,
     powerEffects,

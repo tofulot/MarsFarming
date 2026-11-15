@@ -41,7 +41,7 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }, { 
             { basePowerW: -config.powerW, includedPpf: 28 });
           return effect.baseW + effect.lightW + effect.heatW * heatScale;
         })()
-        : -config.powerW;
+        : -config.powerW + (unit.id === 'hab' ? state.weather.habitatHeatW ?? 0 : 0);
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;
       unit.requestedW = watts;
       loads.push({ unit, watts });

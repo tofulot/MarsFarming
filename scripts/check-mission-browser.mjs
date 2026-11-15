@@ -82,6 +82,49 @@ try {
   await active('Title');
   await pressButton('Title', 'Start survival');
   await active('UI');
+  await hasText('Colony', '+5 Cloud');
+  await pressButton('Colony', '+1 Haze');
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
+    text?.includes('Dust haze · Ice clouds') && text.includes('Overnight water-ice frost') && text.includes('Peak')));
+
+  const lighting = await page.evaluate(() => {
+    const scene = window.missionTestGame.scene.getScene('Colony');
+    const { dayGlow, nightShade, weatherLayer } = scene.presentation;
+    const { graphics } = weatherLayer;
+    const fillStyle = graphics.fillStyle;
+    let cloud;
+    graphics.fillStyle = function (color, alpha) {
+      if (color === 0xd7e5ee) cloud = alpha;
+      return fillStyle.call(this, color, alpha);
+    };
+    const frameAt = (progress) => {
+      scene.acc = scene.dataSet.balance.solMs * progress;
+      weatherLayer.nextFrame = 0;
+      scene.update(scene.time.now, 0);
+      return { cloud, day: dayGlow.alpha, night: nightShade.alpha, sol: scene.sim.state.sol };
+    };
+    try {
+      const dawn = frameAt(0);
+      const noon = frameAt(0.25);
+      const night = frameAt(0.75);
+      const nextDawn = frameAt(1);
+      scene.sim.command({ type: 'setSpeed', speed: 1 });
+      scene.update(scene.time.now, 0);
+      scene.sim.command({ type: 'setSpeed', speed: 0 });
+      return { dawn, noon, night, nextDawn, afterRollover: frameAt(0) };
+    } finally {
+      graphics.fillStyle = fillStyle;
+    }
+  });
+  const { dawn, noon, night, nextDawn, afterRollover } = lighting;
+  assert.ok(dawn.cloud < noon.cloud && noon.cloud < night.cloud && night.cloud < nextDawn.cloud);
+  assert.ok(noon.day > night.day && night.night > noon.night);
+  assert.equal(nextDawn.sol, dawn.sol);
+  assert.equal(afterRollover.sol, dawn.sol + 1);
+  assert.ok(Math.abs(nextDawn.cloud - afterRollover.cloud) < 1e-9);
+  assert.ok(Math.abs(nextDawn.day - afterRollover.day) < 1e-9);
+  assert.ok(Math.abs(nextDawn.night - afterRollover.night) < 1e-9);
+
   await page.keyboard.press('f');
   await active('Report');
   await hasText('Report', 'Rescue successful');
@@ -112,8 +155,56 @@ try {
   await respondToAbandon(true);
   await active('Report');
   await hasText('Report', 'Mission abandoned');
+
+  await pressButton('Report', 'Try another landing site →');
+  await active('Map');
+  await pressButton('Map', 'Autumn\nSpring');
+  await hasText('Map', 'Landing season · Lₛ 180°');
+  await page.evaluate(() => {
+    const scene = window.missionTestGame.scene.getScene('Map');
+    const gale = { x: 838, y: 400 };
+    scene.atlas.emit('pointerdown', gale);
+    scene.input.emit('pointerup', gale);
+  });
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Map').children.list.some(({ text }) =>
+    text?.includes('storm sols in a 3-sol window')));
+  await pressButton('Map', 'Land and establish base →');
+  await active('UI');
+  const outlook = await page.evaluate(() => {
+    const { sim } = window.missionTestGame.scene.getScene('Colony');
+    return { now: sim.getWeather(), days: sim.forecastWeather(15).days };
+  });
+  assert.equal(outlook.now.Ls, 180);
+  assert.ok(outlook.now.archiveYear >= 25 && outlook.now.archiveYear <= 36);
+  assert.equal(outlook.days.length, 15);
+  assert.ok(outlook.days.every(({ atmosphereFactor, pressurePa }) => Number.isFinite(atmosphereFactor) && pressurePa > 0));
+
+  await page.keyboard.press('1');
+  await page.waitForFunction(() => {
+    const scene = window.missionTestGame.scene.getScene('Colony');
+    return scene.presentation.weatherLayer.weather?.conditions.storm === 'dustRegional';
+  });
+  await pressButton('Colony', '+');
+  await page.waitForFunction(() => {
+    const scene = window.missionTestGame.scene.getScene('Colony');
+    const layer = scene.presentation.weatherLayer;
+    return scene.boardZoom > 1 && layer.lastZoom === scene.boardZoom && layer.graphics.mask === layer.mask;
+  });
+  const canvas = await page.locator('canvas').first().boundingBox();
+  assert.ok(canvas);
+  const point = (x, y) => [canvas.x + x * canvas.width / 1280, canvas.y + y * canvas.height / 720];
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').input._list.some((item) =>
+    item.x === 120 && item.y === 44 && item.listenerCount('pointerdown')));
+  await page.mouse.move(...point(100, 50));
+  await page.mouse.move(...point(144, 51), { steps: 4 });
+  await page.mouse.click(...point(144, 51));
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
+    text?.includes('Hab heat') && text.includes('Ice yield')), undefined, { timeout: 5000 });
+  await page.mouse.click(...point(96, 110));
+  await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected?.x === 1);
+
   assert.deepEqual(errors, []);
-  console.log('Rescue, crop journal, re-fly, and abandon confirmation verified.');
+  console.log('Rescue, crop journal, re-fly, abandon confirmation, archived weather, and sol transitions verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });
