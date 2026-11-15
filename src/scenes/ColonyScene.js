@@ -168,7 +168,7 @@ export class ColonyScene extends Phaser.Scene {
       dy += y;
     }
     if (!dx && !dy) return;
-    const speed = 12 / (this.boardZoom ?? 1) * Math.min(delta, 50) / 1000;
+    const speed = 12 / (this.boardZoom ?? 1) * Math.min(delta, 100) / 1000;
     panBoard(this, dx * speed, dy * speed);
     this.refreshGrid();
   }
