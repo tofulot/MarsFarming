@@ -21,6 +21,8 @@ import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
 import { placeSurfaceMaterials } from './systems/surfaceMaterials.js';
+import { powerLoadGroupFor } from './powerLoads.js';
+import { removeFromPantry } from './systems/nutrition.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
@@ -176,7 +178,7 @@ export class Simulation {
 
   #place(id, x, y) {
     const treated = id !== 'plot' || this.state.difficulty === 'easy';
-    const unit = { uid: ++this.#uid, id, x, y, online: true, dust: 0, watered: false, treated };
+    const unit = { uid: ++this.#uid, id, x, y, online: true, loadEnabled: true, dust: 0, watered: false, treated };
     if (id === 'plot') unit.soil = createPlotSoil(this.#ctx.site, this.#ctx.data, { treated });
     this.state.buildings.push(unit);
     return unit;
@@ -318,7 +320,7 @@ export class Simulation {
         if (!unit.treated) return fail('Treat this plot with a Soil Washer before planting.');
         const foodCost = this.plantingFoodCost(id);
         if (state.res.foodKg + 1e-9 < foodCost) return fail(`Planting requires ${foodCost} kg of food.`);
-        state.res.foodKg = Math.max(0, state.res.foodKg - foodCost);
+        removeFromPantry(state, foodCost);
         const lineage = data.mutations ? lineageForPlant(state, id, data.mutations) : null;
         state.crops.push({
           uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
@@ -444,6 +446,30 @@ export class Simulation {
         state.power.priority = [...new Set(cmd.priority)];
         this.#record('Changed load-shedding priorities.', 'Life support always gets first allocation.');
         return ok('Power priorities updated.');
+      case 'setRationing': {
+        const levels = data.balance.rationing ?? { normal: 1, reduced: 0.75, emergency: 0.5 };
+        if (!Object.hasOwn(levels, cmd.level)) return fail('Choose Normal, Reduced or Emergency rationing.');
+        state.crew.rationing = cmd.level;
+        this.#record(`Set rationing to ${cmd.level}.`);
+        this.#bus.emit('rationing:change', state.crew.rationing);
+        return ok(`Rationing set to ${cmd.level}.`);
+      }
+      case 'setLoadEnabled': {
+        const group = powerLoadGroupFor(cmd.id);
+        if (!group) return fail('Unknown power load group.');
+        if (group.essential) return fail(`${group.label} is essential and cannot be switched off.`);
+        const units = state.buildings.filter(unit => group.buildingIds.includes(unit.id));
+        if (!units.length) return fail(`There are no ${group.label.toLowerCase()} loads in this colony.`);
+        const enabled = cmd.enabled !== false;
+        units.forEach(unit => { unit.loadEnabled = enabled; });
+        powerSystem(this.#ctx, { elapsed: false });
+        state.power.comms = state.buildings.filter(unit => unit.id === 'comms' && unit.online).length
+          * data.balance.commsThroughput * (state.weather?.commsFactor ?? 1);
+        state.water.production = waterSupply(this.#ctx).production;
+        this.#record(`${enabled ? 'Enabled' : 'Disabled'} ${group.label.toLowerCase()} power.`);
+        this.#bus.emit('power:loads', state);
+        return ok(`${group.label} ${enabled ? 'enabled' : 'disabled'}.`);
+      }
       case 'setSpeed':
         if (!playbackSpeeds.includes(cmd.speed)) return fail('Invalid playback speed.');
         state.speed = cmd.speed;

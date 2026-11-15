@@ -54,6 +54,12 @@ export function missingAdvancement(rescue, itemId) {
   }
 }
 
+export function advancementUnlocks(id, data) {
+  const names = new Map([...data.buildings, ...data.crops].map(item => [item.id, item.name]));
+  return Object.entries(rewards).filter(([, advancementId]) => advancementId === id)
+    .map(([itemId]) => names.get(itemId)).filter(Boolean);
+}
+
 export function advancementAvailable(rescue, entry) {
   return entry.requires.every((id) => Object.hasOwn(rescue.earned, id));
 }

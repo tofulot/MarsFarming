@@ -1,7 +1,7 @@
 // AI-assisted (OpenAI Codex)
 import { lineagePhenotype } from './mutations.js';
 
-export function powerSystem({ state, data, buildings, crops, emit, weather }) {
+export function powerSystem({ state, data, buildings, crops, emit, weather }, { elapsed = true } = {}) {
   const active = state.events.active;
   const hours = data.seasons.orbit.solHours;
   const before = state.power.shed.length;
@@ -13,12 +13,14 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }) {
   const loads = [];
   for (const unit of state.buildings) {
     const config = buildings.get(unit.id);
+    unit.requestedW = 0;
     unit.online = !active.some(({ targetUid }) => targetUid === unit.uid);
+    if (unit.loadEnabled === false) unit.online = false;
     if (!unit.online) continue;
     if (config.capacityWh) capacityWh += config.capacityWh;
     if (unit.id === 'solar') {
       const { generationW, dust } = weather.powerEffects({ weather: state.weather, ratedW: config.powerW,
-        dust: unit.dust, advanceDust: true });
+        dust: unit.dust, advanceDust: elapsed });
       unit.dust = dust;
       state.power.gen += generationW;
     } else if (config.powerW > 0) {
@@ -41,6 +43,7 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }) {
         })()
         : -config.powerW;
       if ((config.plot && !crop) || (unit.id === 'washer' && !unit.pending)) continue;
+      unit.requestedW = watts;
       loads.push({ unit, watts });
     }
   }
@@ -61,7 +64,9 @@ export function powerSystem({ state, data, buildings, crops, emit, weather }) {
       allocated += watts;
     } else state.power.shed.push(unit.uid);
   }
-  state.res.batteryWh = Math.max(0, Math.min(capacityWh, state.res.batteryWh + (state.power.gen - allocated) * hours));
-  if (state.power.shed.length) state.metrics.shortages++;
-  if (!before && state.power.shed.length) emit('power:shortage', { shed: state.power.shed });
+  if (elapsed) {
+    state.res.batteryWh = Math.max(0, Math.min(capacityWh, state.res.batteryWh + (state.power.gen - allocated) * hours));
+    if (state.power.shed.length) state.metrics.shortages++;
+    if (!before && state.power.shed.length) emit('power:shortage', { shed: state.power.shed });
+  }
 }

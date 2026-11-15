@@ -38,6 +38,11 @@
     }
   },
   "foodPerCrew": 0.8,
+  "rationing": {
+    "normal": 1,
+    "reduced": 0.75,
+    "emergency": 0.5
+  },
   "diet": {
     "_game": true,
     "_note": "Daily targets are game balance. Mass need still follows BVAD-style dry food solids (0.8 kg/crew).",

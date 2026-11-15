@@ -13,7 +13,7 @@ export function createState(data, options, launch) {
     power: { gen: 0, demand: 0, solarFactor: 1, priority: [], shed: [], comms: 0 },
     crew: {
       n: data.balance.crew, health: 1, morale: 1, dose_mSv: 0, fedStreak: 0,
-      satiety: 1, nutrition: 1, meal: null,
+      satiety: 1, nutrition: 1, meal: null, rationing: 'normal',
     },
     buildings: [], crops: [], lineages: {}, seedVault: {}, nextLineageId: 1,
     rocks: [], rocket: null, events: { active: [], log: [] }, journal: {}, objectives: {},

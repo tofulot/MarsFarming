@@ -16,6 +16,19 @@ export function addToPantry(state, cropId, kg) {
   syncFoodKg(state);
 }
 
+export function removeFromPantry(state, kg) {
+  const amount = Math.max(0, kg);
+  const total = pantryTotal(state.res.pantry);
+  if (amount > total + 1e-9) return false;
+  for (const [id, stock] of Object.entries(state.res.pantry)) {
+    const take = Math.min(stock, total > 0 ? amount * stock / total : 0);
+    state.res.pantry[id] = stock - take;
+    if (state.res.pantry[id] < 1e-9) delete state.res.pantry[id];
+  }
+  syncFoodKg(state);
+  return true;
+}
+
 export function nutritionOf(cropId, data) {
   if (cropId === 'rations') return data.balance.diet.starterRations;
   const crop = data.crops.find(({ id }) => id === cropId);

@@ -31,6 +31,7 @@ export class ColonyPresentation {
     const layout = scene.detailsLayout ?? { x: 800, y: 188, width: 460 };
     const close = action(scene, scene.sideLayer, layout.x + layout.width - 106, layout.y + 9, 96, 23, 'Close', () => {
       scene.selected = null;
+      scene.activePanel = null;
       scene.showTimers = false;
       scene.showAdvancements = false;
       scene.showShopDetails = false;

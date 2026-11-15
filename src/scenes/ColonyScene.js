@@ -44,7 +44,8 @@ export class ColonyScene extends Phaser.Scene {
     this.timerPage = 0;
     this.showTimers = false;
     this.showAdvancements = false;
-    this.showShopDetails = false;
+    this.showShopDetails = true;
+    this.activePanel = 'base';
     this.seedTool = null;
     this.achievementSelection = null;
     this.tool = null;
@@ -90,21 +91,8 @@ export class ColonyScene extends Phaser.Scene {
       this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
     });
     this.presentation = new ColonyPresentation(this);
-    this.colonyTitle = text(this, 30, 17, rescue ? 'Unnamed colony' : this.sim.state.site.name, 22, { fontStyle: 'bold' }).setDepth(25);
-    this.solProgress = progressBar(this, null, 360, 28, 100, 4, 0);
-    this.solProgress.setDepth(25);
-    this.solStatus = text(this, 472, 20, 'Paused', 12, { color: '#ecd0a7' }).setDepth(25);
-    const zoom = (amount) => {
-      this.boardZoom = Math.max(0.75, Math.min(1.06, this.boardZoom + amount));
-      this.refreshGrid();
-    };
-    button(this, 650, 15, 39, 24, '−', () => zoom(-0.1), { size: 15 });
-    button(this, 696, 15, 39, 24, '+', () => zoom(0.1), { size: 15 });
-    text(this, 746, 20, 'Colony zoom', 11, { color: colors.muted });
-    text(this, 844, 20, 'Terrain · NASA MOLA', 11, { color: colors.muted });
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
-    this.feedback = text(this, 32, 523, this.message, 12, { color: '#f5dfbd', wordWrap: { width: 1200 } }).setDepth(25);
     this.refreshGrid();
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
@@ -127,14 +115,13 @@ export class ColonyScene extends Phaser.Scene {
       this.acc -= tick;
       this.sim.step();
     }
-    this.solProgress.scaleX = Math.min(1, this.acc / tick);
-    this.solStatus.setText(this.sim.state.speed ? `${this.sim.state.speed}×` : 'Paused');
     if (this.runningWasherBar) this.runningWasherBar.scaleX = this.acc / tick;
   }
 
   notify(copy) {
     this.message = copy;
     this.feedback?.setText(copy);
+    this.hud?.refresh();
   }
 
   run(command, showResult = true) {
@@ -147,6 +134,7 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   select(x, y) {
+    this.activePanel = 'base';
     this.showTimers = false;
     this.showAdvancements = false;
     this.selected = { x, y };
@@ -215,11 +203,16 @@ export class ColonyScene extends Phaser.Scene {
     const mapY = (y) => layout.y + (y - 154) * scaleY;
     const cell = this.selected;
     const feature = surfaceFeatureAt(state, cell);
+    const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
+    if (this.hud && !feature && !unit) {
+      this.hud.renderPanel();
+      return;
+    }
+    this.hud?.renderPanel();
     if (feature) {
       drawSurfaceDetails(this, feature);
       return;
     }
-    const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
     if (!unit && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
@@ -238,7 +231,7 @@ export class ColonyScene extends Phaser.Scene {
         this.nameDialog = openColonyNameDialog(state.rescue.colonyName, (name) => {
           this.achievementSelection = null;
           const result = this.run({ type: 'nameColony', name });
-          if (result.ok) this.colonyTitle.setText(state.rescue.colonyName);
+          if (result.ok) this.hud?.refresh();
           return result;
         });
       } : null, { size: 14 });

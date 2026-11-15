@@ -6,7 +6,8 @@ export function crewSystem({ state, data }) {
   const { balance } = data;
   const diet = balance.diet;
   const crew = state.crew;
-  const foodNeeded = crew.n * balance.foodPerCrew;
+  const rationFactor = balance.rationing?.[crew.rationing] ?? 1;
+  const foodNeeded = crew.n * balance.foodPerCrew * rationFactor;
   const meal = drawMeal(state, data, foodNeeded);
   crew.meal = meal;
   crew.satiety = meal.satiety;
