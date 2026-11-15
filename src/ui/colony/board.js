@@ -1,3 +1,4 @@
+// AI-assisted (Cursor)
 import { drawBuildingSprite } from '../../rendering/buildingSprites.js';
 import { colonyBoardAtZoom } from './layout.js';
 
@@ -10,8 +11,9 @@ function building(scene, group, unit, x, y, size, model) {
     graphic.fillStyle(0x4f3224).fillRoundedRect(x + 3, y + 4, size - 6, size - 8, 4);
     graphic.lineStyle(2, unit.id === 'hydroponic' ? 0x83bab6 : 0xc9bd9d);
     graphic.strokeRoundedRect(x + 3, y + 4, size - 6, size - 8, 4);
-    graphic.lineStyle(1, 0xa97e52, 0.6);
-    for (let row = 1; row < 4; row++) graphic.lineBetween(x + 6, y + row * 8, x + size - 6, y + row * 8);
+    graphic.lineStyle(1, 0xa97e52, 0.55);
+    for (let row = 1; row < 3; row++) graphic.lineBetween(x + 6, y + 4 + row * ((size - 8) / 3), x + size - 6, y + 4 + row * ((size - 8) / 3));
+    for (let col = 1; col < 3; col++) graphic.lineBetween(x + 3 + col * ((size - 6) / 3), y + 6, x + 3 + col * ((size - 6) / 3), y + size - 6);
   } else if (unit.id === 'solar') {
     graphic.fillStyle(0x263a4b).fillRect(x + 3, y + 5, size - 6, size - 12);
     graphic.lineStyle(1, 0x91afb0);
@@ -44,34 +46,80 @@ function building(scene, group, unit, x, y, size, model) {
   group.add(graphic);
 }
 
+function ghostBuilding(scene, group, x, y, size) {
+  const graphic = scene.add.graphics().setDepth(8);
+  graphic.lineStyle(2, 0x9bd8ae, 0.85);
+  graphic.strokeRoundedRect(x + 4, y + 4, size - 8, size - 8, 5);
+  graphic.fillStyle(0x9bd8ae, 0.18);
+  graphic.fillRoundedRect(x + 4, y + 4, size - 8, size - 8, 5);
+  group.add(graphic);
+  group.add(scene.add.text(x + size / 2, y + size / 2, '＋', {
+    fontFamily: 'Arial', fontSize: 16, color: '#cfeeda', fontStyle: 'bold',
+  }).setOrigin(0.5).setDepth(9).setAlpha(0.9));
+}
+
+function slotOffset(slot, size) {
+  const col = slot % 3;
+  const row = Math.floor(slot / 3);
+  const cell = size / 3;
+  return { x: col * cell + cell / 2, y: row * cell + cell / 2 };
+}
+
 export function drawColonyBoard(scene) {
   scene.tileLayer.clear(true, true);
   const { x: left, y: top, tile, row } = colonyBoardAtZoom(scene.boardZoom);
-  const { buildings, crops, grid } = scene.sim.state;
+  const { buildings, crops, grid, rocks, rocket } = scene.sim.state;
   const definitions = new Map(scene.dataSet.buildings.map(item => [item.id, item]));
   const plants = [];
+  const blocked = (x, y) => rocks?.some((rock) => rock.x === x && rock.y === y && rock.remaining > 0)
+    || (rocket && rocket.x === x && rocket.y === y && rocket.status !== 'scrapped');
+
   for (let y = 0; y < grid.h; y++) {
     for (let x = 0; x < grid.w; x++) {
       const px = left + x * tile, py = top + y * row;
       const unit = buildings.find(item => item.x === x && item.y === y);
-      const crop = unit && crops.find(item => item.plotUid === unit.uid);
+      const plotCrops = unit ? crops.filter(item => item.plotUid === unit.uid) : [];
       const selected = scene.selected?.x === x && scene.selected?.y === y;
-      const hit = scene.add.rectangle(px, py, tile - 1, row - 1, 0xc9a179, selected ? 0.2 : 0.025)
-        .setOrigin(0).setDepth(2).setStrokeStyle(1, selected ? 0xf1d6a6 : 0xdbab7d, selected ? 0.9 : 0.11);
+      const canGhost = Boolean(scene.tool) && !unit && !blocked(x, y);
+      const baseAlpha = selected ? 0.2 : canGhost ? 0.08 : 0.025;
+      const hit = scene.add.rectangle(px, py, tile - 1, row - 1, 0xc9a179, baseAlpha)
+        .setOrigin(0).setDepth(2).setStrokeStyle(1, selected ? 0xf1d6a6 : canGhost ? 0x9bd8ae : 0xdbab7d,
+          selected ? 0.9 : canGhost ? 0.55 : 0.11);
       hit.setInteractive({ useHandCursor: true }).on('pointerdown', () => scene.select(x, y))
-        .on('pointerover', () => hit.setFillStyle(0xe6bd8b, 0.15))
-        .on('pointerout', () => hit.setFillStyle(0xc9a179, selected ? 0.2 : 0.025));
+        .on('pointerover', () => {
+          hit.setFillStyle(canGhost ? 0x9bd8ae : 0xe6bd8b, canGhost ? 0.22 : 0.15);
+          if (canGhost && !hit.getData('ghost')) {
+            const ghost = scene.add.container(0, 0);
+            ghostBuilding(scene, ghost, px + (tile - row) / 2, py, row - 1);
+            scene.tileLayer.add(ghost);
+            hit.setData('ghost', ghost);
+          }
+        })
+        .on('pointerout', () => {
+          hit.setFillStyle(0xc9a179, baseAlpha);
+          const ghost = hit.getData('ghost');
+          if (ghost) {
+            ghost.destroy(true);
+            hit.setData('ghost', null);
+          }
+        });
       scene.tileLayer.add(hit);
-      if (unit) building(scene, scene.tileLayer, unit, px + (tile - row) / 2, py, row - 1, definitions.get(unit.id));
-      if (crop) {
-        plants.push({ key: `crop-${crop.uid}`, id: crop.cropId, x: px + tile / 2, y: py + row - 7,
-          size: 26 * (scene.boardZoom ?? 1), growth: crop.growth });
-        scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, tile - 10, 4, 0x37251c, 0.9).setOrigin(0).setDepth(18));
-        scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, (tile - 10) * crop.growth, 4,
-          crop.growth >= 1 ? 0x9ed27c : 0xe0b36e).setOrigin(0).setDepth(19));
-        if (crop.growth >= 1) {
-          scene.tileLayer.add(scene.add.circle(px + tile - 7, py + 5, 5, 0x8fca6d).setDepth(19));
-          scene.tileLayer.add(scene.add.text(px + tile - 7, py + 5, '✓', { fontSize: 8, color: '#26351f', fontStyle: 'bold' }).setOrigin(0.5).setDepth(20));
+      if (canGhost && selected) ghostBuilding(scene, scene.tileLayer, px + (tile - row) / 2, py, row - 1);
+      if (unit) {
+        const bx = px + (tile - row) / 2;
+        building(scene, scene.tileLayer, unit, bx, py, row - 1, definitions.get(unit.id));
+        if (definitions.get(unit.id)?.plot) {
+          for (const crop of plotCrops) {
+            const slot = crop.slot ?? 0;
+            const { x: ox, y: oy } = slotOffset(slot, row - 8);
+            const cx = bx + 4 + ox;
+            const cy = py + 4 + oy;
+            plants.push({
+              key: `crop-${crop.uid}`, id: crop.cropId, x: cx, y: cy + 2,
+              size: 12 * (scene.boardZoom ?? 1), growth: crop.growth,
+            });
+            scene.tileLayer.add(scene.add.circle(cx, cy, 3.2, crop.growth >= 1 ? 0x8fca6d : 0xe0b36e).setDepth(19));
+          }
         }
       }
     }

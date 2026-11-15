@@ -25,7 +25,11 @@
       "metalPerNode": 16,
       "miningBatch": 4,
       "rocketBurnSols": 3,
-      "rocketSalvage": { "regolith": 0, "metal": 12 }
+      "rocketSalvage": { "regolith": 0, "metal": 12 },
+      "respawnChancePerSol": 0.12,
+      "maxRegolithNodes": 5,
+      "maxMetalNodes": 4,
+      "inventoryCap": { "regolith": 80, "metal": 48 }
     },
     "crops": {
       "radish": { "growthSols": 8, "harvestKg": 4.8 },
@@ -58,6 +62,8 @@
   },
   "waterCapacity": 5000,
   "plotAreaM2": 42,
+  "plotSlots": 9,
+  "crossMinGrowth": 0.28,
   "crewRadiationPerSol": 0.67,
   "_src_radiation": "S11",
   "recycleFraction": 0.5,

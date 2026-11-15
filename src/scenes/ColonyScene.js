@@ -8,7 +8,7 @@ import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeature
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { Simulation } from '../sim/Simulation.js';
-import { cropSolsRemaining } from '../sim/systems/crops.js';
+import { cropSolsRemaining, cropsOnPlot, crossMinGrowth, nextOpenSlot } from '../sim/systems/crops.js';
 import { soilStatusLine } from '../sim/systems/soil.js';
 import { lineagePhenotype } from '../sim/systems/mutations.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
@@ -44,6 +44,8 @@ export class ColonyScene extends Phaser.Scene {
     this.achievementSelection = null;
     this.tool = null;
     this.breedMotherUid = null;
+    this.selectedCropUid = null;
+    this.pendingPlantSlot = null;
     const { rescue } = this.sim.state;
     this.message = rescue
       ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Start with two Greenhouse Plots and a Soil Washer.`
@@ -145,10 +147,13 @@ export class ColonyScene extends Phaser.Scene {
     this.showTimers = false;
     this.showAdvancements = false;
     this.selected = { x, y };
-    this.showShopDetails = false;
+    this.selectedCropUid = null;
+    const occupied = this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y);
+    this.showShopDetails = !occupied && !surfaceFeatureAt(this.sim.state, this.selected);
     if (surfaceFeatureAt(this.sim.state, this.selected)) {
       this.seedTool = null;
       this.tool = null;
+      this.showShopDetails = false;
       this.refreshGrid();
       this.drawSide();
       return;
@@ -161,7 +166,7 @@ export class ColonyScene extends Phaser.Scene {
         return;
       }
     }
-    if (this.tool && !this.sim.state.buildings.some((unit) => unit.x === x && unit.y === y)) {
+    if (this.tool && !occupied) {
       this.placeStructure(this.tool, this.selected);
       return;
     }
@@ -204,7 +209,11 @@ export class ColonyScene extends Phaser.Scene {
     }
     const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
-    const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
+    const plotPlants = unit ? cropsOnPlot(state, unit.uid) : [];
+    if (this.selectedCropUid != null && !plotPlants.some(({ uid }) => uid === this.selectedCropUid)) {
+      this.selectedCropUid = null;
+    }
+    const crop = plotPlants.find(({ uid }) => uid === this.selectedCropUid) ?? null;
     if (!unit && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
     add(panel(this, 675, 154, 550, 449, 0x3b231f).setInteractive());
     const title = this.showAdvancements ? 'Achievement tree' : this.showTimers ? 'Operations' : info?.name ?? 'Base shop';
@@ -285,76 +294,106 @@ export class ColonyScene extends Phaser.Scene {
       if (this.breedMotherUid != null && !state.crops.some(({ uid }) => uid === this.breedMotherUid)) {
         this.breedMotherUid = null;
       }
-      if (crop) {
-        const traits = this.sim.cropTraits(crop.cropId);
-        const lineage = state.lineages[crop.lineageId];
-        const pheno = lineagePhenotype(state, crop, this.dataSet.mutations);
-        const gen = lineage?.generation ? `  ·  gen ${lineage.generation}` : '';
-        const genetics = this.sim.cropGenetics(crop);
-        say(695, 291, `${traits.name}  ·  ${Math.round(crop.growth * 100)}% grown  ·  ${Math.round(crop.health * 100)}% health${gen}`, 18);
-        const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth, pheno.growth);
-        const status = !remaining ? 'Ready to harvest' : `${remaining} growing sols remaining`;
-        say(695, 318, status, 14, { color: colors.muted, wordWrap: { width: 500 } });
-        const geneticsBottom = genetics.length
-          ? drawGeneticsChips(this, this.sideLayer, genetics, { x: 695, y: 338, maxWidth: 500 })
-          : 338;
-        progressBar(this, this.sideLayer, 695, geneticsBottom + 10, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
-        if (remaining) say(695, geneticsBottom + 22, !unit.online ? 'Growth stalled last sol · No power' :
-          unit.watered ? 'Water supplied last sol' :
-            state.sol === crop.plantedSol ? 'Growth begins next sol' : 'Growth stalled last sol · No water',
-        13, { color: colors.muted });
-        const mature = crop.growth === 1;
-        const actionY = remaining ? geneticsBottom + 50 : geneticsBottom + 32;
-        action(695, actionY, 180, 38, 'Harvest', mature ? () => doForUnit('harvest') : null);
-        if (this.breedMotherUid == null) {
-          action(890, actionY, 150, 38, 'Set mother', mature ? () => {
-            this.breedMotherUid = crop.uid;
-            this.notify(`Mother set: ${traits.name}. Select a mature father of the same crop, or self-cross.`);
+      if (info.plot) {
+        const minCross = crossMinGrowth(this.dataSet.balance);
+        say(695, 288, `Bay slots ${plotPlants.length}/9 · Cross from ${Math.round(minCross * 100)}% growth · same bay only`, 13,
+          { color: colors.muted });
+        for (let slot = 0; slot < 9; slot++) {
+          const planted = plotPlants.find((entry) => (entry.slot ?? 0) === slot);
+          const col = slot % 3;
+          const rowIdx = Math.floor(slot / 3);
+          const sx = 695 + col * 170;
+          const sy = 312 + rowIdx * 42;
+          const label = planted
+            ? `${this.sim.cropTraits(planted.cropId).name.slice(0, 7)} ${Math.round(planted.growth * 100)}%`
+            : `Slot ${slot + 1}`;
+          const selectedSlot = planted && planted.uid === this.selectedCropUid;
+          action(sx, sy, 160, 36, label, () => {
+            if (planted) {
+              this.selectedCropUid = planted.uid;
+              this.drawSide();
+              return;
+            }
+            if (!unit.treated) {
+              this.notify('Treat this plot before planting.');
+              return;
+            }
+            this.selectedCropUid = null;
+            this.pendingPlantSlot = slot;
             this.drawSide();
-          } : null);
-          action(1055, actionY, 140, 38, 'Replant', mature ? () => {
-            if (doForUnit('harvest').ok) doForUnit('plant', traits.id);
-          } : null);
-        } else if (this.breedMotherUid === crop.uid) {
-          action(890, actionY, 140, 38, 'Self-cross', mature ? () => {
-            this.breedMotherUid = null;
-            this.run({ type: 'cross', motherUid: crop.uid, fatherUid: crop.uid });
-          } : null);
-          action(1045, actionY, 140, 38, 'Cancel', () => {
-            this.breedMotherUid = null;
-            this.notify('Breeding cancelled.');
-            this.drawSide();
+          }, { selected: selectedSlot || this.pendingPlantSlot === slot, size: 13 });
+        }
+        if (crop) {
+          const traits = this.sim.cropTraits(crop.cropId);
+          const lineage = state.lineages[crop.lineageId];
+          const pheno = lineagePhenotype(state, crop, this.dataSet.mutations);
+          const gen = lineage?.generation ? ` · gen ${lineage.generation}` : '';
+          const genetics = this.sim.cropGenetics(crop);
+          say(695, 448, `${traits.name} · slot ${(crop.slot ?? 0) + 1} · ${Math.round(crop.growth * 100)}% · ${Math.round(crop.health * 100)}% hp${gen}`, 15);
+          const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth, pheno.growth);
+          say(695, 468, remaining ? `${remaining} sols left` : 'Ready to harvest', 13, { color: colors.muted });
+          const geneticsBottom = genetics.length
+            ? drawGeneticsChips(this, this.sideLayer, genetics, { x: 695, y: 486, maxWidth: 500 })
+            : 486;
+          progressBar(this, this.sideLayer, 695, geneticsBottom + 6, 320, 6, crop.growth, remaining ? colors.accent : colors.mint);
+          const ready = crop.growth >= 1;
+          const canBreed = crop.growth + 1e-9 >= minCross;
+          action(695, 548, 120, 34, 'Harvest', ready ? () => this.run({ type: 'harvest', uid: unit.uid, cropUid: crop.uid }) : null, { size: 13 });
+          if (this.breedMotherUid == null) {
+            action(825, 548, 130, 34, 'Set mother', canBreed ? () => {
+              this.breedMotherUid = crop.uid;
+              this.notify(`Mother set in this bay. Pick another ${traits.name} here (≥${Math.round(minCross * 100)}%), or self-cross.`);
+              this.drawSide();
+            } : null, { size: 13 });
+          } else if (this.breedMotherUid === crop.uid) {
+            action(825, 548, 120, 34, 'Self-cross', canBreed ? () => {
+              this.breedMotherUid = null;
+              this.run({ type: 'cross', motherUid: crop.uid, fatherUid: crop.uid });
+            } : null, { size: 13 });
+            action(955, 548, 100, 34, 'Cancel', () => {
+              this.breedMotherUid = null;
+              this.notify('Breeding cancelled.');
+              this.drawSide();
+            }, { size: 13 });
+          } else {
+            const mother = state.crops.find(({ uid }) => uid === this.breedMotherUid);
+            const canCross = canBreed && mother && mother.cropId === crop.cropId && mother.plotUid === crop.plotUid;
+            action(825, 548, 120, 34, 'Cross here', canCross ? () => {
+              this.breedMotherUid = null;
+              this.run({ type: 'cross', motherUid: mother.uid, fatherUid: crop.uid });
+            } : null, { size: 13 });
+            action(955, 548, 100, 34, 'Cancel', () => {
+              this.breedMotherUid = null;
+              this.notify('Breeding cancelled.');
+              this.drawSide();
+            }, { size: 13 });
+          }
+        } else if (unit.treated) {
+          const open = nextOpenSlot(state, unit.uid, this.dataSet.balance);
+          const slot = this.pendingPlantSlot ?? open;
+          say(695, 448, slot == null ? 'Bay full — harvest or cross to free a slot.' : `Plant into slot ${(slot ?? 0) + 1}`, 14,
+            { color: colors.muted });
+          const vaulted = Object.entries(state.seedVault ?? {});
+          if (vaulted.length) say(695, 468, `Seed vault: ${vaulted.map(([cropId]) => cropId).join(', ')} ★`, 12, { color: colors.muted });
+          this.dataSet.crops.slice(0, 6).forEach(({ id }, i) => {
+            const item = this.sim.cropTraits(id);
+            const requirement = this.sim.unlockRequirement(item);
+            const foodCost = this.sim.plantingFoodCost(id);
+            const affordable = state.res.foodKg + 1e-9 >= foodCost;
+            const vaultMark = state.seedVault[id] ? ' ★' : '';
+            action(695 + i % 3 * 172, 490 + Math.floor(i / 3) * 40, 164, 36,
+              requirement ? `${item.name}\nNeeds ${requirement}`
+                : `${item.name} · ${foodCost.toFixed(1)}kg${vaultMark}`,
+              slot != null && !requirement && affordable
+                ? () => {
+                  const planted = this.run({ type: 'plant', id, uid: unit.uid, slot });
+                  if (planted.ok) this.pendingPlantSlot = null;
+                }
+                : null, { size: 12 });
           });
         } else {
-          const mother = state.crops.find(({ uid }) => uid === this.breedMotherUid);
-          const canCross = mature && mother && mother.cropId === crop.cropId;
-          action(890, actionY, 140, 38, 'Cross here', canCross ? () => {
-            this.breedMotherUid = null;
-            this.run({ type: 'cross', motherUid: mother.uid, fatherUid: crop.uid });
-          } : null);
-          action(1045, actionY, 140, 38, 'Cancel', () => {
-            this.breedMotherUid = null;
-            this.notify('Breeding cancelled.');
-            this.drawSide();
-          });
+          say(695, 448, 'A powered Soil Washer will treat this plot automatically.', 14, { color: colors.muted });
         }
-      } else if (info.plot) {
-        say(695, 318, unit.treated ? 'Choose a crop' : 'A powered Soil Washer will treat this plot automatically.', 16);
-        const vaulted = Object.entries(state.seedVault ?? {});
-        if (unit.treated && vaulted.length) {
-          say(695, 338, `Seed vault: ${vaulted.map(([cropId]) => cropId).join(', ')} ★`, 13, { color: colors.muted });
-        }
-        this.dataSet.crops.slice(0, 8).forEach(({ id }, i) => {
-          const item = this.sim.cropTraits(id);
-          const requirement = this.sim.unlockRequirement(item);
-          const foodCost = this.sim.plantingFoodCost(id);
-          const affordable = state.res.foodKg + 1e-9 >= foodCost;
-          const vaultMark = state.seedVault[id] ? ' ★' : '';
-          action(695 + i % 2 * 252, 358 + Math.floor(i / 2) * 48, 238, 40,
-            requirement ? `${item.name}\nRequires ${requirement}`
-              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols · ${foodCost.toFixed(1)} kg food${vaultMark}`,
-            unit.treated && !requirement && affordable ? () => doForUnit('plant', id) : null, { size: 14 });
-        });
       }
       if (unit.id === 'washer') {
         const status = unit.washStatus ?? 'idle';
@@ -372,8 +411,12 @@ export class ColonyScene extends Phaser.Scene {
         progressBar(this, this.sideLayer, 695, 494, 243, 6, 1 - remaining / (failure.until - failure.startedSol));
         action(947, 465, 240, 39, 'Repair equipment', () => doForUnit('repair'));
       }
-      action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.showShopDetails = true; this.refreshGrid(); this.drawSide(); });
-      action(979, 548, 214, 36, 'Remove structure', unit.id === 'hab' ? null : () => doForUnit('demolish'));
+      if (!info.plot) {
+        action(690, 548, 190, 36, 'Base shop', () => { this.selected = null; this.showShopDetails = true; this.refreshGrid(); this.drawSide(); });
+        action(979, 548, 214, 36, 'Remove structure', unit.id === 'hab' ? null : () => doForUnit('demolish'));
+      } else {
+        action(1060, 169, 140, 28, 'Remove bay', () => doForUnit('demolish'), { size: 12 });
+      }
     } else {
       this.drawBaseShop(cell);
     }

@@ -159,25 +159,21 @@ test('cross writes the seed vault and removes the mother; harvest does not', () 
   };
   const sim = new Simulation(stable, { difficulty: 'easy', siteId: 'gale' });
   sim.command({ type: 'build', id: 'plot', x: 0, y: 0 });
-  sim.command({ type: 'build', id: 'plot', x: 2, y: 0 });
-  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
-  sim.command({ type: 'plant', id: 'lettuce', x: 2, y: 0 });
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0, slot: 0 });
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0, slot: 1 });
   const plot0 = sim.state.buildings.find((u) => u.x === 0);
-  const plot2 = sim.state.buildings.find((u) => u.x === 2);
-  const a = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
-  const b = sim.state.crops.find((crop) => crop.plotUid === plot2.uid);
+  const [a, b] = sim.state.crops.filter((crop) => crop.plotUid === plot0.uid);
   a.growth = 1;
-  b.growth = 1;
   const food = sim.state.res.foodKg;
-  assert.equal(sim.command({ type: 'harvest', uid: plot0.uid }).ok, true);
+  assert.equal(sim.command({ type: 'harvest', uid: plot0.uid, cropUid: a.uid }).ok, true);
   assert.ok(sim.state.res.foodKg > food);
   assert.equal(sim.state.seedVault.lettuce, undefined);
 
-  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
-  const mother = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
-  const father = sim.state.crops.find((crop) => crop.plotUid === plot2.uid);
-  mother.growth = 1;
-  father.growth = 1;
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0, slot: 0 });
+  const mother = sim.state.crops.find((crop) => crop.plotUid === plot0.uid && crop.slot === 0);
+  const father = sim.state.crops.find((crop) => crop.plotUid === plot0.uid && crop.slot === 1);
+  mother.growth = 0.3;
+  father.growth = 0.3;
   const crossed = sim.command({ type: 'cross', motherUid: mother.uid, fatherUid: father.uid });
   assert.equal(crossed.ok, true);
   assert.ok(sim.state.seedVault.lettuce);
@@ -187,9 +183,27 @@ test('cross writes the seed vault and removes the mother; harvest does not', () 
   assert.equal(child.generation, 2);
   assert.equal(formatGenotype(child.genotype, rules).includes('GG'), true);
 
-  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 });
-  const replanted = sim.state.crops.find((crop) => crop.plotUid === plot0.uid);
+  sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0, slot: 0 });
+  const replanted = sim.state.crops.find((crop) => crop.plotUid === plot0.uid && crop.slot === 0);
   assert.equal(replanted.lineageId, child.id);
+});
+
+test('plots hold nine slots and reject cross-bay breeding', () => {
+  const sim = mission();
+  assert.equal(sim.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok, true);
+  assert.equal(sim.command({ type: 'build', id: 'plot', x: 2, y: 0 }).ok, true);
+  for (let slot = 0; slot < 9; slot++) {
+    assert.equal(sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0, slot }).ok, true, `slot ${slot}`);
+  }
+  assert.equal(sim.command({ type: 'plant', id: 'lettuce', x: 0, y: 0 }).ok, false);
+  assert.equal(sim.command({ type: 'plant', id: 'lettuce', x: 2, y: 0, slot: 0 }).ok, true);
+  const home = sim.state.buildings.find((unit) => unit.x === 0);
+  const away = sim.state.buildings.find((unit) => unit.x === 2);
+  const mother = sim.state.crops.find((crop) => crop.plotUid === home.uid && crop.slot === 0);
+  const foreign = sim.state.crops.find((crop) => crop.plotUid === away.uid);
+  mother.growth = 0.5;
+  foreign.growth = 0.5;
+  assert.equal(sim.command({ type: 'cross', motherUid: mother.uid, fatherUid: foreign.uid }).ok, false);
 });
 
 test('perchlorate tolerance keeps the plant growing and the harvest inedible', () => {
