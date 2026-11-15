@@ -20,12 +20,13 @@ Choose **Start survival** to land in Gale Crater, or **Choose landing site** to 
 
 **Build materials (kg)** are the one currency. You earn them by mining rock deposits (select a rock, then **Mine deposit**), scrapping the crashed rocket once its fire is out, harvesting crops (inedible biomass recovered as feedstock, a game value), and earning achievements. Every shop price is in kg.
 
-**Camera:** the mouse wheel zooms toward the cursor; **−/+** in the top bar or the +/- keys also zoom. Zooming out reveals more of the landing site. Drag the board, or use WASD or the arrow keys, to pan.
+**Camera:** the mouse wheel zooms toward the cursor; the **−/+** control at the bottom-right of the map or the +/- keys also zoom. Zooming out reveals more of the landing site. Drag the board, or use WASD or the arrow keys, to pan.
 
 1. Open **Base** under the vital statistics. Buy two Greenhouse Plots and a Soil Washer. Press **+1 sol** to treat the plots. The washer starts automatically when it has power and water.
-2. Select each treated plot and plant radishes from the seed dock. Each planting uses 0.2 kg of food. Radishes mature in eight healthy sols. Harvest and replant to keep food available. Seed supply drops bring new crops at 15-sol intervals, and some crops also require a harvest milestone.
-3. Watch the resource readings and forecast. Use **+1 sol** for precise steps or **1×–4×** for continuous play. One sol takes 15 seconds at 1×. Open **Ops** for rationing, power loads, and event timers and **Goals** for progression clues. Reaching **Halfway Home** (sol 60) unlocks colony naming; after that, click the colony name in the top bar to rename it.
-4. Reach the rescue sol to open the report. You can read the crop journal, return to the main menu, or try another landing site. **Abandon** ends the current run after confirmation. In demo mode, **R** also ends the run and opens the report.
+2. Select each treated plot and plant radishes from the seed dock. Each planting uses 0.2 kg of food. Radishes mature in eight healthy sols. Harvest and replant to keep food available. You start with radish and lettuce seed.
+3. **New crops come from the Comms Dish.** It was wrecked in the landing. Select it and repair it for 120 kg of build materials (it then draws 400 W). A repaired, powered dish can radio one seed order at a time, up to 0.5 kg of seed packets (packet masses are game values). The drop lands as a supply crate near the base 20 sols later; the dish panel and **Ops** show the countdown. Click the crate and choose **Collect crate** to add the seeds to your vault for good. A repaired dish also downlinks research.
+4. Watch the resource readings and forecast. Use **+1 sol** for precise steps or **1×–4×** for continuous play. One sol takes 15 seconds at 1×. Open **Ops** for rationing, power loads, and event timers and **Goals** for progression clues. The top strip shows each resource with its trend (for example "−3 / sol" or "runs out sol 11"); a chip turns amber when it needs attention. Messages appear just above the weather bar and fade on their own once the bar along their bottom fills; hover to keep one open. Reaching **Halfway Home** (sol 60) unlocks colony naming; after that, click the colony name in the top bar to rename it.
+5. Reach the rescue sol to open the report. You can read the crop journal, return to the main menu, or try another landing site. **Abandon** ends the current run after confirmation. In demo mode, **R** also ends the run and opens the report.
 
 ## Landing map data
 
