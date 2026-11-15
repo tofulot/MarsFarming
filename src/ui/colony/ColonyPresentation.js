@@ -3,6 +3,7 @@ import { WeatherLayer } from '../../rendering/WeatherLayer.js';
 import { createMarsTerrain } from '../../rendering/marsTerrain.js';
 import { drawActionDock } from './ActionDock.js';
 import { drawForecastStrip } from './ForecastStrip.js';
+import { colonyLayout } from './layout.js';
 import { action } from './widgets.js';
 
 export class ColonyPresentation {
@@ -12,6 +13,9 @@ export class ColonyPresentation {
     this.previews = [];
     createMarsTerrain(scene);
     this.group = scene.add.group();
+    const { width, height } = colonyLayout;
+    this.nightShade = scene.add.rectangle(0, 0, width, height, 0x24263d).setOrigin(0).setDepth(17).setAlpha(0);
+    this.dayGlow = scene.add.rectangle(0, 0, width, height, 0xffc58d).setOrigin(0).setDepth(17).setAlpha(0);
     this.cropLayer = new CropLayer(scene);
     this.weatherLayer = new WeatherLayer(scene);
     scene.add.rectangle(10, 10, 1260, 702).setOrigin(0).setFillStyle(0, 0)
@@ -24,9 +28,10 @@ export class ColonyPresentation {
   refresh() {
     this.group.clear(true, true);
     this.previews = drawActionDock(this.scene, this.group);
-    const weather = this.scene.sim.getWeather();
+    const { sim } = this.scene;
+    const weather = sim.getWeather();
     drawForecastStrip(this.scene, this.group, weather);
-    this.weatherLayer.setWeather(weather);
+    this.weatherLayer.setWeather(weather, sim.forecastWeather(1).days[0]);
     this.cropLayer.sync([...this.plants, ...this.previews]);
   }
   finishDetails() {
@@ -43,8 +48,11 @@ export class ColonyPresentation {
     close.setDepth(100);
     scene.sideLayer.children.iterate(child => child.setDepth(100));
   }
-  update(time) {
+  update(time, progress = 0) {
+    const daylight = (1 + Math.sin(2 * Math.PI * progress)) / 2;
+    this.nightShade.setAlpha(0.16 * (1 - daylight) ** 2);
+    this.dayGlow.setAlpha(0.055 * daylight ** 2);
     this.cropLayer.update(time);
-    this.weatherLayer.update(time);
+    this.weatherLayer.update(time, progress, daylight);
   }
 }

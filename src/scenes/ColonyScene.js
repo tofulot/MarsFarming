@@ -85,18 +85,20 @@ export class ColonyScene extends Phaser.Scene {
       this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
     });
     this.presentation = new ColonyPresentation(this);
+    const header = this.add.group();
     this.colonyTitle = text(this, 30, 17, rescue ? 'Unnamed colony' : this.sim.state.site.name, 22, { fontStyle: 'bold' }).setDepth(25);
-    this.solProgress = progressBar(this, null, 360, 28, 100, 4, 0);
-    this.solProgress.setDepth(25);
+    this.solProgress = progressBar(this, header, 360, 28, 100, 4, 0);
     this.solStatus = text(this, 472, 20, 'Paused', 12, { color: '#ecd0a7' }).setDepth(25);
     const zoom = (amount) => {
       this.boardZoom = Math.max(0.75, Math.min(1.06, this.boardZoom + amount));
       this.refreshGrid();
     };
-    button(this, 650, 15, 39, 24, '−', () => zoom(-0.1), { size: 15 });
-    button(this, 696, 15, 39, 24, '+', () => zoom(0.1), { size: 15 });
-    text(this, 746, 20, 'Colony zoom', 11, { color: colors.muted });
-    text(this, 844, 20, 'Terrain · NASA MOLA', 11, { color: colors.muted });
+    header.addMultiple([
+      ...Object.values(button(this, 650, 15, 39, 24, '−', () => zoom(-0.1), { size: 15 })),
+      ...Object.values(button(this, 696, 15, 39, 24, '+', () => zoom(0.1), { size: 15 })),
+      text(this, 746, 20, 'Colony zoom', 11, { color: colors.muted }),
+      text(this, 844, 20, 'Terrain · NASA MOLA', 11, { color: colors.muted }),
+    ]).setDepth(25);
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
     this.feedback = text(this, 32, 523, this.message, 12, { color: '#f5dfbd', wordWrap: { width: 1200 } }).setDepth(25);
@@ -113,7 +115,6 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    this.presentation?.update(time);
     if (!this.sim || this.finished) return;
     const { speed } = this.sim.state;
     const tick = this.dataSet.balance.solMs;
@@ -122,7 +123,9 @@ export class ColonyScene extends Phaser.Scene {
       this.acc -= tick;
       this.sim.step();
     }
-    this.solProgress.scaleX = Math.min(1, this.acc / tick);
+    const progress = Math.min(1, this.acc / tick);
+    this.presentation?.update(time, progress);
+    this.solProgress.scaleX = progress;
     this.solStatus.setText(this.sim.state.speed ? `${this.sim.state.speed}×` : 'Paused');
     if (this.runningWasherBar) this.runningWasherBar.scaleX = this.acc / tick;
   }

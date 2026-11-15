@@ -86,6 +86,45 @@ try {
   await pressButton('Colony', '+1 Haze');
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').children.list.some(({ text }) =>
     text?.includes('Dust haze · Ice clouds') && text.includes('Overnight water-ice frost') && text.includes('Peak')));
+
+  const lighting = await page.evaluate(() => {
+    const scene = window.missionTestGame.scene.getScene('Colony');
+    const { dayGlow, nightShade, weatherLayer } = scene.presentation;
+    const { graphics } = weatherLayer;
+    const fillStyle = graphics.fillStyle;
+    let cloud;
+    graphics.fillStyle = function (color, alpha) {
+      if (color === 0xd7e5ee) cloud = alpha;
+      return fillStyle.call(this, color, alpha);
+    };
+    const frameAt = (progress) => {
+      scene.acc = scene.dataSet.balance.solMs * progress;
+      weatherLayer.nextFrame = 0;
+      scene.update(scene.time.now, 0);
+      return { cloud, day: dayGlow.alpha, night: nightShade.alpha, sol: scene.sim.state.sol };
+    };
+    try {
+      const dawn = frameAt(0);
+      const noon = frameAt(0.25);
+      const night = frameAt(0.75);
+      const nextDawn = frameAt(1);
+      scene.sim.command({ type: 'setSpeed', speed: 1 });
+      scene.update(scene.time.now, 0);
+      scene.sim.command({ type: 'setSpeed', speed: 0 });
+      return { dawn, noon, night, nextDawn, afterRollover: frameAt(0) };
+    } finally {
+      graphics.fillStyle = fillStyle;
+    }
+  });
+  const { dawn, noon, night, nextDawn, afterRollover } = lighting;
+  assert.ok(dawn.cloud < noon.cloud && noon.cloud < night.cloud && night.cloud < nextDawn.cloud);
+  assert.ok(noon.day > night.day && night.night > noon.night);
+  assert.equal(nextDawn.sol, dawn.sol);
+  assert.equal(afterRollover.sol, dawn.sol + 1);
+  assert.ok(Math.abs(nextDawn.cloud - afterRollover.cloud) < 1e-9);
+  assert.ok(Math.abs(nextDawn.day - afterRollover.day) < 1e-9);
+  assert.ok(Math.abs(nextDawn.night - afterRollover.night) < 1e-9);
+
   await page.keyboard.press('f');
   await active('Report');
   await hasText('Report', 'Rescue successful');
@@ -165,7 +204,7 @@ try {
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected?.x === 1);
 
   assert.deepEqual(errors, []);
-  console.log('Rescue, crop journal, re-fly, abandon confirmation, and archived weather verified.');
+  console.log('Rescue, crop journal, re-fly, abandon confirmation, archived weather, and sol transitions verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });
