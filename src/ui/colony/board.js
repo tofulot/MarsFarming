@@ -6,7 +6,8 @@ import { boardTransform, panBoard, playArea, tileAtPoint, tileFullyVisible, visi
 function building(scene, group, unit, x, y, size, model, labels) {
   const graphic = scene.add.graphics().setDepth(5).setMask(scene.boardMask);
   const color = unit.online ? 0xd8c6a6 : 0x83796e;
-  graphic.fillStyle(0x38291f, 0.35).fillRoundedRect(x + 4, y + 10, size - 4, size - 9, 4);
+  // Drawn sprites carry their own ground shadow; only plots and solar keep the pad.
+  if (model.plot || unit.id === 'solar') graphic.fillStyle(0x38291f, 0.35).fillRoundedRect(x + 4, y + 10, size - 4, size - 9, 4);
   if (model.plot) {
     graphic.fillStyle(0x4f3224).fillRoundedRect(x + 3, y + 4, size - 6, size - 8, 4);
     graphic.lineStyle(2, unit.id === 'hydroponic' ? 0x83bab6 : 0xc9bd9d);
