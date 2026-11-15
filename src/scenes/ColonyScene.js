@@ -26,7 +26,8 @@ const washerMessages = {
 };
 
 const detailPanelLayouts = Object.freeze({
-  default: { x: 800, y: 188, width: 460, height: 410 },
+  // Matches the DOM side panel (colonyLayout.sidePanel) so Phaser detail panels line up with the HUD.
+  default: { x: 812, y: 80, width: 460, height: 500 },
   achievements: { x: 310, y: 158, width: 646, height: 438 },
 });
 

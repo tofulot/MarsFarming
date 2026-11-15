@@ -90,6 +90,8 @@ export const achievementCardCss = `
     box-shadow:0 0 0 4px #f0b45a22, 0 10px 34px #0b0505cc, 0 0 40px #f0b45a44; transform-origin:50% 0;
     animation:colony-award-in .42s cubic-bezier(.2,1.5,.4,1) both; }
   .colony-award.is-leaving { animation:colony-award-out ${LEAVE_MS}ms ease-in both; }
+  /* With the side panel open, centre on the visible map instead of the whole screen. */
+  .colony-hud-root:has(#colony-side-panel:not([hidden])) .colony-award { left:406px; }
   .colony-award .colony-life-bar { background:${theme.amber}; }
   .colony-award-badge { grid-row:1 / span 4; width:72px; height:72px; display:grid; place-items:center;
     animation:colony-award-badge 1.6s ease-in-out .3s infinite; filter:drop-shadow(0 0 8px #f0b45a99); }
