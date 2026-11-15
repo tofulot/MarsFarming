@@ -8,6 +8,7 @@ import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeature
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { Simulation } from '../sim/Simulation.js';
+import { siteRelief } from '../rendering/marsTerrain.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
 import { soilStatusLine } from '../sim/systems/soil.js';
 import { lineagePhenotype } from '../sim/systems/mutations.js';
@@ -35,7 +36,10 @@ export class ColonyScene extends Phaser.Scene {
     targetBackground(this);
     this.options = options;
     this.dataSet = this.registry.get('missionData');
-    this.sim = new Simulation(this.dataSet, options);
+    // Relief proxy from the NASA MOLA shaded-relief window scales deposit count (sim default when absent).
+    const landing = options.site ?? this.dataSet.sites.find(({ id }) => id === (options.siteId ?? this.dataSet.sites[0].id));
+    this.surfaceRelief = landing && siteRelief(this.textures.get('mars-terrain')?.getSourceImage(), landing.lat, landing.lon);
+    this.sim = new Simulation(this.dataSet, this.surfaceRelief === undefined ? options : { ...options, relief: this.surfaceRelief });
     this.sim.command({ type: 'setSpeed', speed: 0 });
     this.acc = 0;
     this.boardZoom = boardZoomRange.initial;

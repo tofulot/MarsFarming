@@ -81,7 +81,7 @@ export class Simulation {
     };
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
     if (packed) this.#unpack(manifest);
-    if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface);
+    if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface, { relief: options.relief });
     if (state.rescue) {
       if (state.buildings.some(({ id }) => id === 'plot')) earnAdvancement(this.#ctx, 'greenhouse');
       if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');

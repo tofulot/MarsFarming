@@ -72,7 +72,7 @@ export function selectColonyUiState(sim, data, foodPerCrew = data.balance.foodPe
     foodLow: foodSols <= LOW_FOOD_SOL_THRESHOLD,
     speed: state.speed,
     colonyName: state.rescue?.colonyName || 'Unnamed colony',
-    terrain: 'NASA MOLA',
+    terrain: 'NASA MOLA relief',
     loads: powerLoadSnapshot(state, data),
     rationing: state.crew.rationing ?? 'normal',
     goals: selectGoals(state, data),
