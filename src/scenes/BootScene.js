@@ -5,7 +5,7 @@ import { hasDustClimatology } from '../weather/dustClimatology.js';
 import { gameEvents } from '../weather/redHarvest.js';
 
 const keys = ['sites', 'crops', 'buildings', 'demo-events', 'seasons', 'difficulty', 'landers',
-  'objectives', 'facts', 'balance', 'mutations', 'weather', 'weather-observations'];
+  'objectives', 'facts', 'balance', 'mutations', 'soils', 'weather', 'weather-observations'];
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }

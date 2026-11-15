@@ -13,7 +13,7 @@ import {
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}.json`, import.meta.url)));
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty',
-  'landers', 'objectives', 'facts', 'balance', 'mutations'].map((key) => [key, read(key)]));
+  'landers', 'objectives', 'facts', 'balance', 'mutations', 'soils'].map((key) => [key, read(key)]));
 data.events = read('demo-events');
 const quiet = { ...data, events: [] };
 const rules = data.mutations;
@@ -103,6 +103,24 @@ test('dose raises gamete flip chance', () => {
   const high = mutationChance(100, rules, 'medium');
   assert.ok(high > low);
   assert.ok(high <= rules.maxMutationPerAllele);
+});
+
+test('active solar particle weather multiplies allele-flip chance', () => {
+  const quiet = mutationChance(20, rules, 'medium');
+  const solar = mutationChance(20, rules, 'medium', { solarActive: true });
+  assert.ok(solar > quiet);
+  assert.ok(Math.abs(solar / quiet - rules.speMutationMult) < 1e-9
+    || solar === rules.maxMutationPerAllele);
+});
+
+test('cross under SPE marks solarBoosted allele flips', () => {
+  const parent = wildGenotype(rules);
+  // random() always 0 → pick first allele and always flip (0 < chance).
+  const result = crossGenotypes(parent, parent, 40, 40, rules, () => 0, 'hard', { solarActive: true });
+  assert.ok(result.mutation);
+  assert.equal(result.solarBoosted, true);
+  assert.equal(result.mutation.solarBoosted, true);
+  assert.ok(result.mutation.flips.length >= 1);
 });
 
 test('a berm lowers the crop dose counter', () => {

@@ -28,5 +28,17 @@
     "text": "NASA’s life-support baseline budgets about 0.8 kg dry food solids per crew member per day.",
     "source": "S9",
     "url": "https://ntrs.nasa.gov/citations/20210024855"
+  },
+  {
+    "id": "phoenix-perchlorate",
+    "text": "Phoenix measured about 0.4–0.6 wt% perchlorate in Vastitas Borealis soil, with alkaline pH near 7.7.",
+    "source": "S10",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/19574385/"
+  },
+  {
+    "id": "gale-rocknest",
+    "text": "Curiosity found perchlorate salts in the Rocknest scoop at Gale Crater.",
+    "source": "S28",
+    "url": "https://earthsciences.gsfc.nasa.gov/sed/content/uploadFiles/publication_files/Glavin_et_al-2013-Journal_of_Geophysical_Research__Planets.pdf"
   }
 ]

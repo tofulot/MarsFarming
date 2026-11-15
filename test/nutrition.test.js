@@ -7,7 +7,7 @@ import { drawMeal, pantryTotal } from '../src/sim/systems/nutrition.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}.json`, import.meta.url)));
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty',
-  'landers', 'objectives', 'facts', 'balance', 'mutations'].map((key) => [key, read(key)]));
+  'landers', 'objectives', 'facts', 'balance', 'mutations', 'soils'].map((key) => [key, read(key)]));
 data.events = [];
 
 test('every crop has finite nutrition game values', () => {

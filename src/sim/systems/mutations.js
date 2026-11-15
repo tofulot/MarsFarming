@@ -31,6 +31,24 @@ export function formatGenotype(genotype, rules) {
   }).join(' ');
 }
 
+/** Structured alleles for UI highlighting (dominant caps vs recessive). */
+export function describeGenetics(genotype, rules, flips = []) {
+  const flipped = new Set((flips ?? []).map((flip) => flip.locus));
+  return (rules?.loci ?? []).map((locus) => {
+    const alleles = genotype?.[locus.id] ?? ['?', '?'];
+    const dominant = locus.dominance === 'incomplete'
+      ? alleles.some((allele) => allele === allele.toUpperCase())
+      : alleles.includes(locus.dominant);
+    return {
+      id: locus.id,
+      alleles: [...alleles],
+      label: `${alleles[0]}${alleles[1]}`,
+      dominant,
+      flipped: flipped.has(locus.id),
+    };
+  });
+}
+
 export function phenotype(genotype, rules) {
   const traits = { ppf: 1, heat: 1, yield: 1, growth: 1, rad: 0, perchlorate: 0 };
   for (const locus of rules.loci) {
@@ -55,10 +73,11 @@ export function lineagePhenotype(state, crop, rules) {
   return phenotype(lineage.genotype, rules);
 }
 
-export function mutationChance(dose_mSv, rules, difficulty) {
+export function mutationChance(dose_mSv, rules, difficulty, { solarActive = false } = {}) {
   const mult = rules.difficultyMult[difficulty] ?? 1;
+  const solar = solarActive ? (rules.speMutationMult ?? 1) : 1;
   return clamp(
-    rules.baseMutationPerAllele * mult * (1 + dose_mSv / rules.doseScale_mSv),
+    rules.baseMutationPerAllele * mult * solar * (1 + dose_mSv / rules.doseScale_mSv),
     0,
     rules.maxMutationPerAllele,
   );
@@ -68,8 +87,8 @@ function flipAllele(allele, locus) {
   return allele === locus.alleles[0] ? locus.alleles[1] : locus.alleles[0];
 }
 
-export function gamete(genotype, dose_mSv, rules, random, difficulty = 'medium') {
-  const chance = mutationChance(dose_mSv, rules, difficulty);
+export function gamete(genotype, dose_mSv, rules, random, difficulty = 'medium', options = {}) {
+  const chance = mutationChance(dose_mSv, rules, difficulty, options);
   const haploid = {};
   const flips = [];
   for (const locus of rules.loci) {
@@ -85,9 +104,9 @@ export function gamete(genotype, dose_mSv, rules, random, difficulty = 'medium')
   return { haploid, flips };
 }
 
-export function crossGenotypes(mother, father, doseMother, doseFather, rules, random, difficulty = 'medium') {
-  const egg = gamete(mother, doseMother, rules, random, difficulty);
-  const pollen = gamete(father, doseFather, rules, random, difficulty);
+export function crossGenotypes(mother, father, doseMother, doseFather, rules, random, difficulty = 'medium', options = {}) {
+  const egg = gamete(mother, doseMother, rules, random, difficulty, options);
+  const pollen = gamete(father, doseFather, rules, random, difficulty, options);
   const genotype = {};
   for (const locus of rules.loci) {
     genotype[locus.id] = orderPair(egg.haploid[locus.id], pollen.haploid[locus.id]);
@@ -95,7 +114,10 @@ export function crossGenotypes(mother, father, doseMother, doseFather, rules, ra
   const flips = [...egg.flips, ...pollen.flips];
   return {
     genotype,
-    mutation: flips.length ? { kind: 'alleleFlip', flips } : null,
+    mutation: flips.length
+      ? { kind: 'alleleFlip', flips, solarBoosted: Boolean(options.solarActive) }
+      : null,
+    solarBoosted: Boolean(options.solarActive),
     segregation: { egg: egg.haploid, pollen: pollen.haploid },
   };
 }

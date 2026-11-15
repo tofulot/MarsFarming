@@ -1,0 +1,89 @@
+{
+  "_note": "NASA-linked chemistry where cited; fertility, wash residuals, and oxide summaries are game balance layered on S10/S28.",
+  "safePerchlorate_wt_pct": 0.05,
+  "washerResidual_wt_pct": 0.02,
+  "washerFertilityBump": 0.12,
+  "fertilizerFertilityPerSol": 0.08,
+  "fertilityYieldMin": 0.8,
+  "fertilityYieldMax": 1.05,
+  "profiles": [
+    {
+      "id": "phoenix_hecht2009",
+      "name": "Phoenix wet chemistry",
+      "analog": "Vastitas Borealis (Phoenix)",
+      "mission": "Phoenix",
+      "perchlorate_wt_pct": 0.5,
+      "perchlorateRange": [0.4, 0.6],
+      "pH": 7.7,
+      "fertility": 0.32,
+      "oxides_note": "Basaltic fines; salts dominate toxicity for crops more than bulk oxides.",
+      "why": "Phoenix wet chemistry found ~0.4–0.6 wt% perchlorate and alkaline pH ~7.7.",
+      "_src": "S10"
+    },
+    {
+      "id": "gale_rocknest",
+      "name": "Rocknest (Gale)",
+      "analog": "Gale Crater · Rocknest",
+      "mission": "Curiosity",
+      "perchlorate_wt_pct": 0.4,
+      "perchlorateRange": [0.3, 0.5],
+      "pH": 7.2,
+      "fertility": 0.4,
+      "oxides_note": "Rocknest scoops: perchlorate-bearing dust over basaltic sand.",
+      "why": "Curiosity’s Rocknest scoop showed perchlorate salts in Gale crater fines.",
+      "_src": "S28"
+    },
+    {
+      "id": "jezero_regolith",
+      "name": "Jezero crater floor",
+      "analog": "Jezero Crater",
+      "mission": "Perseverance",
+      "perchlorate_wt_pct": 0.35,
+      "perchlorateRange": [0.25, 0.45],
+      "pH": 7.4,
+      "fertility": 0.48,
+      "why": "Game analog for Jezero surface fines; perchlorate load scaled toward Gale/Phoenix in-situ chemistry.",
+      "_src": "S28",
+      "_game_estimate": true
+    },
+    {
+      "id": "elysium_insight",
+      "name": "Elysium Planitia fines",
+      "analog": "Elysium Planitia (InSight)",
+      "mission": "InSight",
+      "perchlorate_wt_pct": 0.38,
+      "perchlorateRange": [0.28, 0.48],
+      "pH": 7.3,
+      "fertility": 0.42,
+      "why": "Game analog for equatorial dusty fines; chemistry mirrored on Gale Rocknest perchlorate detections.",
+      "_src": "S28",
+      "_game_estimate": true
+    },
+    {
+      "id": "utopia_viking2",
+      "name": "Utopia Planitia fines",
+      "analog": "Utopia Planitia (Viking 2)",
+      "mission": "Viking 2",
+      "perchlorate_wt_pct": 0.36,
+      "perchlorateRange": [0.26, 0.46],
+      "pH": 7.5,
+      "fertility": 0.45,
+      "why": "Game analog for mid-latitude northern plains; perchlorate threat kept in the Phoenix/Gale range.",
+      "_src": "S10",
+      "_game_estimate": true
+    },
+    {
+      "id": "arcadia_ice_margin",
+      "name": "Arcadia ice-margin regolith",
+      "analog": "Arcadia Planitia",
+      "mission": "Orbital ice maps",
+      "perchlorate_wt_pct": 0.45,
+      "perchlorateRange": [0.35, 0.55],
+      "pH": 7.6,
+      "fertility": 0.38,
+      "why": "Game analog for ice-rich northern plains; chemistry biased toward Phoenix wet-chemistry salts.",
+      "_src": "S10",
+      "_game_estimate": true
+    }
+  ]
+}

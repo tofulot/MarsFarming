@@ -10,7 +10,7 @@ import { solarLongitude } from '../src/sim/insolation.js';
 
 const read = (name) => JSON.parse(readFileSync(new URL(`../public/data/${name}.json`, import.meta.url)));
 const data = Object.fromEntries(['sites', 'crops', 'buildings', 'seasons', 'difficulty',
-  'landers', 'objectives', 'facts', 'balance', 'mutations'].map((key) => [key, read(key)]));
+  'landers', 'objectives', 'facts', 'balance', 'mutations', 'soils'].map((key) => [key, read(key)]));
 data.events = read('demo-events');
 const quietData = { ...data, events: [] };
 
@@ -300,10 +300,11 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   sim.step();
   assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
   const firstPlot = sim.state.buildings.find(({ x, y }) => x === 0 && y === 0);
-  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish'), { kg: 4.8, credits: 24 });
-  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish', 0.5), { kg: 2.4, credits: 12 });
+  // Gale Rocknest fertility after wash scales yield (NASA-analog soil game values).
+  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish'), { kg: 4.464, credits: 22, unsafe: false });
+  assert.deepEqual(sim.harvestPreview(firstPlot, 'radish', 0.5), { kg: 2.232, credits: 11, unsafe: false });
   for (const plot of plots) assert.ok(plant(plot).ok);
-  assert.equal(sim.expectedFoodPerSol, 1.2);
+  assert.ok(Math.abs(sim.expectedFoodPerSol - 0.9486) < 1e-9);
   assert.equal(sim.state.rescue.earned.botanist, 1);
   assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
   assert.equal(sim.state.rescue.colonyName, 'Ares');
@@ -314,10 +315,10 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(harvest(plots[0]).ok, false);
   sim.step();
   assert.ok(harvest(plots[0]).ok);
-  // Wild-type yy yield is 0.85 (Mendelian game value), so radish pays 20 cr instead of 24.
-  assert.equal(sim.state.res.credits, 24 + 20 + 70);
+  // Soil fertility × wild-type yy (0.85) → 19 cr; First Harvest award +70.
+  assert.equal(sim.state.res.credits, 24 + 19 + 70);
   assert.ok(harvest(plots[1]).ok);
-  assert.equal(sim.state.res.credits, 24 + 40 + 70 + 55);
+  assert.equal(sim.state.res.credits, 24 + 38 + 70 + 55);
   assert.equal(sim.state.rescue.earned.repeatHarvest, 9);
   assert.ok(build('iceDrill', 2, 0).ok);
   assert.ok(build('solar', 3, 0).ok);
@@ -339,8 +340,8 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.state.rescue.earned.rescue, 120);
   assert.equal(sim.state.rescue.earned.water, 10);
   assert.ok(sim.state.rescue.earned.downlink > 9);
-  // Below a full 120×0.8 kg diet because wild-type yy yield is 0.85 (Mendelian game value).
-  assert.equal(sim.state.metrics.consumedKg.toFixed(1), '91.1');
+  // Full 120×0.8 kg diet mass; site soil fertility + yy yield change grown kg, not daily draw.
+  assert.equal(sim.state.metrics.consumedKg.toFixed(1), '96.0');
   assert.equal(sim.state.metrics.lowWaterSols, 0);
   assert.ok(sim.state.water.production > sim.state.water.demand);
   assert.ok(sim.state.res.waterL > 500);

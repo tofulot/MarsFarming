@@ -2,6 +2,7 @@
 // Lineage phenotype from Mendelian genotype: AI-assisted (Cursor Grok)
 import { accumulateStress, lineagePhenotype } from './mutations.js';
 import { addToPantry } from './nutrition.js';
+import { soilYieldMultiplier } from './soil.js';
 
 const growthPerSol = (traits, plot, balance, growthMod = 1) =>
   (plot.id === 'hydroponic' ? balance.hydroGrowth : 1) / (traits.growthSols * growthMod);
@@ -31,13 +32,15 @@ export function cropSystem(ctx) {
 }
 
 function harvestYield(ctx, crop, plot) {
-  const { state, data: { balance }, crops } = ctx;
+  const { state, data, crops } = ctx;
   const traits = crops.get(crop.cropId);
-  const pheno = lineagePhenotype(state, crop, ctx.data.mutations);
+  const pheno = lineagePhenotype(state, crop, data.mutations);
   const fertilized = ctx.near(plot, 'fertilizer', (building) => building.online && building.watered);
-  const multiplier = fertilized ? balance.fertilizerYield : 1;
+  const multiplier = plot.id === 'hydroponic'
+    ? (fertilized ? data.balance.fertilizerYield : 1)
+    : soilYieldMultiplier(plot, data, fertilized);
   if (!plot.treated) return 0;
-  const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * balance.plotAreaM2 / 1000;
+  const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * data.balance.plotAreaM2 / 1000;
   return fullYieldKg * pheno.yield * crop.health * multiplier;
 }
 

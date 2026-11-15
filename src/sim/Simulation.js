@@ -14,8 +14,9 @@ import {
   cropSolsRemaining, cropSystem, expectedFoodPerSol, harvestCrop, harvestPreview, queueCrossDiscovery,
 } from './systems/crops.js';
 import {
-  crossGenotypes, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
+  crossGenotypes, describeGenetics, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
 } from './systems/mutations.js';
+import { createPlotSoil, fertilizeAdjacentPlots } from './systems/soil.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
@@ -119,6 +120,12 @@ export class Simulation {
   get state() { return this.#ctx.state; }
   get expectedFoodPerSol() { return expectedFoodPerSol(this.#ctx); }
   cropTraits(id) { return this.#ctx.crops.get(id); }
+  cropGenetics(crop) {
+    const rules = this.#ctx.data.mutations;
+    const lineage = this.state.lineages[crop?.lineageId];
+    if (!rules || !lineage?.genotype) return [];
+    return describeGenetics(lineage.genotype, rules, lineage.mutation?.flips);
+  }
   plantingFoodCost(id) {
     return this.state.rescue && this.#ctx.crops.has(id)
       ? this.#ctx.data.balance.rescue.plantingFoodKg ?? 0 : 0;
@@ -168,8 +175,9 @@ export class Simulation {
   }
 
   #place(id, x, y) {
-    const unit = { uid: ++this.#uid, id, x, y, online: true, dust: 0, watered: false,
-      treated: id !== 'plot' || this.state.difficulty === 'easy' };
+    const treated = id !== 'plot' || this.state.difficulty === 'easy';
+    const unit = { uid: ++this.#uid, id, x, y, online: true, dust: 0, watered: false, treated };
+    if (id === 'plot') unit.soil = createPlotSoil(this.#ctx.site, this.#ctx.data, { treated });
     this.state.buildings.push(unit);
     return unit;
   }
@@ -205,6 +213,7 @@ export class Simulation {
     queueSoilWashing(this.#ctx);
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
+    fertilizeAdjacentPlots(this.#ctx);
     if (state.rescue) {
       if (state.buildings.some(({ id, online }) => id === 'iceDrill' && online)) earnAdvancement(this.#ctx, 'water');
       if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) earnAdvancement(this.#ctx, 'soil');
@@ -352,6 +361,7 @@ export class Simulation {
         const motherLine = state.lineages[mother.lineageId];
         const fatherLine = state.lineages[father.lineageId];
         if (!motherPlot || !traits || !motherLine || !fatherLine) return fail('Missing crop lineage.');
+        const solarActive = state.events.active.some((event) => event.id === 'spe');
         const result = crossGenotypes(
           motherLine.genotype,
           fatherLine.genotype,
@@ -360,6 +370,7 @@ export class Simulation {
           data.mutations,
           this.#ctx.random,
           state.difficulty,
+          { solarActive },
         );
         const child = storeCrossChild(
           state, mother.cropId, motherLine.id, fatherLine.id, result, data.mutations, state.sol,
@@ -368,8 +379,20 @@ export class Simulation {
         queueCrossDiscovery(this.#ctx, mother, traits, child, lab);
         state.crops = state.crops.filter(({ uid }) => uid !== mother.uid);
         const label = formatGenotype(child.genotype, data.mutations);
+        if (result.mutation) {
+          this.#bus.emit('mutation:alleleFlip', {
+            cropId: mother.cropId,
+            name: traits.name,
+            flips: result.mutation.flips,
+            solarBoosted: result.solarBoosted,
+            genetics: describeGenetics(child.genotype, data.mutations, result.mutation.flips),
+            plotUid: motherPlot.uid,
+          });
+        }
         const note = result.mutation
-          ? ` New allele flip under dose (game).`
+          ? (result.solarBoosted
+            ? ' Solar particle event boosted allele flips (game).'
+            : ' New allele flip under dose (game).')
           : '';
         const text = `Crossed ${traits.name}. Seed vault holds generation ${child.generation}: ${label}.${note}`;
         this.#record(text, 'Mendelian cross; mother harvested for seed.');
