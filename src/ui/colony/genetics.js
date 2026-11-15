@@ -2,27 +2,63 @@ const dominantColor = 0x6ca96e;
 const recessiveColor = 0x766f67;
 const flippedColor = 0xe5b052;
 
+/** Adapt a soil/genetics lineage into the compact UI contract without owning its rules. */
+export function geneticsFromLineage(genotype, rules, flips = []) {
+  if (!genotype || !rules?.loci) return [];
+  const flipped = new Set(flips.map(({ locus }) => locus));
+  return rules.loci.flatMap((locus) => {
+    const pair = genotype[locus.id];
+    if (!Array.isArray(pair)) return [];
+    return [{
+      id: locus.id,
+      label: pair.join(''),
+      alleles: pair.map((symbol) => ({
+        symbol,
+        dominant: symbol === locus.dominant,
+        flipped: flipped.has(locus.id),
+      })),
+      dominant: pair.some((symbol) => symbol === locus.dominant),
+      flipped: flipped.has(locus.id),
+    }];
+  });
+}
+
 /** Draw per-locus chips from sim.cropGenetics(crop) without coupling to simulation state. */
 export function drawGeneticsChips(scene, group, loci = [], { x = 695, y = 0, maxWidth = 500 } = {}) {
   let cursorX = x;
   let cursorY = y;
   const rowHeight = 26;
   for (const locus of loci) {
-    const label = locus.label ?? (Array.isArray(locus.alleles) ? locus.alleles.join('') : String(locus.alleles ?? ''));
-    const width = Math.max(42, label.length * 8 + 16);
+    const pair = Array.isArray(locus.alleles) ? locus.alleles : [...String(locus.alleles ?? locus.label ?? '')];
+    const symbols = pair.map((allele) => typeof allele === 'object' ? String(allele.symbol ?? allele.value ?? '') : String(allele));
+    const label = locus.label ?? symbols.join('');
+    const width = Math.max(48, symbols.join('').length * 7 + 26);
     if (cursorX + width > x + maxWidth) {
       cursorX = x;
       cursorY += rowHeight + 5;
     }
-    const color = locus.flipped ? flippedColor : locus.dominant ? dominantColor : recessiveColor;
+    const hasFlip = locus.flipped || pair.some((allele) => typeof allele === 'object' && allele.flipped);
+    const color = hasFlip ? flippedColor : locus.dominant ? dominantColor : recessiveColor;
     const plate = scene.add.rectangle(cursorX + width / 2, cursorY + rowHeight / 2, width, rowHeight,
-      0x2e2723, 0.98).setStrokeStyle(locus.flipped ? 2 : 1, color, 1).setDepth(22);
-    const text = scene.add.text(cursorX + width / 2, cursorY + rowHeight / 2, label, {
-      fontFamily: 'monospace', fontSize: 12, fontStyle: 'bold', color: `#${color.toString(16).padStart(6, '0')}`,
-    }).setOrigin(0.5).setDepth(23);
-    group?.addMultiple([plate, text]);
-    if (locus.flipped) {
-      scene.tweens.add({ targets: [plate, text], alpha: { from: 0.45, to: 1 }, duration: 420, yoyo: true, repeat: 1 });
+      0x2e2723, 0.98).setStrokeStyle(hasFlip ? 2 : 1, color, 1).setDepth(22);
+    const locusLabel = scene.add.text(cursorX + 5, cursorY + 2, locus.id ?? '', {
+      fontFamily: 'Arial', fontSize: 8, color: '#cba58c',
+    }).setDepth(23);
+    const alleleText = pair.map((allele, index) => {
+      const symbol = symbols[index];
+      const dominant = typeof allele === 'object' && typeof allele.dominant === 'boolean'
+        ? allele.dominant : symbol === symbol.toUpperCase();
+      const alleleFlipped = locus.flipped || (typeof allele === 'object' && allele.flipped);
+      const alleleColor = alleleFlipped ? flippedColor : dominant ? dominantColor : recessiveColor;
+      const text = scene.add.text(cursorX + 7 + index * 12, cursorY + 11, symbol, {
+        fontFamily: 'monospace', fontSize: 12, fontStyle: 'bold',
+        color: `#${alleleColor.toString(16).padStart(6, '0')}`,
+      }).setDepth(23);
+      return text;
+    });
+    group?.addMultiple([plate, locusLabel, ...alleleText]);
+    if (hasFlip) {
+      scene.tweens.add({ targets: [plate, ...alleleText], alpha: { from: 0.45, to: 1 }, duration: 420, yoyo: true, repeat: 1 });
     }
     cursorX += width + 6;
   }
