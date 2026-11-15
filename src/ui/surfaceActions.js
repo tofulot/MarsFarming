@@ -8,10 +8,6 @@ export function surfaceFeatureAt(state, cell) {
   return state.rocks.find((rock) => rock.remaining > 0 && matchesCell(rock)) ?? null;
 }
 
-export function formatMaterials(materials) {
-  return Object.entries(materials ?? {}).map(([material, amount]) => `${amount} ${material}`).join(' + ');
-}
-
 export function drawSurfaceDetails(scene, feature) {
   const { rocket, res, sol } = scene.sim.state;
   const wreck = feature === rocket;
@@ -19,7 +15,7 @@ export function drawSurfaceDetails(scene, feature) {
   const add = (item) => scene.sideLayer.add(item);
   add(panel(scene, 675, 154, 550, 449, 0x3b231f).setInteractive());
   add(text(scene, 695, 169, title, 24, { fontStyle: 'bold' }));
-  add(text(scene, 695, 221, `In storage · ${formatMaterials(res.materials)}`, 16, { color: colors.muted }));
+  add(text(scene, 695, 221, `Build materials · ${Math.floor(res.credits).toLocaleString('en-US')} kg`, 16, { color: colors.muted }));
 
   if (wreck && rocket.status === 'burning') {
     const remaining = rocket.burnsUntilSol - sol;
@@ -27,9 +23,17 @@ export function drawSurfaceDetails(scene, feature) {
     return;
   }
 
-  const description = wreck ? 'Recover the wreck’s usable materials.' : `${feature.remaining} ${feature.material} left in this deposit.`;
+  const { miningBatch, rocketSalvage } = scene.dataSet?.balance?.rescue?.surface ?? {};
+  const salvageKg = Object.values(rocketSalvage ?? {}).reduce((sum, kg) => sum + kg, 0);
+  const description = wreck
+    ? `Recover ${salvageKg ? `${salvageKg} kg of ` : ''}usable metal from the wreck.`
+    : `${feature.remaining} kg of ${feature.material} left in this deposit.`;
   add(text(scene, 695, 278, description, 18));
-  const { box, copy } = button(scene, 695, 321, 220, 42, wreck ? 'Scrap rocket' : 'Mine deposit', () => {
+  if (!wreck) {
+    const dig = Math.min(miningBatch ?? feature.remaining, feature.remaining);
+    add(text(scene, 695, 304, `Each dig adds up to ${dig} kg to build materials.`, 15, { color: colors.muted }));
+  }
+  const { box, copy } = button(scene, 695, wreck ? 321 : 336, 220, 42, wreck ? 'Scrap rocket' : 'Mine deposit', () => {
     scene.run(wreck ? { type: 'scrapRocket' } : { type: 'mine', x: feature.x, y: feature.y });
   });
   scene.sideLayer.addMultiple([box, copy]);

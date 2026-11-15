@@ -21,7 +21,7 @@ export class BriefScene extends Phaser.Scene {
     });
     text(this, 56, 478, 'Difficulty', 21, { fontStyle: 'bold' });
     Object.entries(data.difficulty).forEach(([id, value], i) => {
-      button(this, 56 + i * 196, 516, 182, 46, `${id.toUpperCase()} · ${value.budget} cr`,
+      button(this, 56 + i * 196, 516, 182, 46, `${id.toUpperCase()} · ${value.budget} kg`,
         options.demo ? null : () => this.scene.restart({ ...options, difficulty: id }), { selected: options.difficulty === id });
     });
     button(this, 56, 628, 130, 43, 'Back', () => this.scene.start('Title'));

@@ -113,7 +113,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   statsBar.setAttribute('role', 'group');
   statsBar.setAttribute('aria-label', 'Colony status');
   const statNodes = new Map();
-  const statNames = ['RESCUE IN', 'CREDITS', 'POWER', 'BATTERY', 'WATER', 'FOOD'];
+  const statNames = ['RESCUE IN', 'MATERIALS', 'POWER', 'BATTERY', 'WATER', 'FOOD'];
   for (const name of statNames) {
     const cell = document.createElement('div');
     cell.className = 'colony-hud-stat';
@@ -345,9 +345,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
         if (!item) continue;
         const requirement = current.sim.unlockRequirement(item);
         const price = current.sim.purchasePrice(item);
-        const materialText = current.sim.state.rescue && item.materialCost
-          ? Object.entries(item.materialCost).map(([name, amount]) => `${amount} ${name}`).join(' · ') : '';
-        const meta = [`${price.toLocaleString()} cr`, materialText, item.why].filter(Boolean).join(' · ');
+        const meta = [`${price.toLocaleString()} kg`, item.why].filter(Boolean).join(' · ');
         const selected = current.tool === id;
         const icon = item.icon ?? ({ plot: '♧', washer: '≋', autoHarvester: '⚙', fertilizer: '✳',
           hydroponic: '♧', solar: '☀', battery: '▣', nuclear: '☢', iceDrill: '❄',
@@ -369,12 +367,14 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     content.append(grid);
     const footer = document.createElement('footer');
     footer.className = 'colony-hud-footer';
+    footer.style.alignItems = 'center';
     const balance = document.createElement('span');
-    balance.textContent = `Balance ${Math.floor(current.sim.state.res.credits).toLocaleString()} cr`;
+    balance.textContent = `Build materials ${Math.floor(current.sim.state.res.credits).toLocaleString()} kg`;
+    Object.assign(balance.style, { fontSize: '20px', fontWeight: '800', color: '#fff' });
     const selection = document.createElement('span');
     const chosen = current.dataSet.buildings.find(item => item.id === current.tool);
     const seed = current.dataSet.crops.find(item => item.id === current.seedTool);
-    selection.textContent = chosen ? `${chosen.name} · ${current.sim.purchasePrice(chosen)} cr`
+    selection.textContent = chosen ? `${chosen.name} · ${current.sim.purchasePrice(chosen)} kg`
       : seed ? `Plant ${seed.name}` : 'Nothing selected';
     footer.append(balance, selection);
     panel.append(footer);
@@ -486,7 +486,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const spare = current.dataSet.balance.kit.find(item => item.id === 'spares');
     if (spare && current.sim.state.rescue) {
       const price = current.sim.purchasePrice(spare);
-      const buy = makeButton(`Buy spare part · ${price} cr`, () => current.run({ type: 'buySpares' }),
+      const buy = makeButton(`Buy spare part · ${price} kg`, () => current.run({ type: 'buySpares' }),
         { disabled: current.sim.state.res.credits < price });
       buy.dataset.hudFocus = 'buy-spare';
       content.append(buy);
@@ -629,7 +629,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const snapshot = selectColonyUiState(sim, data(), foodPerCrew);
     const values = {
       'RESCUE IN': snapshot.rescueIn == null ? `${snapshot.sol} / ${sim.state.solLimit}` : `${snapshot.rescueIn} ${snapshot.rescueIn === 1 ? 'sol' : 'sols'}`,
-      CREDITS: Math.floor(snapshot.credits).toLocaleString(),
+      MATERIALS: `${Math.floor(snapshot.credits).toLocaleString()} kg`,
       POWER: `${(snapshot.power.genW / 1000).toFixed(1)} / ${(snapshot.power.useW / 1000).toFixed(1)} kW`,
       BATTERY: snapshot.battery.capacityWh > 0 ? `${(snapshot.battery.currentWh / 1000).toFixed(1)} kWh` : '—',
       WATER: `${Math.round(snapshot.waterL).toLocaleString()} L`,

@@ -6,10 +6,10 @@ export function createState(data, options, launch) {
     seed, difficulty, objectiveId, siteId, landerId, manifest: { ...manifest },
     sol: 0, Ls: 0, seasonIdx: 0, solLimit: Math.ceil(data.seasons.yearSols), speed: 1,
     status: 'active', endReason: '', grid: { w: 16, h: 12 },
+    // `credits` now means build materials in kg (one pool: harvest feedstock, mining, salvage).
     res: { credits: mode.budget - launch.cost, sp: 0, data: 0, waterL: mode.startWater,
       foodKg: mode.startFood, pantry: { rations: mode.startFood },
-      batteryWh: 0, massUsed: launch.massKg, spares: manifest.spares ?? 0,
-      materials: { regolith: 0, metal: 0 } },
+      batteryWh: 0, massUsed: launch.massKg, spares: manifest.spares ?? 0 },
     power: { gen: 0, demand: 0, solarFactor: 1, priority: [], shed: [], comms: 0 },
     crew: {
       n: data.balance.crew, health: 1, morale: 1, dose_mSv: 0, fedStreak: 0,

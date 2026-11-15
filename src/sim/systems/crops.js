@@ -46,6 +46,8 @@ function harvestYield(ctx, crop, plot) {
 
 export function harvestPreview(ctx, crop, plot) {
   const kg = harvestYield(ctx, crop, plot);
+  // Build materials (kg) recovered from inedible biomass (stems, roots, leaves) used as
+  // feedstock. Game value: `value_cr_per_kg` is kept as the data key and read as kg per kg.
   const credits = Math.round(kg * ctx.crops.get(crop.cropId).value_cr_per_kg);
   return { kg, credits, unsafe: !plot.treated };
 }
@@ -81,7 +83,7 @@ export function harvestCrop(ctx, crop, plot) {
   state.crops = state.crops.filter(({ uid }) => uid !== crop.uid);
   emit('harvest', { name: traits.name, kg, credits, unsafe });
   if (unsafe) return `Harvested ${traits.name}, flagged unsafe until the soil is treated.`;
-  return `Harvested ${kg.toFixed(1)} kg of ${traits.name} (+${credits} cr).`;
+  return `Harvested ${kg.toFixed(1)} kg of ${traits.name} (+${credits} kg materials).`;
 }
 
 export function queueCrossDiscovery(ctx, crop, traits, child, lab) {

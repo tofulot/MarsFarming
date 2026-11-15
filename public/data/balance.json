@@ -21,11 +21,11 @@
     "surface": {
       "regolithNodes": 5,
       "metalNodes": 4,
-      "regolithPerNode": 30,
-      "metalPerNode": 16,
-      "miningBatch": 4,
+      "regolithPerNode": 18,
+      "metalPerNode": 24,
+      "miningBatch": 12,
       "rocketBurnSols": 3,
-      "rocketSalvage": { "regolith": 0, "metal": 12 }
+      "rocketSalvage": { "regolith": 0, "metal": 40 }
     },
     "crops": {
       "radish": { "growthSols": 8, "harvestKg": 4.8 },
