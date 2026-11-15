@@ -14,18 +14,22 @@ npm test
 npm run build
 ```
 
-Open the URL Vite prints. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report.
+Open the URL Vite prints. Use **↑/↓** (or W/S) and **Enter** on the title menu, or click. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report. Demo keys are ignored while you type in a dialog.
 
-Choose **Start survival** to land in Gale Crater, or **Choose landing site** to compare terrain, ice, solar potential, and weather on the map. You have 120 sols until rescue, 11 sols of rations, and 180 credits. The colony starts paused.
+Choose **Start survival** to land in Gale Crater, or **Choose landing site** to compare terrain, ice, solar potential, and weather on the map. You have 120 sols until rescue, 11 sols of rations, and 180 kg of build materials. The colony starts paused.
+
+**Build materials (kg)** are the one currency. You earn them by mining rock deposits (select a rock, then **Mine deposit**), scrapping the crashed rocket once its fire is out, harvesting crops (inedible biomass recovered as feedstock, a game value), and earning achievements. Every shop price is in kg.
+
+**Camera:** the mouse wheel zooms toward the cursor; **−/+** in the top bar or the +/- keys also zoom. Zooming out reveals more of the landing site. Drag the board, or use WASD or the arrow keys, to pan.
 
 1. Open **Base** under the vital statistics. Buy two Greenhouse Plots and a Soil Washer. Press **+1 sol** to treat the plots. The washer starts automatically when it has power and water.
 2. Select each treated plot and plant radishes from the seed dock. Each planting uses 0.2 kg of food. Radishes mature in eight healthy sols. Harvest and replant to keep food available. Seed supply drops bring new crops at 15-sol intervals, and some crops also require a harvest milestone.
-3. Watch the resource readings and forecast. Use **+1 sol** for precise steps or **1×–4×** for continuous play. One sol takes 15 seconds at 1×. Open **Ops** for event, outage, and downlink timers and **Awards** for progression clues. Your first planting unlocks colony naming.
+3. Watch the resource readings and forecast. Use **+1 sol** for precise steps or **1×–4×** for continuous play. One sol takes 15 seconds at 1×. Open **Ops** for rationing, power loads, and event timers and **Goals** for progression clues. Reaching **Halfway Home** (sol 60) unlocks colony naming; after that, click the colony name in the top bar to rename it.
 4. Reach the rescue sol to open the report. You can read the crop journal, return to the main menu, or try another landing site. **Abandon** ends the current run after confirmation. In demo mode, **R** also ends the run and opens the report.
 
 ## Landing map data
 
-- Terrain is a custom rust-palette rendering derived from the [NASA Ames Marsoweb MOLA cylindrical shaded-relief product](https://marsoweb.nas.nasa.gov/globalData/datamaps.html). It is centered on 0° longitude. The relief colors are qualitative. The colony backdrop samples the atlas around the selected landing site. Use the colony zoom controls to resize the playable tiles.
+- Terrain is a custom rust-palette rendering derived from the [NASA Ames Marsoweb MOLA cylindrical shaded-relief product](https://marsoweb.nas.nasa.gov/globalData/datamaps.html). It is centered on 0° longitude. The relief colors are qualitative. The colony ground samples the atlas around the selected landing site, adds seeded procedural detail (regolith grain, pebbles, craters, wind ripples), and scales rock density with the local MOLA relief (game-scaled). Icy patches and the drill use the HEND signal below. Rock deposits and the crashed rocket are placed differently for each site and seed.
 - The hydrogen overlay and landing readout use the [NASA Mars Odyssey HEND epithermal neutron grid](https://pds-geosciences.wustl.edu/missions/odyssey/grsspecial.html) in 4° × 4° cells. The game interpolates the normalized flux for display and multiplies it by 0.26 for counts per second. Lower neutron flux can indicate more near-surface hydrogen. The drill uses a game-scaled version of that signal.
 - Solar potential shows modeled equinox noon sunlight relative to the equator. It uses the same clear-sky formula as the simulation. Dust and seasonal effects are handled on the surface.
 
@@ -35,7 +39,7 @@ The terrain and hydrogen assets ship with the game. To rebuild them on macOS, ru
 
 ## Weather
 
-The landing map lets you choose a start season and compare expected storm sols and cold exposure at your site. Quick start uses Gale Crater at Lₛ 0°. Each mission follows a seeded historical dust year. Hover or tap a sol in the forecast to see the conditions and the effects on solar power, habitat heat, and ice extraction.
+The landing map lets you choose a start season and compare expected storm sols and cold exposure at your site. Quick start uses Gale Crater at Lₛ 0°. Each mission follows a seeded historical dust year. The forecast strip shows the archived OpenMARS conditions for each sol (clear, dust haze, ice clouds, wind, dust devils, fog, snow, severe cold, and local, regional or global dust storms). Hover a sol, or click to keep it open, to see temperature, wind, pressure, and the effects on solar power, habitat heat, and ice extraction.
 
 Dust dims sunlight and coats solar panels. Select a panel to clean it. Batteries and load priorities can keep greenhouses and water equipment running through storms. Cold raises heating demand and slows the ice drill. A greenhouse that keeps its power and water can keep growing through either hazard.
 
