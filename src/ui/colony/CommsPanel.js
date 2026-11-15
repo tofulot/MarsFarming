@@ -351,7 +351,7 @@ export function createCommsPanel({ game, button, card, seedIcon }) {
     content.append(wrap);
     const dish = commsDish(sim);
     if (!dish) {
-      wrap.append(el('p', '', 'There is no comms dish in the colony. Build one from Base › Support to order seeds.'));
+      wrap.append(el('p', '', 'There is no Comms Dish in this mission, so seed orders are unavailable.'));
       return 'No dish';
     }
     const status = commsStatusView(sim, data);

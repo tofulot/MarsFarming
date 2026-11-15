@@ -191,9 +191,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       @keyframes colony-tab-pulse { 0%,100% { box-shadow:0 0 0 0 #f0b45a00; border-color:#6e4b42; }
         50% { box-shadow:0 0 0 4px #f0b45a88, 0 0 18px #f0b45acc; border-color:#ffd27a; color:#ffd27a; } }
       ${achievementCardCss}
-      .colony-hud-root .colony-award-name { font-family:${fontDisplay}; font-size:34px; font-weight:700; letter-spacing:${theme.displayTracking}; }
-      .colony-hud-root .colony-award-kicker,.colony-hud-root .colony-award-sol { font-size:15px; font-weight:400; }
-      .colony-hud-root .colony-award-unlock { font-size:15px; font-weight:400; }
+      .colony-hud-root .colony-award-name { font-family:${fontDisplay}; font-size:27px; font-weight:700; letter-spacing:${theme.displayTracking}; }
+      .colony-hud-root .colony-award-kicker,.colony-hud-root .colony-award-sol { font-size:13px; font-weight:400; }
+      .colony-hud-root .colony-award-unlock { font-size:13px; font-weight:400; }
     `;
     document.head.append(styleTag);
   }

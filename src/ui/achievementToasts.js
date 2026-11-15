@@ -84,24 +84,23 @@ const STAR_SVG = `<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="t
 </svg>`;
 
 export const achievementCardCss = `
-  .colony-award { position:absolute; left:640px; top:134px; z-index:40; width:440px; box-sizing:border-box; display:grid; overflow:hidden;
-    grid-template-columns:72px minmax(0,1fr); gap:6px 16px; align-items:center; padding:16px 20px 16px 16px; pointer-events:auto; cursor:pointer;
-    color:#f5e9e2; background:linear-gradient(160deg,#3a2623 0%,#231615 70%); border:2px solid #f0b45a; border-radius:14px;
-    box-shadow:0 0 0 4px #f0b45a22, 0 10px 34px #0b0505cc, 0 0 40px #f0b45a44; transform-origin:50% 0;
+  .colony-award { position:absolute; left:640px; top:72px; z-index:40; width:328px; box-sizing:border-box; display:grid; overflow:hidden;
+    grid-template-columns:52px minmax(0,1fr); gap:4px 10px; align-items:center; padding:10px 14px 10px 10px; pointer-events:auto; cursor:pointer;
+    color:#f5e9e2; background:linear-gradient(160deg,#3a2623 0%,#231615 70%); border:1.5px solid #f0b45a; border-radius:12px;
+    box-shadow:0 0 0 3px #f0b45a22, 0 7px 22px #0b0505bb, 0 0 24px #f0b45a33; transform-origin:50% 0;
     animation:colony-award-in .42s cubic-bezier(.2,1.5,.4,1) both; }
   .colony-award.is-leaving { animation:colony-award-out ${LEAVE_MS}ms ease-in both; }
-  /* With the side panel open, centre on the visible map instead of the whole screen. */
-  .colony-hud-root:has(#colony-side-panel:not([hidden])) .colony-award { left:406px; }
   .colony-award .colony-life-bar { background:${theme.amber}; }
-  .colony-award-badge { grid-row:1 / span 4; width:72px; height:72px; display:grid; place-items:center;
-    animation:colony-award-badge 1.6s ease-in-out .3s infinite; filter:drop-shadow(0 0 8px #f0b45a99); }
-  .colony-award-kicker { color:#ffd27a; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
-  .colony-award-name { font-size:26px; font-weight:800; line-height:1.1; }
-  .colony-award-reward { font-size:30px; font-weight:900; line-height:1.05; color:#ffd27a; text-shadow:0 0 14px #f0b45a66; }
-  .colony-award-reward small { font-size:16px; font-weight:800; color:#f5e9e2; margin-left:4px; }
-  .colony-award-unlock { color:#cfe8c9; font-size:14px; font-weight:700; line-height:1.3; }
+  .colony-award-badge { grid-row:1 / span 4; width:52px; height:52px; display:grid; place-items:center;
+    animation:colony-award-badge 1.6s ease-in-out .3s infinite; filter:drop-shadow(0 0 5px #f0b45a88); }
+  .colony-award-badge svg { width:52px; height:52px; }
+  .colony-award-kicker { color:#ffd27a; font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+  .colony-award-name { font-size:22px; font-weight:800; line-height:1.08; }
+  .colony-award-reward { font-size:23px; font-weight:900; line-height:1.02; color:#ffd27a; text-shadow:0 0 10px #f0b45a55; }
+  .colony-award-reward small { font-size:13px; font-weight:800; color:#f5e9e2; margin-left:3px; }
+  .colony-award-unlock { color:#cfe8c9; font-size:12px; font-weight:700; line-height:1.2; }
   .colony-award-unlock b { color:#9bd8ae; }
-  .colony-award-sol { color:#c9b3a8; font-size:12px; font-weight:700; }
+  .colony-award-sol { color:#c9b3a8; font-size:11px; font-weight:700; }
   @keyframes colony-award-in { 0% { opacity:0; transform:translate(-50%,-26px) scale(.7); }
     100% { opacity:1; transform:translate(-50%,0) scale(1); } }
   @keyframes colony-award-out { 0% { opacity:1; transform:translate(-50%,0) scale(1); }

@@ -27,7 +27,7 @@ export const advancements = [
   { id: 'delivery', name: 'Special Delivery', requires: ['phoneHome'], position: [1, 2], credits: 30,
     hint: 'Order seeds from the repaired, powered Comms Dish. When the supply crate lands near the base, select it and collect it.' },
   { id: 'downlink', name: 'First Downlink', requires: ['harvest', 'phoneHome'], position: [2, 5], credits: 30,
-    hint: 'Keep the repaired Comms Dish powered to transmit research from a harvest. Unlocks the Science Lab.' },
+    hint: 'Keep the repaired Comms Dish powered to transmit research from a harvest.' },
   { id: 'halfway', name: 'Halfway Home', requires: ['stranded'], position: [3, 1],
     hint: 'Survive until the countdown reaches its halfway point. Unlocks the Fission Unit and colony naming.' },
   { id: 'rescue', name: 'Rescued', requires: ['halfway'], position: [3, 2],
@@ -46,7 +46,6 @@ const rewards = {
   harvester: 'water',
   berm: 'charged',
   shelter: 'charged',
-  lab: 'downlink',
   nuclear: 'halfway',
 };
 
