@@ -106,7 +106,7 @@ export class Simulation {
     state.water = { production, demand: crewDemand };
     rewardSystem(this.#ctx);
     const location = options.site ? `${site.lat.toFixed(1)}°, ${site.lon.toFixed(1)}°` : site.name;
-    this.#record(`Landed at ${location}.`, `Started surface operations with ${state.res.credits} credits.`);
+    this.#record(`Landed at ${location}.`, `Started surface operations with ${state.res.credits} kg of build materials.`);
   }
 
   #unpack(manifest) {
@@ -274,11 +274,7 @@ export class Simulation {
         if (state.rocket?.x === x && state.rocket.y === y && state.rocket.status !== 'scrapped') {
           return fail('Scrap the wreck before building here.');
         }
-        if (state.res.credits < this.purchasePrice(model)) return fail('Insufficient credits.');
-        const materials = state.rescue && data.balance.rescue.surface ? Object.entries(model.materialCost ?? {}) : [];
-        const missing = materials.find(([material, amount]) => state.res.materials[material] < amount);
-        if (missing) return fail(`Requires ${missing[1]} ${missing[0]}.`);
-        for (const [material, amount] of materials) state.res.materials[material] -= amount;
+        if (state.res.credits < this.purchasePrice(model)) return fail('Not enough build materials.');
         this.#buy(model);
         this.#place(id, x, y);
         if (id === 'plot') {
@@ -295,8 +291,8 @@ export class Simulation {
         if (!rock) return fail('Select a rock with materials left to mine.');
         const amount = Math.min(rock.remaining, data.balance.rescue.surface.miningBatch);
         rock.remaining -= amount;
-        state.res.materials[rock.material] += amount;
-        const message = `Mined ${amount} ${rock.material}.`;
+        state.res.credits += amount; // 1 kg of ore = 1 kg of build materials (game value)
+        const message = `Mined ${amount} kg of ${rock.material}.`;
         this.#record(message);
         return ok(message);
       }
@@ -305,15 +301,15 @@ export class Simulation {
         if (state.rocket?.status !== 'salvageable') return fail('There is no wreck left to scrap.');
         const recovered = Object.entries(data.balance.rescue.surface.rocketSalvage)
           .filter(([, amount]) => amount > 0);
-        for (const [material, amount] of recovered) state.res.materials[material] += amount;
+        for (const [, amount] of recovered) state.res.credits += amount;
         state.rocket.status = 'scrapped';
-        const message = `Scrapped the wreck for ${recovered.map(([material, amount]) => `${amount} ${material}`).join(' and ')}.`;
+        const message = `Scrapped the wreck for ${recovered.map(([material, amount]) => `${amount} kg of ${material}`).join(' and ')}.`;
         this.#record(message);
         return ok(message);
       }
       case 'buySpares': {
         const parts = data.balance.kit.find(({ id }) => id === 'spares');
-        if (state.res.credits < this.purchasePrice(parts)) return fail('Insufficient credits for spare parts.');
+        if (state.res.credits < this.purchasePrice(parts)) return fail('Not enough build materials for a spare part.');
         this.#buy(parts);
         state.res.spares++;
         this.#record('Bought a spare part.');

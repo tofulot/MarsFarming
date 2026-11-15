@@ -27,7 +27,7 @@ export function checkManifest(data, { landerId, items = {}, budget, siteId }) {
     cost += item.cost * qty;
   }
   if (lander && massKg > lander.capacityKg) reasons.push(`Cargo mass exceeds capacity by ${massKg - lander.capacityKg} kg.`);
-  if (cost > budget) reasons.push(`Mission costs ${cost - budget} credits over budget.`);
+  if (cost > budget) reasons.push(`Mission costs ${cost - budget} kg of build materials over budget.`);
   if (count > 16 * 12 - data.balance.starter.length) reasons.push('The outpost has insufficient space for this payload.');
   const solar = site ? clearSolarFactor(site.lat, 0, data.seasons.orbit) : 1;
   const starterPower = data.balance.starter.reduce((total, starter) => {

@@ -48,7 +48,7 @@ export function targetBackground(scene) {
 
 export function formatUnits(value, kind, difficulty) {
   const amount = Math.round(value);
-  const unit = { credits: 'cr', mass: 'kg', power: 'W', water: 'L', food: 'kg',
+  const unit = { credits: 'kg', mass: 'kg', power: 'W', water: 'L', food: 'kg',
     dose: 'mSv', data: 'packets', comms: 'pkt/sol', battery: 'Wh' }[kind];
   if (difficulty === 'easy') return amount.toLocaleString('en-US');
   return [amount.toLocaleString('en-US'), unit].filter(Boolean).join(' ');

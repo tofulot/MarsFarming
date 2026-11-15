@@ -4,7 +4,7 @@ import { ColonyPresentation } from '../ui/colony/ColonyPresentation.js';
 import { drawColonyBoard } from '../ui/colony/board.js';
 import { shopCategories } from '../ui/colony/catalog.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
-import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeatureAt } from '../ui/surfaceActions.js';
+import { drawSurfaceDetails, drawSurfaceObjects, surfaceFeatureAt } from '../ui/surfaceActions.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { Simulation } from '../sim/Simulation.js';
@@ -274,7 +274,7 @@ export class ColonyScene extends Phaser.Scene {
       const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
       const sparePrice = this.sim.purchasePrice(spares);
       const waterFirst = power.priority[0] === 'iceDrill';
-      action(695, 546, 244, 34, `Buy spare part · ${sparePrice} cr`,
+      action(695, 546, 244, 34, `Buy spare part · ${sparePrice} kg`,
         res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
       say(695, 583, `${res.spares} in storage`, 13, { color: colors.muted });
       action(949, 546, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
@@ -470,11 +470,8 @@ export class ColonyScene extends Phaser.Scene {
       const requirement = this.sim.unlockRequirement(item);
       const price = this.sim.purchasePrice(item);
       const shortfall = price - res.credits;
-      const materials = rescue ? item.materialCost : null;
-      const lacksMaterials = Object.entries(materials ?? {})
-        .some(([material, amount]) => res.materials[material] < amount);
       const active = this.tool === id;
-      const canBuild = !requirement && shortfall <= 0 && !lacksMaterials;
+      const canBuild = !requirement && shortfall <= 0;
       const y = 280 + i * 56;
       const fill = canBuild ? 0x382830 : 0x211a20;
       const row = panel(this, mapX(695), mapY(y), 513 * scaleX, 50 * scaleY, fill);
@@ -498,13 +495,13 @@ export class ColonyScene extends Phaser.Scene {
         ? `Produces ${waterOutput(item, site, this.dataSet.balance, rescue).toFixed(1)} L per sol here when powered.`
         : item.why;
       say(708, y + 28, description, 10, { color: colors.muted, wordWrap: { width: 350 } });
-      const priceLabel = [`${price.toLocaleString('en-US')} cr`, formatMaterials(materials)].filter(Boolean).join(' + ');
+      const priceLabel = `${price.toLocaleString('en-US')} kg`;
       say(1195, y + 6, priceLabel, 13, {
         color: canBuild ? colors.ink : colors.muted, fontStyle: 'bold',
       }).setOrigin(1, 0);
       const status = requirement ? `Requires ${requirement}`
-        : shortfall > 0 ? `Need ${shortfall} more cr`
-          : lacksMaterials ? 'Mine more materials' : active ? 'Ready to place' : '';
+        : shortfall > 0 ? `Need ${shortfall} kg more materials`
+          : active ? 'Ready to place' : '';
       if (status) say(1195, y + 28, status, 10, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
     });
   }

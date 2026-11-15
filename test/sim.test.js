@@ -138,28 +138,61 @@ test('forecast storm timing agrees with the simulation and accelerates panel dus
   assert.equal(panel(sim).dust, panel(clear).dust * data.balance.stormDustMultiplier);
 });
 
-test('mining and rocket salvage fund a build exactly once', () => {
+test('mining and rocket salvage pay build materials (kg) exactly once', () => {
   const sim = new Simulation(quietData, { siteId: 'gale', rescue: true });
   const { state } = sim;
+  const { surface } = data.balance.rescue;
   const metal = state.rocks.find(({ material }) => material === 'metal');
-  const mine = () => sim.command({ type: 'mine', x: metal.x, y: metal.y });
+  const regolith = state.rocks.find(({ material }) => material === 'regolith');
+  const mine = (rock) => sim.command({ type: 'mine', x: rock.x, y: rock.y });
+  const start = state.res.credits;
+  assert.equal(state.res.materials, undefined);
   assert.match(sim.command({ type: 'build', id: 'plot', x: metal.x, y: metal.y }).reason, /Mine this rock/);
   assert.match(sim.command({ type: 'scrapRocket' }).reason, /burning/);
-  assert.ok(mine().ok);
-  assert.equal(state.res.materials.metal, data.balance.rescue.surface.miningBatch);
-  while (metal.remaining > 0) assert.ok(mine().ok);
-  assert.equal(mine().ok, false);
-  assert.equal(state.res.materials.metal, data.balance.rescue.surface.metalPerNode);
+  const first = mine(metal);
+  assert.ok(first.ok);
+  assert.equal(first.reason, `Mined ${surface.miningBatch} kg of metal.`);
+  assert.equal(state.res.credits, start + surface.miningBatch);
+  let clicks = 1;
+  while (metal.remaining > 0) { assert.ok(mine(metal).ok); clicks++; }
+  assert.ok(clicks >= 2 && clicks <= 3, `a deposit should empty in 2–3 clicks, took ${clicks}`);
+  assert.equal(mine(metal).ok, false);
+  assert.equal(state.res.credits, start + surface.metalPerNode);
+  while (regolith.remaining > 0) assert.ok(mine(regolith).ok);
+  assert.equal(state.res.credits, start + surface.metalPerNode + surface.regolithPerNode);
   while (state.sol < state.rocket.burnsUntilSol) sim.step();
   assert.equal(state.rocket.status, 'salvageable');
-  assert.ok(sim.command({ type: 'scrapRocket' }).ok);
+  const beforeScrap = state.res.credits;
+  const scrap = sim.command({ type: 'scrapRocket' });
+  assert.ok(scrap.ok);
+  assert.equal(scrap.reason, `Scrapped the wreck for ${surface.rocketSalvage.metal} kg of metal.`);
+  assert.equal(state.res.credits, beforeScrap + surface.rocketSalvage.metal);
   assert.equal(state.rocket.status, 'scrapped');
   assert.equal(sim.command({ type: 'scrapRocket' }).ok, false);
-  const mined = data.balance.rescue.surface.metalPerNode + data.balance.rescue.surface.rocketSalvage.metal;
-  assert.equal(state.res.materials.metal, mined);
+  assert.equal(state.res.credits, beforeScrap + surface.rocketSalvage.metal);
+});
+
+test('total surface yield is a meaningful but bounded income', () => {
+  const { surface } = data.balance.rescue;
+  const salvage = Object.values(surface.rocketSalvage).reduce((sum, kg) => sum + kg, 0);
+  const total = surface.regolithNodes * surface.regolithPerNode + surface.metalNodes * surface.metalPerNode + salvage;
+  assert.ok(total >= 150 && total <= 250, `surface yield ${total} kg`);
+});
+
+test('buildings cost only build materials (kg), never regolith or metal', () => {
+  assert.ok(data.buildings.every((model) => !('materialCost' in model)));
+  const sim = new Simulation(quietData, { siteId: 'gale', rescue: true });
+  const { state } = sim;
   state.rescue.earned.repeatHarvest = state.sol;
-  assert.ok(sim.command({ type: 'build', id: 'autoHarvester', x: state.rocket.x, y: state.rocket.y }).ok);
-  assert.equal(state.res.materials.metal, mined - 4);
+  const tile = { x: 0, y: 2 };
+  assert.ok(!state.rocks.some(({ x, y }) => x === tile.x && y === tile.y));
+  state.res.credits = sim.purchasePrice(data.buildings.find(({ id }) => id === 'autoHarvester')) - 1;
+  const short = sim.command({ type: 'build', id: 'autoHarvester', ...tile });
+  assert.equal(short.ok, false);
+  assert.equal(short.reason, 'Not enough build materials.');
+  state.res.credits += 1;
+  assert.ok(sim.command({ type: 'build', id: 'autoHarvester', ...tile }).ok);
+  assert.equal(state.res.credits, 0);
 });
 
 test('a regional dust storm sheds greenhouse load before life support', () => {
@@ -314,8 +347,8 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.ok(Math.abs(sim.state.water.demand - 11.25) < 1e-9);
   assert.equal(harvest(plots[0]).ok, false);
   sim.step();
-  assert.ok(harvest(plots[0]).ok);
-  // Soil fertility × wild-type yy (0.85) → 19 cr; First Harvest award +70.
+  assert.equal(harvest(plots[0]).reason, 'Harvested 3.8 kg of Radish (+19 kg materials).');
+  // Soil fertility × wild-type yy (0.85) → 19 kg materials; First Harvest award +70.
   assert.equal(sim.state.res.credits, 24 + 19 + 70);
   assert.ok(harvest(plots[1]).ok);
   assert.equal(sim.state.res.credits, 24 + 38 + 70 + 55);
