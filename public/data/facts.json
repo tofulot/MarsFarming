@@ -42,129 +42,33 @@
     "url": "https://earthsciences.gsfc.nasa.gov/sed/content/uploadFiles/publication_files/Glavin_et_al-2013-Journal_of_Geophysical_Research__Planets.pdf"
   },
   {
-    "id": "milestone-first-plant",
-    "milestone": "first_plant",
-    "title": "First seed in the ground",
-    "text": "NASA’s BVAD budgets about 0.8 kg dry food solids per crew member per day for life support planning.",
-    "survival": "Stored rations only buy time. Local planting is how a stranded crew turns sols into calories before rescue.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
+    "id": "sol-length",
+    "text": "A Mars sol lasts about 24 hours 39 minutes 35 seconds—longer than an Earth day.",
+    "source": "S4",
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html"
   },
   {
-    "id": "milestone-soil-treated",
-    "milestone": "soil_treated",
-    "title": "Soil ready to farm",
-    "text": "Phoenix measured about 0.4–0.6 wt% perchlorate in polar soil—salts that make untreated regolith unsafe for food crops.",
-    "survival": "Washing (or going hydroponic) is the difference between a harvest you can eat and biomass you must discard.",
-    "source": "S10",
-    "url": "https://pubmed.ncbi.nlm.nih.gov/19574385/"
-  },
-  {
-    "id": "milestone-first-harvest",
-    "milestone": "first_harvest",
-    "title": "First harvest",
-    "text": "BVAD crop tables set growth periods and edible productivity so greenhouse area can be sized against crew food need.",
-    "survival": "Each successful harvest resets the hunger clock. Without it, health falls and the rescue deadline becomes a starvation race.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-lettuce",
-    "milestone": "first_harvest_lettuce",
-    "title": "Lettuce on the menu",
-    "text": "BVAD lists lettuce at about 28 Earth days with modest light demand—one of the faster salad crops in the baseline.",
-    "survival": "Fast, low-PPF greens bridge gaps when power is tight or dust season cuts solar output.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-radish",
-    "milestone": "first_harvest_radish",
-    "title": "Radish harvest",
-    "text": "Radish is a short-cycle crop in BVAD tables and has flown in ISS plant habitats as a quick edible.",
-    "survival": "Quick turnarounds keep pantry mass flowing when you cannot wait months for staples.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-potato",
-    "milestone": "first_harvest_potato",
-    "title": "Potato calories",
-    "text": "White potato is among the higher dry edible yields in BVAD Table 4-90, but it needs a long growth period.",
-    "survival": "Staple calories reduce ration dependence—if you plant early enough to finish before storms or rescue.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-wheat",
-    "milestone": "first_harvest_wheat",
-    "title": "Wheat under lights",
-    "text": "BVAD wheat needs very high photosynthetic photon flux compared with salad crops—on the order of 115 mol/m²/day.",
-    "survival": "Wheat pays in calories only if your power system can feed the lamps through dust and night.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-tomato",
-    "milestone": "first_harvest_tomato",
-    "title": "Tomato crop",
-    "text": "Tomato appears in BVAD productivity tables as a fruiting crop with multi-week growth and moderate light need.",
-    "survival": "Fruit crops diversify micronutrients so meals are not just empty calories from staples.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-soybean",
-    "milestone": "first_harvest_soybean",
-    "title": "Soy protein",
-    "text": "Soybean is a protein-oriented crop in BVAD planning, with lower edible mass yield than roots or greens.",
-    "survival": "Protein variety matters once satiety is covered—poor diet quality still drains crew health over sols.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-harvest-sweetPotato",
-    "milestone": "first_harvest_sweetPotato",
-    "title": "Sweet potato staple",
-    "text": "Sweet potato shows some of the highest dry edible productivity among BVAD table crops.",
-    "survival": "High dry yield means more mission days of food per greenhouse square meter.",
-    "source": "S9",
-    "url": "https://ntrs.nasa.gov/citations/20210024855"
-  },
-  {
-    "id": "milestone-water",
-    "milestone": "water_online",
-    "title": "Water from ice",
-    "text": "NASA orbital mapping highlighted regions where ice may lie less than 30 cm underground—reachable with surface systems.",
-    "survival": "Crew hydration and soil washing both draw the tank. Local ice turns a finite lander load into a renewable loop.",
-    "source": "S14",
-    "url": "https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars/"
-  },
-  {
-    "id": "milestone-power",
-    "milestone": "backup_power",
-    "title": "Power buffer",
+    "id": "insight-dust",
     "text": "InSight lost nearly all of its usable solar power to dust accumulation before the mission ended.",
-    "survival": "Batteries and cleaning buy sols of life support when panels go dark in a storm.",
     "source": "S8",
     "url": "https://www.giss.nasa.gov/tools/mars24/help/landers.html"
   },
   {
-    "id": "milestone-storm-ready",
-    "milestone": "storm_ready",
-    "title": "Storm reserves",
-    "text": "Global dust storms can drive optical depth high enough to starve solar-powered systems for weeks.",
-    "survival": "Stored watt-hours are the difference between shedding greenhouses and keeping the habitat online.",
+    "id": "opportunity-tau",
+    "text": "During the 2018 global dust storm, Opportunity measured optical depth near 10.8 before contact was lost.",
     "source": "S13",
-    "url": "https://mars.nasa.gov/news/8352/"
+    "url": "https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/"
   },
   {
-    "id": "milestone-cross",
-    "milestone": "first_cross",
-    "title": "Breeding under dose",
-    "text": "Curiosity’s RAD instrument measured about 0.67 mSv/day of ionizing dose at Gale Crater.",
-    "survival": "In this game, dose and solar particle events raise allele-flip chance—an educational model, not real Mars plant genetics.",
-    "source": "S11",
-    "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-of-the-surface-of-mars"
+    "id": "veggie-heritage",
+    "text": "NASA’s Veggie system on the ISS grows salad crops to study food production for crews living off Earth.",
+    "source": "S16",
+    "url": "https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/"
+  },
+  {
+    "id": "mars-pressure",
+    "text": "Average Mars surface pressure is only about 6–7 mbar—less than one percent of Earth’s sea-level pressure.",
+    "source": "S4",
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html"
   }
 ]

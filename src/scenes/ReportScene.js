@@ -1,6 +1,7 @@
 // AI-assisted (OpenAI Codex)
 import Phaser from 'phaser';
 import { advancements } from '../sim/advancements.js';
+import { GAME_PROGRESS_FACTS, progressFactByMilestone } from '../sim/data/gameProgressFacts.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { button, colors, heading, panel, targetBackground, text } from '../ui/controls.js';
 
@@ -81,8 +82,8 @@ Food grown    ${state.metrics.grownKg.toFixed(1)} kg`,
     if (event) text(this, 527, 419, `${event.name} on sol ${event.sol}. ${event.fact}`, 16,
       { color: '#ffc7a8', wordWrap: { width: 665 } });
     const seen = Object.keys(state.metrics.seenFacts ?? {});
-    const fact = data.facts.find((entry) => entry.milestone && seen.includes(entry.milestone))
-      ?? data.facts.find((entry) => entry.milestone)
+    const fact = seen.map((milestone) => progressFactByMilestone(milestone)).find(Boolean)
+      ?? Object.values(GAME_PROGRESS_FACTS)[0]
       ?? data.facts[0];
     const survival = fact.survival ? ` Survival: ${fact.survival}` : '';
     text(this, 527, 502, `${fact.text} [${fact.source}].${survival}`, 15, {

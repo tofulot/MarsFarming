@@ -1,16 +1,20 @@
 // AI-assisted (Cursor)
-/** Once-per-mission NASA fact cards tied to survival milestones. */
+/** Once-per-mission fact cards tied to survival / progress milestones. */
+
+import { progressFactByMilestone } from '../data/gameProgressFacts.js';
 
 export function factByMilestone(facts, milestone) {
-  return (facts ?? []).find((fact) => fact.milestone === milestone);
+  return progressFactByMilestone(milestone)
+    ?? (facts ?? []).find((fact) => fact.milestone === milestone)
+    ?? null;
 }
 
 export function revealMilestoneFact(ctx, milestone, extra = {}) {
   const { state, data, emit } = ctx;
-  if (!milestone || !data.facts?.length) return null;
+  if (!milestone) return null;
   state.metrics.seenFacts ??= {};
   if (Object.hasOwn(state.metrics.seenFacts, milestone)) return null;
-  const fact = factByMilestone(data.facts, milestone);
+  const fact = factByMilestone(data?.facts, milestone);
   if (!fact) return null;
   state.metrics.seenFacts[milestone] = state.sol;
   const card = {
@@ -26,6 +30,12 @@ export function revealMilestoneFact(ctx, milestone, extra = {}) {
   };
   emit('fact:card', card);
   return card;
+}
+
+export function revealCropPlantFact(ctx, cropId, cropName) {
+  const species = revealMilestoneFact(ctx, `first_plant_${cropId}`, { cropId, cropName });
+  const first = revealMilestoneFact(ctx, 'first_plant', { cropId, cropName });
+  return species ?? first;
 }
 
 export function revealCropHarvestFact(ctx, cropId, cropName) {
