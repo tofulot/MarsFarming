@@ -17,6 +17,9 @@ import {
   crossGenotypes, describeGenetics, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
 } from './systems/mutations.js';
 import { createPlotSoil, fertilizeAdjacentPlots } from './systems/soil.js';
+import {
+  revealCropHarvestFact, revealCropPlantFact, revealMilestoneFact,
+} from './systems/milestoneFacts.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
@@ -214,6 +217,18 @@ export class Simulation {
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
     fertilizeAdjacentPlots(this.#ctx);
+    if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) {
+      revealMilestoneFact(this.#ctx, 'soil_treated');
+    }
+    if (state.buildings.some(({ id, online }) => id === 'iceDrill' && online)) {
+      revealMilestoneFact(this.#ctx, 'water_online');
+    }
+    if (state.buildings.some(({ id }) => id === 'battery')) {
+      revealMilestoneFact(this.#ctx, 'backup_power');
+    }
+    if (state.res.batteryWh >= 10000) revealMilestoneFact(this.#ctx, 'storm_ready');
+    if (state.metrics.transmitted >= 5) revealMilestoneFact(this.#ctx, 'first_downlink');
+    if (state.Ls >= 180 && state.Ls < 190) revealMilestoneFact(this.#ctx, 'dust_season');
     if (state.rescue) {
       if (state.buildings.some(({ id, online }) => id === 'iceDrill' && online)) earnAdvancement(this.#ctx, 'water');
       if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) earnAdvancement(this.#ctx, 'soil');
@@ -273,8 +288,26 @@ export class Simulation {
         if (id === 'plot') {
           earnAdvancement(this.#ctx, 'greenhouse');
           if (state.difficulty === 'easy') earnAdvancement(this.#ctx, 'soil');
+          revealMilestoneFact(this.#ctx, 'first_plot');
         }
-        if (id === 'battery') earnAdvancement(this.#ctx, 'power');
+        if (id === 'battery') {
+          earnAdvancement(this.#ctx, 'power');
+          revealMilestoneFact(this.#ctx, 'backup_power');
+        }
+        const buildFacts = {
+          washer: 'first_washer',
+          solar: 'first_solar',
+          hydroponic: 'first_hydroponic',
+          fertilizer: 'first_fertilizer',
+          berm: 'first_berm',
+          shelter: 'first_shelter',
+          comms: 'first_comms',
+          lab: 'first_lab',
+          nuclear: 'first_nuclear',
+          recycler: 'first_recycler',
+          harvester: 'first_air_harvester',
+        };
+        if (buildFacts[id]) revealMilestoneFact(this.#ctx, buildFacts[id]);
         this.#record(`Built ${model.name}.`, model.why);
         this.#bus.emit('purchase', state);
         return ok(`Built ${model.name}.`);
@@ -329,6 +362,7 @@ export class Simulation {
           earnAdvancement(this.#ctx, 'soil');
           earnAdvancement(this.#ctx, 'botanist');
         }
+        revealCropPlantFact(this.#ctx, id, traits.name);
         const sols = cropSolsRemaining(traits, unit, data.balance);
         this.#record(`Planted ${traits.name}.`, `Requires ${sols} healthy sols to mature.`);
         this.#bus.emit('crop:plant', state);
@@ -338,6 +372,7 @@ export class Simulation {
         if (!crop || crop.growth < 1) return fail('The plot has no mature crop.');
         const result = harvestCrop(this.#ctx, crop, unit);
         earnAdvancement(this.#ctx, 'harvest');
+        revealCropHarvestFact(this.#ctx, crop.cropId, crops.get(crop.cropId)?.name);
         if (state.rescue) {
           const rescue = state.rescue;
           rescue.harvests++;
@@ -395,6 +430,7 @@ export class Simulation {
             : ' New allele flip under dose (game).')
           : '';
         const text = `Crossed ${traits.name}. Seed vault holds generation ${child.generation}: ${label}.${note}`;
+        revealMilestoneFact(this.#ctx, 'first_cross', { cropId: mother.cropId, solarBoosted: result.solarBoosted });
         this.#record(text, 'Mendelian cross; mother harvested for seed.');
         rewardSystem(this.#ctx);
         return ok(text);
@@ -406,6 +442,7 @@ export class Simulation {
         if (!name || name.length > 28 || /[\u0000-\u001f\u007f]/.test(name)) return fail('Enter a colony name of 1–28 characters.');
         rescue.colonyName = name;
         earnAdvancement(this.#ctx, 'colony');
+        revealMilestoneFact(this.#ctx, 'colony_named');
         this.#record(`Named the colony ${name}.`);
         return ok(`Colony named ${name}.`);
       }
@@ -420,6 +457,7 @@ export class Simulation {
       case 'clean':
         if (unit?.id !== 'solar') return fail('Select a solar array.');
         unit.dust = 0;
+        revealMilestoneFact(this.#ctx, 'first_clean');
         this.#record('Cleaned a solar array.', 'Removing dust restored panel output.');
         return ok('Panels cleaned.');
       case 'repair': {

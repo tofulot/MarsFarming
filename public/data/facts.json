@@ -21,7 +21,7 @@
     "id": "mutation-dose",
     "text": "Curiosity measured about 0.67 mSv/day at Gale. Dose raises allele-flip chance in crosses. Alleles themselves are game rules.",
     "source": "S11",
-    "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-the-surface-of-mars"
+    "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-of-the-surface-of-mars"
   },
   {
     "id": "crew-food",
@@ -40,5 +40,35 @@
     "text": "Curiosity found perchlorate salts in the Rocknest scoop at Gale Crater.",
     "source": "S28",
     "url": "https://earthsciences.gsfc.nasa.gov/sed/content/uploadFiles/publication_files/Glavin_et_al-2013-Journal_of_Geophysical_Research__Planets.pdf"
+  },
+  {
+    "id": "sol-length",
+    "text": "A Mars sol lasts about 24 hours 39 minutes 35 seconds—longer than an Earth day.",
+    "source": "S4",
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html"
+  },
+  {
+    "id": "insight-dust",
+    "text": "InSight lost nearly all of its usable solar power to dust accumulation before the mission ended.",
+    "source": "S8",
+    "url": "https://www.giss.nasa.gov/tools/mars24/help/landers.html"
+  },
+  {
+    "id": "opportunity-tau",
+    "text": "During the 2018 global dust storm, Opportunity measured optical depth near 10.8 before contact was lost.",
+    "source": "S13",
+    "url": "https://www.jpl.nasa.gov/news/opportunity-hunkers-down-during-dust-storm/"
+  },
+  {
+    "id": "veggie-heritage",
+    "text": "NASA’s Veggie system on the ISS grows salad crops to study food production for crews living off Earth.",
+    "source": "S16",
+    "url": "https://www.nasa.gov/exploration-research-and-technology/growing-plants-in-space/"
+  },
+  {
+    "id": "mars-pressure",
+    "text": "Average Mars surface pressure is only about 6–7 mbar—less than one percent of Earth’s sea-level pressure.",
+    "source": "S4",
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html"
   }
 ]
