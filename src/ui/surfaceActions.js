@@ -41,7 +41,8 @@ export function drawSurfaceDetails(scene, feature) {
 
 export function drawSurfaceObjects(scene) {
   const { rocks, rocket } = scene.sim.state;
-  if (!rocks.length && !rocket) return;
+  const crate = scene.sim.state.comms?.crate;
+  if (!rocks.length && !rocket && !crate) return;
   const transform = boardTransform(scene);
   const { x: left, y: top, tile, row } = transform;
   const view = visibleTiles(transform, scene.sim.state.grid);
@@ -85,6 +86,13 @@ export function drawSurfaceObjects(scene) {
       graphic.fillStyle(0xffbf59).fillTriangle(-6, 2, -3, -9, 3, 2);
     }
     graphic.restore();
+  }
+  // AI-assisted (Claude Code): the supply crate itself is a three.js model sent by board.js through the model
+  // layer; here only a drop-zone ring marks its tile so it stays easy to find and click at low zoom.
+  if (crate && visible(crate)) {
+    const [x, y] = position(crate);
+    graphic.lineStyle(1.5, 0xffb05a, 0.55).strokeEllipse(x, y + row * 0.22, tile * 0.82, row * 0.5);
+    graphic.lineStyle(1, 0xffb05a, 0.25).strokeEllipse(x, y + row * 0.22, tile * 0.98, row * 0.62);
   }
   scene.tileLayer.add(graphic);
 }
