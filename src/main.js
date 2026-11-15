@@ -12,7 +12,7 @@ new Phaser.Game({
   parent: 'game',
   width: 1280,
   height: 720,
-  backgroundColor: '#140f13',
+  backgroundColor: '#150d0c', // matches colors.background in src/ui/controls.js
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [BootScene, TitleScene, MapScene, ColonyScene, UIScene, ReportScene],

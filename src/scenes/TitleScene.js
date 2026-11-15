@@ -3,7 +3,8 @@
 import Phaser from 'phaser';
 import { colors, targetBackground, text } from '../ui/controls.js';
 
-const GROUND = { key: 'title-ground', w: 320, h: 180, scale: 2 };
+// Power-of-two size: WebGL tiles it directly instead of resampling (which caused banding).
+const GROUND = { key: 'title-ground', w: 512, h: 512, scale: 2 };
 const VIGNETTE = 'title-vignette';
 const LEFT = 112;
 const MENU_Y = 560;
@@ -42,7 +43,7 @@ export function paintGround(canvas) {
   const { w, h } = GROUND;
   const ctx = canvas.getContext('2d');
   const random = rng(0x5eed);
-  const octaves = [[tileNoise(random, w, h, 64), .4], [tileNoise(random, w, h, 20), .25],
+  const octaves = [[tileNoise(random, w, h, 96), .4], [tileNoise(random, w, h, 20), .25],
     [tileNoise(random, w, h, 9), .14], [tileNoise(random, w, h, 4), .08]];
   const image = ctx.createImageData(w, h);
   for (let y = 0; y < h; y++) {
@@ -50,7 +51,7 @@ export function paintGround(canvas) {
       let n = 0;
       for (const [noise, weight] of octaves) n += noise(x, y) * weight;
       // Faint wind ripples; integer frequencies keep them tileable.
-      const ripple = Math.sin(2 * Math.PI * (36 * x / w + 7 * y / h) + 6 * octaves[1][0](x, y));
+      const ripple = Math.sin(2 * Math.PI * (60 * x / w + 17 * y / h) + 6 * octaves[1][0](x, y));
       n += .05 * ripple * octaves[0][0](x, y) + .13 * random();
       const k = (y * w + x) * 4;
       image.data[k] = 22 + n * 34;
@@ -64,7 +65,7 @@ export function paintGround(canvas) {
   const wrapped = (draw) => {
     for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) draw(ox, oy);
   };
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 9; i++) {
     const cx = random() * w, cy = random() * h, r = 4 + random() * 9;
     wrapped((ox, oy) => {
       ctx.fillStyle = 'rgba(8, 4, 3, 0.22)';
@@ -76,7 +77,7 @@ export function paintGround(canvas) {
       ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, r - 1, r * .8 - 1, 0, Math.PI * .05, Math.PI * .85); ctx.stroke();
     });
   }
-  for (let i = 0; i < 140; i++) {
+  for (let i = 0; i < 420; i++) {
     const px = Math.floor(random() * w), py = Math.floor(random() * h);
     const light = random() < .5;
     ctx.fillStyle = 'rgba(6, 3, 2, 0.5)';
@@ -183,7 +184,6 @@ export class TitleScene extends Phaser.Scene {
     keys.on('keydown-ENTER', () => this.confirm());
     keys.on('keydown-SPACE', () => this.confirm());
     this.select(0);
-    if (!calm) this.cameras.main.fadeIn(400, 12, 7, 6);
   }
 
   select(index) {
