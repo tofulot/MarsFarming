@@ -6,6 +6,8 @@ import { boardZoomRange, colonyLayout, stepBoardZoom } from './layout.js';
 import { achievementCardCss } from '../achievementToasts.js';
 import { cropSolsRemaining } from '../../sim/systems/crops.js';
 import { fontBody, fontDisplay, theme } from '../theme.js';
+import { createMessageBox } from './messages.js';
+import { commsCountdownLine, commsSeedNote, createCommsPanel, focusCommsDish } from './CommsPanel.js';
 
 const LOW_AMBER = theme.amber;
 const PANEL_BG = theme.panel;
@@ -54,6 +56,8 @@ function createRadishSeedIcon() {
     <path d="M31 51c0 3 1 5 1 6" fill="none" stroke="#d7c19c" stroke-width="2" stroke-linecap="round"/>`;
   return svg;
 }
+
+function seedIcon(crop) { return crop.id === 'radish' ? createRadishSeedIcon() : (crop.emoji ?? '🌱'); }
 
 // Tab glyphs drawn as inline SVG so they render the same without emoji fonts.
 const TAB_ICONS = {
@@ -106,7 +110,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-root { position:absolute; inset:0; pointer-events:none; z-index:30; color:${theme.ink}; font-family:${fontBody}; font-size:17px; line-height:1.25; }
       .colony-hud-root button { font:inherit; }
       .colony-hud-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-      .colony-hud-panel,.colony-hud-bar,.colony-hud-zoom,.colony-hud-toast { box-sizing:border-box; background:${PANEL_BG}; border:1px solid ${theme.border}; border-radius:10px; box-shadow:0 4px 18px #140b0b55; }
+      .colony-hud-panel,.colony-hud-bar,.colony-hud-zoom { box-sizing:border-box; background:${PANEL_BG}; border:1px solid ${theme.border}; border-radius:10px; box-shadow:0 4px 18px #140b0b55; }
       .colony-hud-bar { position:absolute; display:flex; align-items:center; gap:8px; padding:0 8px; background:${PANEL_BG}f2; pointer-events:auto; }
       .colony-hud-bar button,.colony-hud-zoom button,.colony-hud-panel button { color:${theme.ink}; background:${RAISED}; border:1px solid ${theme.border}; border-radius:6px; cursor:pointer; }
       .colony-hud-bar button:hover,.colony-hud-zoom button:hover,.colony-hud-panel button:hover { border-color:${ACCENT}; }
@@ -183,9 +187,6 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-goal-head > span:last-child { font-size:16px; color:${MUTED}; white-space:nowrap; }
       .colony-hud-progress { height:7px; margin:8px 0 5px; overflow:hidden; background:#120d0c; border-radius:9px; }
       .colony-hud-progress > span { display:block; height:100%; background:${ACCENT}; transform-origin:left; }
-      .colony-hud-toast { position:absolute; pointer-events:none; max-width:600px; padding:10px 40px 10px 14px; color:#f5e9e2; background:#231615ed; }
-      .colony-hud-toast[hidden] { display:none; }
-      .colony-hud-toast-close { position:absolute; right:7px; top:6px; width:28px; height:28px; pointer-events:auto; }
       .colony-hud-tabs button.is-pulsing { animation:colony-tab-pulse .8s ease-in-out 3; }
       @keyframes colony-tab-pulse { 0%,100% { box-shadow:0 0 0 0 #f0b45a00; border-color:#6e4b42; }
         50% { box-shadow:0 0 0 4px #f0b45a88, 0 0 18px #f0b45acc; border-color:#ffd27a; color:#ffd27a; } }
@@ -371,15 +372,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   panel.addEventListener('click', event => event.stopPropagation());
   root.append(panel);
 
-  const toast = document.createElement('div');
-  toast.className = 'colony-hud-toast';
-  toast.setAttribute('role', 'status');
-  toast.setAttribute('aria-live', 'polite');
-  const toastText = document.createElement('span');
-  const dismissToast = makeButton('×', () => { toast.hidden = true; }, { className: 'colony-hud-toast-close', title: 'Dismiss message' });
-  dismissToast.setAttribute('aria-label', 'Dismiss message');
-  toast.append(toastText, dismissToast);
-  root.append(toast);
+  // Lane 3 mount points: message box (messages.js) and the Comms Dish panel (CommsPanel.js).
+  const messages = createMessageBox(root);
+  const comms = createCommsPanel({ game, button: makeButton, card, seedIcon });
 
   let activeCategory = 'Farming';
   const categoryNames = ['Farming', 'Power', 'Water', 'Support', 'Seeds'];
@@ -454,12 +449,13 @@ export function createResourceHud(scene, sim, foodPerCrew) {
         // Use the simulation's traits so rescue-mode growth overrides (e.g. radish 8 sols) are shown.
         const growth = cropSolsRemaining(current.sim.cropTraits(crop.id) ?? crop, { id: 'plot' }, definitions.balance);
         const selected = current.seedTool === crop.id;
-        const icon = crop.id === 'radish' ? createRadishSeedIcon() : (crop.emoji ?? '🌱');
-        const meta = requirement ? `LOCKED · ${requirement}`
-          : `${growth} sols · ${foodCost.toFixed(1)} kg food`;
-        grid.append(card(crop, { locked: Boolean(requirement), selected, icon, meta,
-          title: requirement ? `Unlock requirement: ${requirement}` : `Plant ${crop.name}`,
-          onClick: () => {
+        const icon = seedIcon(crop);
+        const commsNote = requirement ? commsSeedNote(current.sim, definitions, crop.id) : null;
+        const meta = commsNote ?? (requirement ? `LOCKED · ${requirement}`
+          : `${growth} sols · ${foodCost.toFixed(1)} kg food`);
+        const seedCard = card(crop, { locked: Boolean(requirement), selected, icon, meta,
+          title: commsNote ? `${commsNote} · open the Comms Dish` : requirement ? `Unlock requirement: ${requirement}` : `Plant ${crop.name}`,
+          onClick: commsNote ? openComms : () => {
             const selectedUnit = current.selected && current.sim.state.buildings.find(({ x, y }) =>
               x === current.selected.x && y === current.selected.y);
             const selectedBuilding = selectedUnit && definitions.buildings.find(({ id }) => id === selectedUnit.id);
@@ -471,7 +467,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
               current.notify(`Select a greenhouse plot to plant ${crop.name}${foodCost ? ` · ${foodCost.toFixed(1)} kg food` : ''}.`);
               renderPanel();
             }
-          } }));
+          } });
+        if (commsNote) seedCard.disabled = false; // locked look, but opens the dish panel
+        grid.append(seedCard);
       }
     } else {
       for (const id of category.items) {
@@ -611,6 +609,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     if (current.sim.state.metrics.packets.length) {
       timers.push(`${current.sim.state.res.data} research packets queued for downlink`);
     }
+    const supplyLine = commsCountdownLine(current.sim, current.dataSet);
+    if (supplyLine) timers.push(supplyLine);
     const operationText = document.createElement('p');
     operationText.className = 'colony-hud-help';
     operationText.textContent = timers.join(' · ') || 'Weather, outages and research downlinks appear here.';
@@ -717,7 +717,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const title = document.createElement('h2');
     title.className = 'colony-hud-panel-title';
     title.tabIndex = -1;
-    title.textContent = current.activePanel === 'base' ? 'Base shop' : current.activePanel === 'ops' ? 'Ops' : 'Goals';
+    title.textContent = current.activePanel === 'base' ? 'Base shop' : current.activePanel === 'ops' ? 'Ops'
+      : current.activePanel === 'comms' ? 'Comms Dish' : 'Goals';
     const subtitle = document.createElement('p');
     subtitle.className = 'colony-hud-subtitle';
     subtitle.textContent = current.activePanel === 'base' ? current.selected
@@ -736,7 +737,10 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       }
       renderBase(content, subtitle.textContent);
     } else if (current.activePanel === 'ops') renderOps(content);
-    else renderGoals(content);
+    else if (current.activePanel === 'comms') {
+      panel.setAttribute('aria-label', 'Comms Dish');
+      subtitle.textContent = comms.render(content, panel);
+    } else renderGoals(content);
     if (focusedId) panel.querySelector(`[data-hud-focus="${CSS.escape(focusedId)}"]`)?.focus();
   }
 
@@ -757,10 +761,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     // Keep the zoom control on the visible map: left of the side panel while it is open.
     const zoomRight = panel.hidden ? zoomControl.right : sidePanel.x - zoomControl.gapToPanel;
     Object.assign(zoom.style, { right: `${1280 - zoomRight}px`, top: `${zoomControl.top}px`, height: `${zoomControl.height}px` });
-    Object.assign(toast.style, { left: '24px', top: '566px', maxWidth: `${Math.min(600, currentMapWidth() - 48)}px` });
   }
-
-  function currentMapWidth() { return game().activePanel ? 1272 - Math.min(460, 1280 * .37) : 1272; }
 
   let dialKey = '';
   function refreshClock(snapshot) {
@@ -845,11 +846,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       button.disabled = sim.state.status !== 'active';
     });
     stepButton.disabled = sim.state.status !== 'active';
-    const message = game().message;
-    if (message && toastText.textContent !== message) {
-      setText(toastText, message);
-      toast.hidden = false;
-    }
+    messages.sync(game());
     position();
   }
 
@@ -870,5 +867,11 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     tab.addEventListener('animationend', () => tab.classList.remove('is-pulsing'), { once: true });
   }
 
-  return { root, refresh, renderPanel, openPanel, pulseTab };
+  function openComms() {
+    focusCommsDish(game());
+    panel.querySelector('h2')?.focus();
+    refresh();
+  }
+
+  return { root, refresh, renderPanel, openPanel, pulseTab, openComms, messages };
 }

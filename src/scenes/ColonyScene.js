@@ -16,6 +16,7 @@ import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
 import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.js';
 import { boardTransform, boardZoomRange, panBoard, stepBoardZoom } from '../ui/colony/layout.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
+import { usesCommsPanel } from '../ui/colony/CommsPanel.js';
 
 const washerMessages = {
   queued: '1 sol remaining · Requires power and water',
@@ -59,6 +60,7 @@ export class ColonyScene extends Phaser.Scene {
     this.message = rescue
       ? `Rescue in ${rescue.arrivalSol} sols. You have ${this.dataSet.balance.rescue.rationSols} sols of rations. Start with two Greenhouse Plots and a Soil Washer.`
       : 'Use the base shop to equip the outpost. Press 1× to advance time.';
+    this.messageSeq = 1;
     this.finished = false;
     this.events.once('shutdown', () => {
       this.nameDialog?.remove();
@@ -78,16 +80,36 @@ export class ColonyScene extends Phaser.Scene {
       announceAward({ ...award, sol: rescue.earned[award.id] }, { urgent: prompt });
     });
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
-    this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
+    // Equipment outages (events aimed at one building) are warnings: amber border, 9 s.
+    this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`,
+      { severity: event.targetUid != null ? 'warning' : 'info' }));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
+    const cropNames = (ids = []) => ids.map((id) => this.dataSet.crops.find((crop) => crop.id === id)?.name ?? id).join(', ');
+    this.sim.on('comms:repaired', () => {
+      const online = this.sim.commsStatus?.().online;
+      this.notify(online ? 'Comms dish repaired and online. Seed orders and the research downlink are open.'
+        : 'Comms dish repaired. It needs power before it can send orders or research.');
+      this.drawSide();
+    });
+    this.sim.on('supply:ordered', (order) => {
+      const mass = order?.massKg != null ? ` (${order.massKg.toFixed(2)} kg)` : '';
+      this.notify(`Seed order sent: ${cropNames(order?.items)}${mass}. The drop lands on sol ${order?.arrivalSol ?? '?'}.`);
+      this.drawSide();
+    });
+    this.sim.on('supply:landed', (crate) => {
+      this.notify(`Supply crate landed near the base with ${cropNames(crate?.items) || 'seeds'}. Click the crate to collect it.`);
+      this.refreshGrid();
+      this.drawSide();
+    });
     this.sim.on('supply:seeds', ({ crops: names }) => {
-      this.notify(`Supply drop arrived · New seeds: ${names.join(', ')}.`);
+      this.notify(`Crate collected · New seeds: ${names.join(', ')}. Plant them from Base › Seeds.`);
+      this.refreshGrid();
       this.drawSide();
     });
     this.sim.on('power:shortage', () => {
-      if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.');
+      if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.', { severity: 'warning' });
     });
-    this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`));
+    this.sim.on('crop:died', ({ name }) => this.notify(`${name} died after going without power, water or treated soil.`, { severity: 'warning' }));
     this.sim.on('mutation:alleleFlip', ({ name, flips, solarBoosted }) => {
       const loci = flips.map((flip) => `${flip.locus} ${flip.from}→${flip.to}`).join(', ');
       this.notify(solarBoosted
@@ -190,8 +212,11 @@ export class ColonyScene extends Phaser.Scene {
     this.refreshGrid();
   }
 
-  notify(copy) {
+  /** Show a message above the weather strip. severity 'warning' = amber border, 9 s (see ui/colony/messages.js). */
+  notify(copy, { severity = 'info' } = {}) {
     this.message = copy;
+    this.messageSeverity = severity;
+    this.messageSeq = (this.messageSeq ?? 0) + 1;
     this.feedback?.setText(copy);
     this.hud?.refresh();
   }
@@ -233,11 +258,19 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   select(x, y) {
-    this.activePanel = 'base';
+    const here = this.sim.state.buildings.find((unit) => unit.x === x && unit.y === y);
+    // The comms dish opens its DOM panel (CommsPanel.js) unless a seed or build tool is in hand.
+    const comms = here?.id === 'comms' && !this.seedTool && !this.tool && this.hud?.openComms && usesCommsPanel(this.sim);
+    this.activePanel = comms ? 'comms' : 'base';
     this.showTimers = false;
     this.showAdvancements = false;
     this.selected = { x, y };
     this.showShopDetails = false;
+    if (comms) {
+      this.refreshGrid();
+      this.drawSide();
+      return;
+    }
     if (surfaceFeatureAt(this.sim.state, this.selected)) {
       this.seedTool = null;
       this.tool = null;
@@ -301,6 +334,10 @@ export class ColonyScene extends Phaser.Scene {
     const mapX = (x) => layout.x + (x - 675) * scaleX;
     const mapY = (y) => layout.y + (y - 154) * scaleY;
     const cell = this.selected;
+    if (this.hud && this.activePanel === 'comms') {
+      this.hud.renderPanel();
+      return;
+    }
     const feature = surfaceFeatureAt(state, cell);
     const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     if (this.hud && !feature && !unit) {
