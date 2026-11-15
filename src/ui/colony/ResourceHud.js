@@ -1,6 +1,7 @@
 import { selectColonyUiState } from './selectors.js';
 import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
+import { achievementCardCss } from '../achievementToasts.js';
 
 const LOW_AMBER = '#ffb05a';
 const PANEL_BG = '#231615';
@@ -101,6 +102,10 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-toast { position:absolute; pointer-events:none; max-width:600px; padding:10px 40px 10px 14px; color:#f5e9e2; background:#231615ed; }
       .colony-hud-toast[hidden] { display:none; }
       .colony-hud-toast-close { position:absolute; right:7px; top:6px; width:28px; height:28px; pointer-events:auto; }
+      .colony-hud-tabs button.is-pulsing { animation:colony-tab-pulse .8s ease-in-out 3; }
+      @keyframes colony-tab-pulse { 0%,100% { box-shadow:0 0 0 0 #f0b45a00; border-color:#6e4b42; }
+        50% { box-shadow:0 0 0 4px #f0b45a88, 0 0 18px #f0b45acc; border-color:#ffd27a; color:#ffd27a; } }
+      ${achievementCardCss}
       @media (max-width: 920px) { .colony-hud-terrain,.colony-hud-zoom-label { display:none; } }
     `;
     document.head.append(styleTag);
@@ -674,5 +679,14 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   });
   renderPanel();
   refresh();
-  return { refresh, renderPanel, openPanel };
+  function pulseTab(id) {
+    const tab = panelTabs.get(id);
+    if (!tab) return;
+    tab.classList.remove('is-pulsing');
+    void tab.offsetWidth;
+    tab.classList.add('is-pulsing');
+    tab.addEventListener('animationend', () => tab.classList.remove('is-pulsing'), { once: true });
+  }
+
+  return { root, refresh, renderPanel, openPanel, pulseTab };
 }

@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { ColonyPresentation } from '../ui/colony/ColonyPresentation.js';
 import { drawColonyBoard } from '../ui/colony/board.js';
 import { shopCategories } from '../ui/colony/catalog.js';
-import { playAchievementToasts } from '../ui/achievementToasts.js';
+import { playColonyAchievementToasts } from '../ui/achievementToasts.js';
 import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeatureAt } from '../ui/surfaceActions.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
@@ -61,7 +61,7 @@ export class ColonyScene extends Phaser.Scene {
     });
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
-    const announceAward = playAchievementToasts(this, pendingAwards, 78, 620);
+    const announceAward = playColonyAchievementToasts(this, pendingAwards);
     this.sim.on('advancement', (award) => announceAward({ ...award, sol: rescue.earned[award.id] }));
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
