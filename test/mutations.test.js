@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { Simulation } from '../src/sim/Simulation.js';
 import {
   crossGenotypes,
+  describeGenetics,
   formatGenotype,
   mutationChance,
   phenotype,
@@ -38,6 +39,19 @@ test('wild starter is recessive except growth GG', () => {
   assert.equal(phenotype(g, rules).yield, 0.85);
   assert.equal(phenotype(g, rules).growth, 1);
   assert.equal(phenotype(g, rules).rad, 0);
+});
+
+test('genetics highlights only the mutated copies when both alleles are visible', () => {
+  const genotype = { ...wildGenotype(rules), rad: ['R', 'r'], yield: ['Y', 'Y'] };
+  const flips = [
+    { locus: 'rad', from: 'r', to: 'R' },
+    { locus: 'yield', from: 'y', to: 'Y' },
+    { locus: 'yield', from: 'y', to: 'Y' },
+  ];
+  const loci = describeGenetics(genotype, rules, flips);
+  assert.deepEqual(loci.find(({ id }) => id === 'rad').alleles.map(({ flipped }) => flipped), [true, false]);
+  assert.deepEqual(loci.find(({ id }) => id === 'yield').alleles.map(({ flipped }) => flipped), [true, true]);
+  assert.equal(loci.find(({ id }) => id === 'growth').flipped, false);
 });
 
 test('incomplete dominance: Yy is intermediate yield', () => {

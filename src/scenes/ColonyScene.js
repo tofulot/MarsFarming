@@ -9,6 +9,7 @@ import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree
 import { advancements, nextAdvancement } from '../sim/advancements.js';
 import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
+import { soilStatusLine } from '../sim/systems/soil.js';
 import { lineagePhenotype } from '../sim/systems/mutations.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
 import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.js';
@@ -277,6 +278,13 @@ export class ColonyScene extends Phaser.Scene {
       say(695, 245, unit.online ? 'ONLINE' : 'OFFLINE / POWER SHED', 13,
         { color: unit.online ? '#9bd8ae' : '#ff805a' });
       const doForUnit = (type, id) => this.run({ type, id, uid: unit.uid });
+      if (unit.soil) {
+        say(695, 266, soilStatusLine(unit, this.dataSet), 12,
+          { color: colors.muted, wordWrap: { width: 500 } });
+      }
+      if (this.breedMotherUid != null && !state.crops.some(({ uid }) => uid === this.breedMotherUid)) {
+        this.breedMotherUid = null;
+      }
       if (crop) {
         const traits = this.sim.cropTraits(crop.cropId);
         const lineage = state.lineages[crop.lineageId];
@@ -309,9 +317,8 @@ export class ColonyScene extends Phaser.Scene {
           } : null);
         } else if (this.breedMotherUid === crop.uid) {
           action(890, actionY, 140, 38, 'Self-cross', mature ? () => {
-            const result = this.run({ type: 'cross', motherUid: crop.uid, fatherUid: crop.uid });
             this.breedMotherUid = null;
-            if (result.ok) this.drawSide();
+            this.run({ type: 'cross', motherUid: crop.uid, fatherUid: crop.uid });
           } : null);
           action(1045, actionY, 140, 38, 'Cancel', () => {
             this.breedMotherUid = null;
@@ -322,11 +329,8 @@ export class ColonyScene extends Phaser.Scene {
           const mother = state.crops.find(({ uid }) => uid === this.breedMotherUid);
           const canCross = mature && mother && mother.cropId === crop.cropId;
           action(890, actionY, 140, 38, 'Cross here', canCross ? () => {
-            const result = this.run({
-              type: 'cross', motherUid: this.breedMotherUid, fatherUid: crop.uid,
-            });
             this.breedMotherUid = null;
-            if (result.ok) this.drawSide();
+            this.run({ type: 'cross', motherUid: mother.uid, fatherUid: crop.uid });
           } : null);
           action(1045, actionY, 140, 38, 'Cancel', () => {
             this.breedMotherUid = null;
@@ -335,16 +339,7 @@ export class ColonyScene extends Phaser.Scene {
           });
         }
       } else if (info.plot) {
-        const soilLine = unit.id === 'plot' && unit.soil
-          ? `${unit.soil.analog} · ${unit.soil.perchlorate_wt_pct.toFixed(2)} wt% ClO₄⁻ · pH ${unit.soil.pH} · ${Math.round(unit.soil.fertility * 100)}% fertility`
-          : null;
-        say(695, 279, unit.treated
-          ? (soilLine ? `Washed · ${soilLine}` : 'Choose a crop')
-          : (soilLine
-            ? `Toxic · ${soilLine}`
-            : 'Untreated soil. A powered Soil Washer will treat it automatically.'),
-        14, { color: colors.muted, wordWrap: { width: 500 } });
-        say(695, 318, unit.treated ? 'Choose a crop' : 'Wait for auto-wash or queue a Soil Washer batch.', 16);
+        say(695, 318, unit.treated ? 'Choose a crop' : 'A powered Soil Washer will treat this plot automatically.', 16);
         const vaulted = Object.entries(state.seedVault ?? {});
         if (unit.treated && vaulted.length) {
           say(695, 338, `Seed vault: ${vaulted.map(([cropId]) => cropId).join(', ')} ★`, 13, { color: colors.muted });

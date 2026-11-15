@@ -33,23 +33,26 @@ export function formatGenotype(genotype, rules) {
 
 /** Structured alleles for UI highlighting (matches colony genetics chips contract). */
 export function describeGenetics(genotype, rules, flips = []) {
-  const flipped = new Set((flips ?? []).map((flip) => flip.locus));
   return (rules?.loci ?? []).map((locus) => {
     const pair = genotype?.[locus.id] ?? ['?', '?'];
-    const alleles = pair.map((symbol) => ({
-      symbol,
-      dominant: locus.dominance === 'incomplete'
-        ? symbol === symbol.toUpperCase()
-        : symbol === locus.dominant,
-      flipped: flipped.has(locus.id),
-    }));
-    const dominant = alleles.some((allele) => allele.dominant);
+    const remainingFlips = (flips ?? []).filter((flip) => flip.locus === locus.id);
+    const alleles = pair.map((symbol) => {
+      const index = remainingFlips.findIndex((flip) => flip.to === symbol);
+      if (index >= 0) remainingFlips.splice(index, 1);
+      return {
+        symbol,
+        dominant: locus.dominance === 'incomplete'
+          ? symbol === symbol.toUpperCase()
+          : symbol === locus.dominant,
+        flipped: index >= 0,
+      };
+    });
     return {
       id: locus.id,
       alleles,
       label: pair.join(''),
-      dominant,
-      flipped: flipped.has(locus.id),
+      dominant: alleles.some((allele) => allele.dominant),
+      flipped: alleles.some((allele) => allele.flipped),
     };
   });
 }
