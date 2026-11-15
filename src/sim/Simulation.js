@@ -410,7 +410,7 @@ export class Simulation {
       }
       case 'nameColony': {
         const rescue = state.rescue;
-        if (!rescue || !Object.hasOwn(rescue.earned, 'botanist')) return fail('Plant your first crop to unlock colony naming.');
+        if (!rescue || !Object.hasOwn(rescue.earned, 'halfway')) return fail('Colony naming unlocks at Halfway Home.');
         const name = typeof cmd.name === 'string' ? cmd.name.trim() : '';
         if (!name || name.length > 28 || /[\u0000-\u001f\u007f]/.test(name)) return fail('Enter a colony name of 1–28 characters.');
         rescue.colonyName = name;

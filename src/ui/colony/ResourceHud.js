@@ -1,7 +1,9 @@
+// AI-assisted (OpenAI Codex; Claude Code for tabs, achievement card hooks and the naming gate)
 import { selectColonyUiState } from './selectors.js';
 import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
 import { boardZoomRange, stepBoardZoom } from './layout.js';
+import { achievementCardCss } from '../achievementToasts.js';
 
 const LOW_AMBER = '#ffb05a';
 const PANEL_BG = '#231615';
@@ -26,6 +28,13 @@ function makeButton(label, onClick, { className = '', title = '', disabled = fal
   node.addEventListener('click', (event) => { event.stopPropagation(); onClick?.(); });
   return node;
 }
+
+// Tab glyphs drawn as inline SVG so they render the same without emoji fonts.
+const TAB_ICONS = {
+  base: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 19h18"/><path d="M5 19v-5a7 7 0 0 1 14 0v5"/><path d="M10 19v-4h4v4"/><path d="M12 7V4"/></svg>',
+  ops: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  goals: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2.8l2.7 6 6.5.6-4.9 4.3 1.5 6.4L12 16.7l-5.8 3.4 1.5-6.4-4.9-4.3 6.5-.6z"/></svg>',
+};
 
 function formatPower(watts) { return `${(watts / 1000).toFixed(1)} kW`; }
 
@@ -64,10 +73,15 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-left { flex:1 1 auto; }
       .colony-hud-right { flex:0 0 auto; margin-left:auto; }
       .colony-hud-name { max-width:210px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+      .colony-hud-name.is-locked { color:${MUTED}; border-style:dashed!important; }
       .colony-hud-terrain { color:${MUTED}; white-space:nowrap; }
       .colony-hud-sol { font-weight:800; white-space:nowrap; }
       .colony-hud-divider { width:1px; align-self:stretch; background:#6e4b42; margin:0 4px; }
-      .colony-hud-tabs { display:flex; gap:4px; }
+      .colony-hud-tabs { display:flex; gap:6px; }
+      .colony-hud-controls .colony-hud-tab { height:40px; min-width:92px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:0 14px 0 11px; font-size:15px; font-weight:800; letter-spacing:.02em; border-radius:8px; }
+      .colony-hud-tab-icon { display:inline-grid; place-items:center; width:20px; height:20px; color:${ACCENT}; }
+      .colony-hud-controls .colony-hud-tab[aria-pressed=true] { box-shadow:inset 0 -3px 0 #1b111055, 0 0 12px #f0886a66; }
+      .colony-hud-controls .colony-hud-tab[aria-pressed=true] .colony-hud-tab-icon { color:#1b1110; }
       .colony-hud-panel { position:absolute; display:flex; flex-direction:column; pointer-events:auto; overflow:hidden; }
       .colony-hud-panel[hidden] { display:none; }
       .colony-hud-panel-head { padding:14px 16px 8px; border-bottom:1px solid #4a3330; }
@@ -78,9 +92,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-categories { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:0 0 10px; }
       .colony-hud-categories button { min-height:32px; padding:4px 2px; }
       .colony-hud-item-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
-      .colony-hud-item { min-height:70px; padding:7px; display:grid; grid-template-columns:48px minmax(0,1fr); gap:7px; text-align:left; align-items:center; background:${RAISED}!important; }
+      .colony-hud-item { min-height:70px; padding:7px; display:grid; grid-template-columns:56px minmax(0,1fr); gap:9px; text-align:left; align-items:center; background:${RAISED}!important; }
       .colony-hud-item.is-locked { background:${SUNKEN}!important; color:#9b857c!important; }
-      .colony-hud-icon { width:48px; height:48px; box-sizing:border-box; display:grid; place-items:center; border:1px dashed #806158; border-radius:7px; font-size:24px; }
+      .colony-hud-icon { width:56px; height:56px; box-sizing:border-box; display:grid; place-items:center; border:1px dashed #806158; border-radius:8px; font-size:30px; line-height:1; background:#1b111066; }
       .colony-hud-item-copy { min-width:0; }
       .colony-hud-item-name,.colony-hud-item-meta { display:block; overflow-wrap:anywhere; }
       .colony-hud-item-name { font-weight:750; }
@@ -102,6 +116,10 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-toast { position:absolute; pointer-events:none; max-width:600px; padding:10px 40px 10px 14px; color:#f5e9e2; background:#231615ed; }
       .colony-hud-toast[hidden] { display:none; }
       .colony-hud-toast-close { position:absolute; right:7px; top:6px; width:28px; height:28px; pointer-events:auto; }
+      .colony-hud-tabs button.is-pulsing { animation:colony-tab-pulse .8s ease-in-out 3; }
+      @keyframes colony-tab-pulse { 0%,100% { box-shadow:0 0 0 0 #f0b45a00; border-color:#6e4b42; }
+        50% { box-shadow:0 0 0 4px #f0b45a88, 0 0 18px #f0b45acc; border-color:#ffd27a; color:#ffd27a; } }
+      ${achievementCardCss}
       @media (max-width: 920px) { .colony-hud-terrain,.colony-hud-zoom-label { display:none; } }
     `;
     document.head.append(styleTag);
@@ -136,26 +154,13 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   controls.setAttribute('aria-label', 'Colony controls');
   const left = document.createElement('div');
   left.className = 'colony-hud-left';
+  const namingUnlocked = () => Boolean(sim.state.rescue && Object.hasOwn(sim.state.rescue.earned, 'halfway'));
+  const halfwaySol = () => Math.ceil((sim.state.rescue?.arrivalSol ?? 0) / 2);
   const nameNode = makeButton('', () => {
     const current = game();
-    if (current.sim.state.rescue && Object.hasOwn(current.sim.state.rescue.earned, 'botanist')) {
-      current.run({ type: 'setSpeed', speed: 0 }, false);
-      current.nameDialog = document.createElement('dialog');
-      current.nameDialog.className = 'colony-name-dialog';
-      current.nameDialog.innerHTML = `<form method="dialog"><h2>Name your colony</h2><label for="hud-colony-name">Colony name</label><input autofocus id="hud-colony-name" required maxlength="28" autocomplete="off"><p role="alert"></p><div><button value="save">Save name</button><button value="cancel" formnovalidate>Cancel</button></div></form>`;
-      const input = current.nameDialog.querySelector('input');
-      input.value = current.sim.state.rescue.colonyName || '';
-      current.nameDialog.addEventListener('submit', event => {
-        if (event.submitter?.value !== 'save') return;
-        const result = current.sim.command({ type: 'nameColony', name: input.value });
-        if (result.ok) { current.nameDialog.close(); current.drawSide(); }
-        else { event.preventDefault(); current.nameDialog.querySelector('[role="alert"]').textContent = result.reason; }
-      });
-      current.nameDialog.addEventListener('close', () => current.nameDialog.remove(), { once: true });
-      document.body.append(current.nameDialog);
-      current.nameDialog.showModal();
-      input.focus();
-    }
+    if (!current.sim.state.rescue) return;
+    if (namingUnlocked()) current.openNameDialog();
+    else current.notify(`Colony naming unlocks at Halfway Home (sol ${halfwaySol()}).`);
   }, { className: 'colony-hud-name' });
   nameNode.setAttribute('aria-label', 'Colony name. Rename when unlocked.');
   left.append(nameNode);
@@ -201,7 +206,14 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   tabs.setAttribute('aria-label', 'Colony panels');
   const panelTabs = new Map();
   for (const [id, label] of [['base', 'Base'], ['ops', 'Ops'], ['goals', 'Goals']]) {
-    const button = makeButton(label, () => openPanel(id));
+    const button = makeButton('', () => openPanel(id), { className: 'colony-hud-tab' });
+    const glyph = document.createElement('span');
+    glyph.className = 'colony-hud-tab-icon';
+    glyph.setAttribute('aria-hidden', 'true');
+    glyph.innerHTML = TAB_ICONS[id];
+    const text = document.createElement('span');
+    text.textContent = label;
+    button.append(glyph, text);
     button.id = `colony-tab-${id}`;
     button.setAttribute('role', 'tab');
     button.setAttribute('aria-controls', 'colony-side-panel');
@@ -618,8 +630,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     Object.assign(root.style, { left: `${box.left - parentBox.left}px`, top: `${box.top - parentBox.top}px`,
       width: '1280px', height: '720px', right: 'auto', bottom: 'auto', transform: `scale(${sx},${sy})`, transformOrigin: 'top left' });
     Object.assign(statsBar.style, { left: '8px', top: '8px', width: '1264px', height: '56px' });
-    Object.assign(controls.style, { left: '8px', top: '73px', width: '1264px', height: '48px' });
-    Object.assign(panel.style, { left: '812px', top: '128px', width: '460px', height: '520px' });
+    Object.assign(controls.style, { left: '8px', top: '72px', width: '1264px', height: '52px' });
+    Object.assign(panel.style, { left: '812px', top: '132px', width: '460px', height: '516px' });
     Object.assign(toast.style, { left: '24px', top: '566px', maxWidth: `${Math.min(600, currentMapWidth() - 48)}px` });
   }
 
@@ -648,8 +660,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       node.value.style.color = warning ? LOW_AMBER : '';
     }
     setText(nameNode, snapshot.colonyName || sim.state.site.name);
-    nameNode.title = sim.state.rescue && !Object.hasOwn(sim.state.rescue.earned, 'botanist')
-      ? 'Colony naming unlocks with Botanist' : 'Rename colony';
+    nameNode.title = !sim.state.rescue ? '' : namingUnlocked() ? 'Rename colony'
+      : `Colony naming unlocks at Halfway Home (sol ${halfwaySol()})`;
+    nameNode.classList.toggle('is-locked', Boolean(sim.state.rescue) && !namingUnlocked());
     terrain.textContent = `Terrain · ${snapshot.terrain}`;
     solLabel.textContent = `SOL ${snapshot.sol} · ${String(snapshot.season ?? '').toUpperCase()}`;
     zoomOut.disabled = game().boardZoom <= boardZoomRange.min + 1e-6;
@@ -675,5 +688,14 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   });
   renderPanel();
   refresh();
-  return { refresh, renderPanel, openPanel };
+  function pulseTab(id) {
+    const tab = panelTabs.get(id);
+    if (!tab) return;
+    tab.classList.remove('is-pulsing');
+    void tab.offsetWidth;
+    tab.classList.add('is-pulsing');
+    tab.addEventListener('animationend', () => tab.classList.remove('is-pulsing'), { once: true });
+  }
+
+  return { root, refresh, renderPanel, openPanel, pulseTab };
 }

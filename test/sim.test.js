@@ -339,9 +339,8 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   for (const plot of plots) assert.ok(plant(plot).ok);
   assert.ok(Math.abs(sim.expectedFoodPerSol - 0.9486) < 1e-9);
   assert.equal(sim.state.rescue.earned.botanist, 1);
-  assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
-  assert.equal(sim.state.rescue.colonyName, 'Ares');
-  assert.equal(sim.state.rescue.earned.colony, 1);
+  assert.match(sim.command({ type: 'nameColony', name: 'Ares' }).reason, /Halfway Home/);
+  assert.equal(sim.state.rescue.colonyName, '');
 
   while (sim.state.sol < 8) sim.step();
   assert.ok(Math.abs(sim.state.water.demand - 11.25) < 1e-9);
@@ -360,6 +359,12 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   while (sim.state.status === 'active') {
     sim.step();
     if (sim.state.status !== 'active') break;
+    if (sim.state.sol === 59) assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
+    if (sim.state.sol === 60) {
+      assert.ok(sim.command({ type: 'nameColony', name: ' Ares ' }).ok);
+      assert.equal(sim.state.rescue.colonyName, 'Ares');
+      assert.equal(sim.state.rescue.earned.colony, 60);
+    }
     for (const plot of plots) {
       const unit = sim.state.buildings.find(({ x, y }) => plot.x === x && plot.y === y);
       if (sim.state.crops.some((crop) => crop.plotUid === unit.uid && crop.growth === 1)) {
@@ -403,4 +408,20 @@ test('ice-rich sites produce more water per powered drill', () => {
     sim.step();
     assert.ok(Math.abs(sim.state.water.production - expected) < 1e-9);
   }
+});
+
+test('colony naming is refused before Halfway Home and works after it', () => {
+  const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
+  sim.state.rescue.earned.botanist = 0;
+  const refused = sim.command({ type: 'nameColony', name: 'Fort Radish' });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.reason, 'Colony naming unlocks at Halfway Home.');
+  assert.equal(sim.state.rescue.colonyName, '');
+  sim.state.rescue.earned.halfway = 60;
+  assert.ok(sim.command({ type: 'nameColony', name: 'Fort Radish' }).ok);
+  assert.equal(sim.state.rescue.colonyName, 'Fort Radish');
+  assert.ok(Object.hasOwn(sim.state.rescue.earned, 'colony'));
+  assert.ok(sim.command({ type: 'nameColony', name: 'Red Farm' }).ok);
+  assert.equal(sim.state.rescue.colonyName, 'Red Farm');
+  assert.equal(sim.command({ type: 'nameColony', name: '   ' }).ok, false);
 });
