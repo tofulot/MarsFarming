@@ -1,4 +1,4 @@
-// AI-assisted (OpenAI Codex)
+// AI-assisted (OpenAI Codex; comms dish seed orders and supply crates by Claude Code)
 import { createRedHarvestWeather, gameWeatherInput } from '../weather/redHarvest.js';
 import { earnAdvancement, missingAdvancement } from './advancements.js';
 import { createBus } from './bus.js';
@@ -24,10 +24,15 @@ import { rewardSystem } from './systems/rewards.js';
 import { placeSurfaceMaterials } from './systems/surfaceMaterials.js';
 import { powerLoadGroupFor } from './powerLoads.js';
 import { removeFromPantry } from './systems/nutrition.js';
+import {
+  chooseCrateTile, commsDishOnline, commsThroughput, crateAt, ORDER_MASS_EPSILON, orderMassKg, ownedSeeds, seedsInFlight,
+} from './systems/supply.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
 export const playbackSpeeds = [0, 1, 2, 4];
+/** Sol-end samples kept in `state.history` for the top bar's per-sol trends. */
+export const HISTORY_SOLS = 8;
 
 export class Simulation {
   #ctx;
@@ -83,6 +88,12 @@ export class Simulation {
     if (packed) this.#unpack(manifest);
     if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface, { relief: options.relief });
     if (state.rescue) {
+      // The starter dish survived the landing as wreckage: no power draw, no downlink, until repaired.
+      for (const unit of state.buildings) {
+        if (unit.id === 'comms') Object.assign(unit, { broken: true, online: false });
+      }
+    } else state.comms.repaired = true; // classic missions start with a working dish
+    if (state.rescue) {
       if (state.buildings.some(({ id }) => id === 'plot')) earnAdvancement(this.#ctx, 'greenhouse');
       if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');
     }
@@ -99,12 +110,14 @@ export class Simulation {
     }, 0);
     state.power.demand = state.buildings.reduce((load, unit) => {
       const model = this.#ctx.buildings.get(unit.id);
-      return unit.id === 'washer' || model.plot ? load : load + Math.max(0, -model.powerW)
+      return unit.id === 'washer' || model.plot || unit.broken ? load : load + Math.max(0, -model.powerW)
         + (unit.id === 'hab' ? state.weather.habitatHeatW ?? 0 : 0);
     }, 0);
     const { production, crewDemand } = waterSupply(this.#ctx);
     state.water = { production, demand: crewDemand };
     rewardSystem(this.#ctx);
+    state.history = [];
+    this.#sample();
     const location = options.site ? `${site.lat.toFixed(1)}°, ${site.lon.toFixed(1)}°` : site.name;
     this.#record(`Landed at ${location}.`, `Started surface operations with ${state.res.credits} kg of build materials.`);
   }
@@ -155,13 +168,61 @@ export class Simulation {
   unlockRequirement(item) {
     const milestone = missingAdvancement(this.state.rescue, item.id);
     if (milestone) return milestone;
-    const { seedDropIntervalSols, seedDropTiers } = this.#ctx.data.balance.rescue ?? {};
-    if (this.state.rescue && seedDropIntervalSols > 0) {
-      const tier = seedDropTiers?.findIndex((drop) => drop.includes(item.id)) ?? -1;
-      const delivery = tier * seedDropIntervalSols;
-      if (this.state.sol < delivery) return `seed supply drop on sol ${delivery}`;
+    const comms = this.#ctx.data.balance.rescue?.comms;
+    if (this.state.rescue && comms && this.#ctx.crops.has(item.id) && !ownedSeeds(this.state, comms).has(item.id)) {
+      return 'a seed order from the Comms Dish';
     }
     return this.state.res.sp < item.unlockSP ? `${item.unlockSP} SP` : null;
+  }
+
+  /** Every orderable crop with its packet mass and whether it is owned, on its way, or orderable now. */
+  seedCatalog() {
+    const { state, data } = this.#ctx;
+    const comms = data.balance.rescue?.comms ?? {};
+    const packetKg = comms.packetKg ?? {};
+    const owned = ownedSeeds(state, comms);
+    const inFlight = seedsInFlight(state);
+    return data.crops.filter(({ id }) => Object.hasOwn(packetKg, id)).map(({ id }) => {
+      const has = !state.rescue || owned.has(id);
+      const coming = inFlight.has(id);
+      return { id, name: this.cropTraits(id).name, packetKg: packetKg[id], owned: has, inFlight: coming,
+        orderable: Boolean(state.rescue) && !has && !coming };
+    });
+  }
+
+  commsStatus() {
+    const { state, data } = this.#ctx;
+    const comms = data.balance.rescue?.comms ?? {};
+    const { order, crate } = state.comms;
+    return {
+      repaired: state.comms.repaired, online: state.comms.repaired && commsDishOnline(state),
+      repairCost: comms.repairCost, capacityKg: comms.orderCapacityKg,
+      order, solsRemaining: order ? Math.max(0, order.arrivalSol - state.sol) : null, crate,
+    };
+  }
+
+  /** Snapshot sol-end resources into the small ring buffer the trend selectors read. */
+  #sample() {
+    const { state } = this.#ctx;
+    state.history.push({ sol: state.sol, credits: state.res.credits, waterL: state.res.waterL, foodKg: state.res.foodKg });
+    if (state.history.length > HISTORY_SOLS) state.history.shift();
+  }
+
+  #landSupplyDrop() {
+    const { state } = this.#ctx;
+    const { order } = state.comms;
+    if (!order || state.sol < order.arrivalSol) return;
+    state.comms.order = null;
+    const tile = chooseCrateTile(state, order.arrivalSol);
+    if (!tile) { // board completely full: hand the seeds over directly rather than lose them
+      state.comms.crate = { x: -1, y: -1, items: [...order.items], landedSol: state.sol };
+      this.command({ type: 'collectCrate' });
+      return;
+    }
+    state.comms.crate = { ...tile, items: [...order.items], landedSol: state.sol };
+    const names = order.items.map((id) => this.cropTraits(id).name).join(', ');
+    this.#record('A supply crate landed near the base.', names);
+    this.#bus.emit('supply:landed', state.comms.crate);
   }
 
   #buy(item) {
@@ -208,15 +269,7 @@ export class Simulation {
     if (state.rocket?.status === 'burning' && state.sol >= state.rocket.burnsUntilSol) {
       state.rocket.status = 'salvageable';
     }
-    const { seedDropIntervalSols, seedDropTiers } = data.balance.rescue ?? {};
-    if (state.rescue && seedDropIntervalSols > 0 && state.sol % seedDropIntervalSols === 0) {
-      const seeds = seedDropTiers?.[state.sol / seedDropIntervalSols];
-      if (seeds?.length) {
-        const crops = seeds.map((id) => this.cropTraits(id).name);
-        this.#record('Seed supply drop arrived.', crops.join(', '));
-        this.#bus.emit('supply:seeds', { sol: state.sol, crops });
-      }
-    }
+    this.#landSupplyDrop();
     seasonSystem(state, data, site);
     eventSystem(this.#ctx);
     state.weather = this.getWeather();
@@ -246,6 +299,7 @@ export class Simulation {
     if (state.crew.health > 0 && state.rescue && state.sol >= Math.ceil(state.rescue.arrivalSol / 2)) {
       earnAdvancement(this.#ctx, 'halfway');
     }
+    this.#sample();
     this.#bus.emit('sol', state);
     if (!state.crew.health) this.#finish(state.rescue ? 'You died before rescue arrived.' : 'Crew health fell to zero.');
     else if (state.sol >= state.solLimit) {
@@ -276,6 +330,7 @@ export class Simulation {
         if (state.rocket?.x === x && state.rocket.y === y && state.rocket.status !== 'scrapped') {
           return fail('Scrap the wreck before building here.');
         }
+        if (crateAt(state, x, y)) return fail('Collect the supply crate first.');
         if (state.res.credits < this.purchasePrice(model)) return fail('Not enough build materials.');
         this.#buy(model);
         this.#place(id, x, y);
@@ -443,6 +498,7 @@ export class Simulation {
       }
       case 'demolish':
         if (!unit || unit.id === 'hab') return fail('Choose a removable structure.');
+        if (unit.broken) return fail('The crashed Comms Dish can be repaired, not removed.');
         state.crops = state.crops.filter((entry) => entry.plotUid !== unit.uid);
         state.buildings = state.buildings.filter((entry) => entry.uid !== unit.uid);
         this.#record(`Removed ${buildings.get(unit.id).name}.`);
@@ -465,17 +521,72 @@ export class Simulation {
         const group = powerLoadGroupFor(cmd.id);
         if (!group) return fail('Unknown power load group.');
         if (group.essential) return fail(`${group.label} is essential and cannot be switched off.`);
-        const units = state.buildings.filter(unit => group.buildingIds.includes(unit.id));
+        const units = state.buildings.filter(unit => group.buildingIds.includes(unit.id) && !unit.broken);
         if (!units.length) return fail(`There are no ${group.label.toLowerCase()} loads in this colony.`);
         const enabled = cmd.enabled !== false;
         units.forEach(unit => { unit.loadEnabled = enabled; });
         powerSystem(this.#ctx, { elapsed: false });
-        state.power.comms = state.buildings.filter(unit => unit.id === 'comms' && unit.online).length
-          * data.balance.commsThroughput * (state.weather?.commsFactor ?? 1);
+        state.power.comms = commsThroughput(state, data);
         state.water.production = waterSupply(this.#ctx).production;
         this.#record(`${enabled ? 'Enabled' : 'Disabled'} ${group.label.toLowerCase()} power.`);
         this.#bus.emit('power:loads', state);
         return ok(`${group.label} ${enabled ? 'enabled' : 'disabled'}.`);
+      }
+      case 'repairComms': {
+        const comms = data.balance.rescue?.comms;
+        if (state.comms.repaired) return fail('The Comms Dish is already repaired.');
+        const dish = state.buildings.find((entry) => entry.id === 'comms' && entry.broken);
+        if (!state.rescue || !comms || !dish) return fail('There is no broken Comms Dish to repair.');
+        if (state.res.credits < comms.repairCost) {
+          return fail(`Not enough build materials — repair needs ${comms.repairCost} kg.`);
+        }
+        state.res.credits -= comms.repairCost;
+        this.#bus.emit('credits:spent', comms.repairCost);
+        dish.broken = false;
+        state.comms.repaired = true;
+        powerSystem(this.#ctx, { elapsed: false });
+        state.power.comms = commsThroughput(state, data);
+        earnAdvancement(this.#ctx, 'phoneHome');
+        this.#record('Repaired the Comms Dish.', 'Seed orders and research downlink work while it has power.');
+        this.#bus.emit('comms:repaired', state.comms);
+        return ok(dish.online ? 'Comms Dish repaired and online.' : 'Comms Dish repaired. It needs power to come online.');
+      }
+      case 'orderSeeds': {
+        const comms = data.balance.rescue?.comms;
+        if (!state.rescue || !comms) return fail('Seed orders are part of the rescue mission only.');
+        if (!state.comms.repaired) return fail('Repair the Comms Dish first.');
+        if (!commsDishOnline(state)) return fail('The Comms Dish needs power to send an order.');
+        if (state.comms.order) return fail('A supply drop is already on its way.');
+        if (state.comms.crate) return fail('Collect the supply crate first.');
+        const items = Array.isArray(cmd.items) ? [...new Set(cmd.items)] : [];
+        if (!items.length) return fail('Choose at least one seed packet.');
+        const catalog = new Map(this.seedCatalog().map((entry) => [entry.id, entry]));
+        for (const item of items) {
+          const entry = catalog.get(item);
+          if (!entry) return fail('That seed is not in the catalogue.');
+          if (entry.owned) return fail(`You already have ${entry.name} seeds — replant from your harvest.`);
+          if (!entry.orderable) return fail(`${entry.name} seeds are already on their way.`);
+        }
+        const massKg = orderMassKg(items, comms.packetKg);
+        if (massKg > comms.orderCapacityKg + ORDER_MASS_EPSILON) return fail(`The order is over ${comms.orderCapacityKg} kg.`);
+        const order = { items, massKg: Math.round(massKg * 1000) / 1000, placedSol: state.sol,
+          arrivalSol: state.sol + comms.deliverySols };
+        state.comms.order = order;
+        const names = items.map((item) => catalog.get(item).name).join(', ');
+        this.#record('Sent a seed order.', `${names} · lands on sol ${order.arrivalSol}.`);
+        this.#bus.emit('supply:ordered', order);
+        return ok(`Order sent. The supply drop lands on sol ${order.arrivalSol}.`);
+      }
+      case 'collectCrate': {
+        const { crate } = state.comms;
+        if (!crate) return fail('There is no supply crate to collect.');
+        state.comms.crate = null;
+        for (const item of crate.items) if (!state.comms.delivered.includes(item)) state.comms.delivered.push(item);
+        const names = crate.items.map((item) => this.cropTraits(item).name);
+        earnAdvancement(this.#ctx, 'delivery');
+        this.#record('Collected a supply crate.', `New seeds: ${names.join(', ')}.`);
+        this.#bus.emit('supply:seeds', { sol: state.sol, crops: names });
+        return ok(`Collected the supply crate · new seeds: ${names.join(', ')}.`);
       }
       case 'setSpeed':
         if (!playbackSpeeds.includes(cmd.speed)) return fail('Invalid playback speed.');

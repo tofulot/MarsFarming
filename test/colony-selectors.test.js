@@ -49,6 +49,15 @@ test('goal selector includes live progress and real unlock names', () => {
   assert.equal(repeatHarvest.title, 'Second Harvest');
   assert.equal(repeatHarvest.progress, 0);
   assert.equal(repeatHarvest.target, 2);
-  assert.ok(repeatHarvest.unlocks.includes('Tomato'));
-  assert.ok(repeatHarvest.unlocks.includes('Wheat'));
+  assert.deepEqual(repeatHarvest.unlocks, ['Fertilizer Maker', 'Auto-Harvester']);
+  const phoneHome = goals.find(({ id }) => id === 'phoneHome');
+  assert.equal(phoneHome.title, 'Phone Home');
+  assert.deepEqual([phoneHome.progress, phoneHome.target, phoneHome.done], [0, 1, false]);
+  assert.ok(phoneHome.unlocks.includes('Seed orders'));
+  assert.ok(phoneHome.unlocked.includes('Special Delivery'));
+  assert.ok(phoneHome.unlocked.includes('First Downlink'));
+  const delivery = goals.find(({ id }) => id === 'delivery');
+  assert.equal(delivery.title, 'Special Delivery');
+  assert.equal(delivery.progress, 0);
+  for (const goal of goals) assert.doesNotMatch(goal.description, /supply drop|longer-growing/i);
 });

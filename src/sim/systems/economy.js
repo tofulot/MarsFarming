@@ -1,7 +1,8 @@
-// AI-assisted (OpenAI Codex)
+// AI-assisted (OpenAI Codex; broken comms dish by Claude Code)
+import { commsThroughput } from './supply.js';
+
 export function economySystem({ state, data }) {
-  state.power.comms = state.buildings.filter((unit) => unit.id === 'comms' && unit.online).length
-    * data.balance.commsThroughput * (state.weather?.commsFactor ?? 1);
+  state.power.comms = commsThroughput(state, data);
   let capacity = state.power.comms;
   while (capacity > 0 && state.metrics.packets.length) {
     const packet = state.metrics.packets[0];

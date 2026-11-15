@@ -1,3 +1,4 @@
+// AI-assisted (OpenAI Codex; comms goals by Claude Code)
 export const advancements = [
   { id: 'stranded', name: 'Stranded', requires: [], position: [1, 0],
     hint: 'Build two greenhouse plots and a Soil Washer before your rations run out. One plot cannot feed you indefinitely.' },
@@ -10,7 +11,7 @@ export const advancements = [
   { id: 'harvest', name: 'First Harvest', requires: ['botanist'], position: [0, 4], credits: 70,
     hint: 'Harvest a mature crop to replenish food. Spend the reward on water or power and replant immediately.' },
   { id: 'repeatHarvest', name: 'Second Harvest', requires: ['harvest'], position: [0, 5], credits: 55,
-    hint: 'Harvest a second crop. Unlocks Fertilizer Makers and longer-growing crops.' },
+    hint: 'Harvest a second crop. Unlocks Fertilizer Makers and Auto-Harvesters.' },
   { id: 'farm', name: 'A Growing Farm', requires: ['repeatHarvest'], position: [0, 6], credits: 85,
     hint: 'Harvest from three different plots. Unlocks Hydroponic Bays.' },
   { id: 'water', name: 'Water on Mars', requires: ['botanist'], position: [1, 4], credits: 35,
@@ -21,8 +22,12 @@ export const advancements = [
     hint: 'Build a Battery Bank. Extra solar power charges it for dust storms.' },
   { id: 'charged', name: 'Storm Ready', requires: ['power'], position: [2, 2],
     hint: 'Store 10,000 Wh in your batteries. Unlocks Shield Berms and Storm Shelters.' },
-  { id: 'downlink', name: 'First Downlink', requires: ['harvest'], position: [1, 5], credits: 30,
-    hint: 'Keep the Comms Dish powered to transmit research from a harvest. Unlocks the Science Lab.' },
+  { id: 'phoneHome', name: 'Phone Home', requires: ['stranded'], position: [1, 1],
+    hint: 'Select the crashed Comms Dish and repair it with build materials. Once powered it can order seeds and downlink research.' },
+  { id: 'delivery', name: 'Special Delivery', requires: ['phoneHome'], position: [1, 2], credits: 30,
+    hint: 'Order seeds from the repaired, powered Comms Dish. When the supply crate lands near the base, select it and collect it.' },
+  { id: 'downlink', name: 'First Downlink', requires: ['harvest', 'phoneHome'], position: [2, 5], credits: 30,
+    hint: 'Keep the repaired Comms Dish powered to transmit research from a harvest. Unlocks the Science Lab.' },
   { id: 'halfway', name: 'Halfway Home', requires: ['stranded'], position: [3, 1],
     hint: 'Survive until the countdown reaches its halfway point. Unlocks the Fission Unit and colony naming.' },
   { id: 'rescue', name: 'Rescued', requires: ['halfway'], position: [3, 2],
@@ -33,11 +38,9 @@ const rewards = {
   iceDrill: 'botanist',
   fertilizer: 'repeatHarvest',
   autoHarvester: 'repeatHarvest',
-  tomato: 'repeatHarvest',
-  potato: 'repeatHarvest',
-  sweetPotato: 'repeatHarvest',
-  wheat: 'repeatHarvest',
-  soybean: 'repeatHarvest',
+  // Later crops are no longer milestone rewards: they arrive by seed order (see Simulation.unlockRequirement).
+  // Extra dishes unlock once the crashed one is repaired, so building one never undercuts the repair.
+  comms: 'phoneHome',
   hydroponic: 'farm',
   recycler: 'water',
   harvester: 'water',
@@ -50,6 +53,7 @@ const rewards = {
 // Unlocks that are features rather than shop items.
 const featureUnlocks = {
   halfway: ['Colony naming'],
+  phoneHome: ['Seed orders', 'Research downlink'],
 };
 
 export function missingAdvancement(rescue, itemId) {

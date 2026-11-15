@@ -93,7 +93,7 @@ test('two auto-harvesters collect each adjacent mature crop only once', () => {
   assert.equal(harvests.length, 1);
 });
 
-test('Survival planting charges food only on success and supply drops unlock seeds on schedule', () => {
+test('Survival planting charges food only on success and later crops wait for a seed order', () => {
   const sim = new Simulation(quietData, { siteId: 'gale', difficulty: 'easy', rescue: true });
   const location = { x: 15, y: 7 }; // inside the clear ring around the starter base
   assert.ok(sim.command({ type: 'build', id: 'plot', ...location }).ok);
@@ -109,16 +109,15 @@ test('Survival planting charges food only on success and supply drops unlock see
   assert.equal(sim.command(plant).ok, false);
   assert.equal(sim.state.res.foodKg, startingFood - cost);
 
+  // No timed drops and no milestone lock any more: only a collected seed order unlocks a later crop.
   sim.state.rescue.earned.repeatHarvest = 9;
   const crop = sim.cropTraits('tomato');
-  const dropSol = data.balance.rescue.seedDropIntervalSols;
-  assert.equal(sim.unlockRequirement(crop), `seed supply drop on sol ${dropSol}`);
-  sim.state.sol = dropSol - 1;
   const drops = [];
   sim.on('supply:seeds', (drop) => drops.push(drop));
-  sim.step();
-  assert.equal(sim.unlockRequirement(crop), null);
-  assert.deepEqual(drops, [{ sol: dropSol, crops: ['Tomato', 'Soybean'] }]);
+  for (let i = 0; i < 31; i++) sim.step();
+  assert.equal(sim.unlockRequirement(crop), 'a seed order from the Comms Dish');
+  assert.deepEqual(drops, []);
+  for (const id of data.balance.rescue.comms.starterSeeds) assert.equal(sim.unlockRequirement(sim.cropTraits(id)), null);
 });
 
 test('forecast storm timing agrees with the simulation and accelerates panel dust', () => {
@@ -331,7 +330,7 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
 
   assert.ok(sim.command({ type: 'wash', x: 16, y: 7 }).ok);
   sim.step();
-  assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
+  assert.equal(plant(plots[0], 'potato').reason, 'Requires a seed order from the Comms Dish.');
   const firstPlot = sim.state.buildings.find(({ x, y }) => x === 15 && y === 7);
   // Gale Rocknest fertility after wash scales yield (NASA-analog soil game values).
   assert.deepEqual(sim.harvestPreview(firstPlot, 'radish'), { kg: 4.464, credits: 22, unsafe: false });
@@ -377,7 +376,9 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.state.rescue.earned.halfway, 60);
   assert.equal(sim.state.rescue.earned.rescue, 120);
   assert.equal(sim.state.rescue.earned.water, 10);
-  assert.ok(sim.state.rescue.earned.downlink > 9);
+  // The crashed dish was never repaired, so nothing was downlinked and First Downlink stayed locked.
+  assert.equal(Object.hasOwn(sim.state.rescue.earned, 'downlink'), false);
+  assert.equal(sim.state.metrics.transmitted, 0);
   // Full 120×0.8 kg diet mass; site soil fertility + yy yield change grown kg, not daily draw.
   assert.equal(sim.state.metrics.consumedKg.toFixed(1), '96.0');
   assert.equal(sim.state.metrics.lowWaterSols, 0);
