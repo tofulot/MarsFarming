@@ -1,18 +1,29 @@
 import { label, plate } from './widgets.js';
 
 export function drawForecastStrip(scene, group) {
-  plate(scene, group, 20, 672, 1240, 32, 0x412921);
-  label(scene, group, 32, 682, 'FORECAST · MODEL', 9, { fontStyle: 'bold' });
-  const forecast = scene.sim.forecastWeather(12);
-  const incoming = forecast.days.find(day => day.sol > scene.sim.state.sol && day.sol <= scene.sim.state.sol + 10 && day.dustFactor < 1);
-  if (incoming) label(scene, group, 32, 663, `⚠ DUST STORM IN ${incoming.sol - scene.sim.state.sol} SOL${incoming.sol - scene.sim.state.sol === 1 ? '' : 'S'}`, 10,
-    { color: '#ffad58', fontStyle: 'bold' });
-  forecast.days.forEach((day, index) => {
-    const x = 125 + index * 93;
+  const { sim } = scene;
+  const { days } = sim.forecastWeather(15);
+  const { sol } = sim.state;
+  const incoming = days.find((day) => day.sol <= sol + 10 && day.active.some(({ id, startSol }) =>
+    startSol === day.sol && (id === 'dustRegional' || id === 'dustGlobal')));
+  const until = incoming ? incoming.sol - sol : 0;
+  const warning = until ? `DUST IN ${until} ${until === 1 ? 'SOL' : 'SOLS'}` : 'WEATHER';
+  plate(scene, group, 20, 43, 930, 16, 0x412921);
+  label(scene, group, 30, 45, warning, 9, {
+    color: until ? '#ffad58' : '#d7aa8b', fontStyle: 'bold',
+  });
+
+  const timeline = [sim.getWeather(), ...days];
+  const slotWidth = 826 / timeline.length;
+  timeline.forEach((day, index) => {
+    const left = 120 + index * slotWidth;
     const storm = day.dustFactor < 1;
     const cold = day.heatingFactor > 1;
-    plate(scene, group, x, 677, 88, 22, storm ? 0xc66c2b : cold ? 0x607c86 : 0x805b43, 0.9);
-    label(scene, group, x + 44, 688, `${day.sol}  ${storm ? 'DUST' : cold ? 'COLD' : `${Math.round(day.outsideTempC)}°`}`,
-      10, { align: 'center' }).setOrigin(0.5);
+    const offset = index ? `+${index}` : 'Now';
+    const condition = storm ? ' Dust' : cold ? ' Cold' : '';
+    plate(scene, group, left, 44, slotWidth - 3, 14, storm ? 0xc66c2b : cold ? 0x607c86 : 0x3d5364);
+    label(scene, group, left + (slotWidth - 3) / 2, 51, offset + condition, 9, {
+      align: 'center', fontStyle: index === 0 ? 'bold' : 'normal',
+    }).setOrigin(0.5);
   });
 }

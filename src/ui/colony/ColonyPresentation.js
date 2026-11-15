@@ -30,7 +30,6 @@ export class ColonyPresentation {
     if (!scene.sideLayer.getLength()) return;
     const close = action(scene, scene.sideLayer, 675, 126, 115, 25, 'Close details', () => {
       scene.selected = null;
-      scene.showWeather = false;
       scene.showTimers = false;
       scene.showAdvancements = false;
       scene.showShopDetails = false;

@@ -24,7 +24,6 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const game = colony();
     game.selected = null;
     game.showShopDetails = panel === 'shop';
-    game.showWeather = panel === 'weather';
     game.showTimers = panel === 'timers';
     game.showAdvancements = panel === 'achievements';
     game.drawSide();

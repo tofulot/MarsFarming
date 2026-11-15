@@ -7,7 +7,6 @@ import { playAchievementToasts } from '../ui/achievementToasts.js';
 import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeatureAt } from '../ui/surfaceActions.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
-import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
@@ -34,11 +33,9 @@ export class ColonyScene extends Phaser.Scene {
     this.shopCategory = shopCategories[0];
     this.timerPage = 0;
     this.showTimers = false;
-    this.showWeather = false;
     this.showAdvancements = false;
     this.showShopDetails = false;
     this.seedTool = null;
-    this.dockTab = 'seeds';
     this.achievementSelection = null;
     this.tool = null;
     const { rescue } = this.sim.state;
@@ -120,7 +117,6 @@ export class ColonyScene extends Phaser.Scene {
 
   select(x, y) {
     this.showTimers = false;
-    this.showWeather = false;
     this.showAdvancements = false;
     this.selected = { x, y };
     this.showShopDetails = false;
@@ -183,18 +179,10 @@ export class ColonyScene extends Phaser.Scene {
     const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
-    if (!unit && !this.showWeather && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
+    if (!unit && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
     add(panel(this, 675, 154, 550, 449, 0x3b231f).setInteractive());
-    const activeTimers = state.events.active.length + Number(state.res.data > 0);
-    say(695, 169, this.showAdvancements ? 'Achievement tree' : this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
-    action(950, 166, 116, 31, this.showWeather ? 'Back to base' : 'Weather', () => {
-      this.showWeather = !this.showWeather;
-      this.showAdvancements = false;
-      this.showTimers = false;
-      this.drawSide();
-    }, { selected: this.showWeather, size: 14 });
-    action(1078, 166, 130, 31, this.showTimers ? 'Back to base' : `Timers${activeTimers ? ` · ${activeTimers}` : ''}`,
-      () => { this.showTimers = !this.showTimers; this.showWeather = false; this.showAdvancements = false; this.drawSide(); }, { selected: this.showTimers, size: 14 });
+    const title = this.showAdvancements ? 'Achievement tree' : this.showTimers ? 'Operations' : info?.name ?? 'Base shop';
+    say(695, 169, title, 24, { fontStyle: 'bold' });
     if (this.showAdvancements) {
       const selected = this.achievementSelection ?? nextAdvancement(state.rescue)?.id ?? 'rescue';
       drawAdvancementTree(this, this.sideLayer, state.rescue, selected, (id) => {
@@ -211,9 +199,6 @@ export class ColonyScene extends Phaser.Scene {
           return result;
         });
       } : null, { size: 14 });
-      action(979, 548, 214, 36, 'Back to base', () => { this.showAdvancements = false; this.drawSide(); });
-    } else if (this.showWeather) {
-      drawColonyWeather(this, this.sideLayer, this.sim);
     } else if (this.showTimers) {
       const timers = state.events.active.map((event) => {
         const total = event.until - event.startedSol;
@@ -243,10 +228,21 @@ export class ColonyScene extends Phaser.Scene {
         progressBar(this, this.sideLayer, 695, y + 44, 496, 6, timer.fraction);
       });
       if (pages > 1) {
-        action(695, 535, 52, 35, '←', this.timerPage > 0 ? () => { this.timerPage--; this.drawSide(); } : null);
-        say(762, 543, `${this.timerPage + 1}/${pages}`, 15);
-        action(811, 535, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
+        action(695, 493, 52, 35, '←', this.timerPage > 0 ? () => { this.timerPage--; this.drawSide(); } : null);
+        say(762, 501, `${this.timerPage + 1}/${pages}`, 15);
+        action(811, 493, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
       }
+      const { res, power } = state;
+      add(this.add.rectangle(695, 536, 513, 1, colors.line).setOrigin(0));
+      const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
+      const sparePrice = this.sim.purchasePrice(spares);
+      const waterFirst = power.priority[0] === 'iceDrill';
+      action(695, 546, 244, 34, `Buy spare part · ${sparePrice} cr`,
+        res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
+      say(695, 583, `${res.spares} in storage`, 13, { color: colors.muted });
+      action(949, 546, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
+        () => this.run({ type: 'setPriority', priority: waterFirst
+          ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
     } else if (info) {
       const irrigation = state.rescue && info.plot
         ? irrigationMakeup(-info.waterLPerSol, this.dataSet.balance, state.rescue) : null;
@@ -308,7 +304,7 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   drawBaseShop(cell) {
-    const { res, power, site, rescue } = this.sim.state;
+    const { res, site, rescue } = this.sim.state;
     const group = this.sideLayer;
     const say = (...args) => {
       const label = text(this, ...args);
@@ -376,16 +372,5 @@ export class ColonyScene extends Phaser.Scene {
           : lacksMaterials ? 'Mine more materials' : active ? 'Ready to place' : '';
       if (status) say(1195, y + 28, status, 12, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
     });
-
-    group.add(this.add.rectangle(695, 515, 513, 1, colors.line).setOrigin(0));
-    const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
-    const sparePrice = this.sim.purchasePrice(spares);
-    const waterFirst = power.priority[0] === 'iceDrill';
-    action(695, 529, 244, 34, `Buy spare part · ${sparePrice} cr`,
-      res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
-    say(695, 572, `${res.spares} in storage`, 13, { color: colors.muted });
-    action(949, 529, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
-      () => this.run({ type: 'setPriority', priority: waterFirst
-        ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
   }
 }
