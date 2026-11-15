@@ -1,17 +1,18 @@
-// AI-assisted (OpenAI Codex; Claude Code for tabs, achievement card hooks and the naming gate)
+// AI-assisted (OpenAI Codex; Claude Code for tabs, achievement card hooks, the naming gate and the one-strip top bar)
 import { selectColonyUiState } from './selectors.js';
 import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
-import { boardZoomRange, stepBoardZoom } from './layout.js';
+import { boardZoomRange, colonyLayout, stepBoardZoom } from './layout.js';
 import { achievementCardCss } from '../achievementToasts.js';
 import { cropSolsRemaining } from '../../sim/systems/crops.js';
+import { fontBody, fontDisplay, theme } from '../theme.js';
 
-const LOW_AMBER = '#ffb05a';
-const PANEL_BG = '#231615';
-const RAISED = '#3a2623';
-const SUNKEN = '#1b1110';
-const ACCENT = '#f0886a';
-const MUTED = '#c9b3a8';
+const LOW_AMBER = theme.amber;
+const PANEL_BG = theme.panel;
+const RAISED = theme.raised;
+const SUNKEN = theme.sunken;
+const ACCENT = theme.accent;
+const MUTED = theme.muted;
 
 function setText(node, value) {
   if (node.textContent !== String(value)) node.textContent = String(value);
@@ -61,7 +62,30 @@ const TAB_ICONS = {
   goals: '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2.8l2.7 6 6.5.6-4.9 4.3 1.5 6.4L12 16.7l-5.8 3.4 1.5-6.4-4.9-4.3 6.5-.6z"/></svg>',
 };
 
+// Resource chip glyphs (24×24, stroke = currentColor so the urgent state recolours them).
+const SVG_OPEN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+const CHIP_ICONS = {
+  // Strapped cargo crate: build materials salvaged from the lander.
+  materials: `${SVG_OPEN}<path d="M3.5 8.5 12 4l8.5 4.5v8L12 21l-8.5-4.5z"/><path d="M3.5 8.5 12 13l8.5-4.5M12 13v8"/><path d="m7.8 6.2 8.5 4.6v3.4"/></svg>`,
+  power: `${SVG_OPEN}<path d="M13.5 2.5 5.5 13.5h5.8l-1 8 8.2-11.2h-5.8z"/></svg>`,
+  // The battery's inner bar is resized to the charge in refresh().
+  battery: `${SVG_OPEN}<rect x="2.5" y="7" width="17" height="10" rx="2.2"/><path d="M22 10.5v3"/><rect data-charge x="5" y="9.5" width="0" height="5" rx=".8" fill="currentColor" stroke="none"/></svg>`,
+  water: `${SVG_OPEN}<path d="M12 3c3.6 4.6 6 7.9 6 11a6 6 0 0 1-12 0c0-3.1 2.4-6.4 6-11z"/><path d="M9.2 14.6a3 3 0 0 0 2.4 2.8"/></svg>`,
+  // Radish: the colony's first crop stands for rations.
+  food: `${SVG_OPEN}<path d="M12 9.5c-3.6 0-5.8 2.4-5.4 5.4.4 2.6 2.8 4.4 5.4 6.6 2.6-2.2 5-4 5.4-6.6.4-3-1.8-5.4-5.4-5.4z"/><path d="M12 9.5V5.5M12 7.2C10.8 4.6 8.6 3.4 6.4 3.6c.2 2.4 2 4 4.4 4.4M12 7.2c1.2-2.6 3.4-3.8 5.6-3.6-.2 2.4-2 4-4.4 4.4"/></svg>`,
+};
+const PAUSE_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="3" y="2.5" width="3.6" height="11" rx="1" fill="currentColor"/><rect x="9.4" y="2.5" width="3.6" height="11" rx="1" fill="currentColor"/></svg>';
+const DIAL_R = 17;
+const DIAL_C = 2 * Math.PI * DIAL_R;
+
 function formatPower(watts) { return `${(watts / 1000).toFixed(1)} kW`; }
+
+/** "+12 / sol", "−4 / sol"; '' when the trend is missing. */
+function formatRate(value) {
+  if (value == null || !Number.isFinite(value)) return '';
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : '+'}${Math.abs(rounded).toLocaleString('en-US')} / sol`;
+}
 
 export function createResourceHud(scene, sim, foodPerCrew) {
   const game = () => scene.scene.get('Colony');
@@ -79,40 +103,57 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     styleTag = document.createElement('style');
     styleTag.id = 'colony-hud-style';
     styleTag.textContent = `
-      .colony-hud-root { position:absolute; inset:0; pointer-events:none; z-index:30; color:#f5e9e2; font-family:Inter,system-ui,sans-serif; }
-      .colony-hud-panel,.colony-hud-stats,.colony-hud-controls,.colony-hud-toast { box-sizing:border-box; background:${PANEL_BG}; border:1px solid #6e4b42; border-radius:10px; box-shadow:0 4px 18px #140b0b55; }
-      .colony-hud-stats { position:absolute; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); align-items:center; padding:5px 10px; pointer-events:auto; }
-      .colony-hud-stat { min-width:0; padding:1px 10px; border-left:1px solid #4a3330; }
-      .colony-hud-stat:first-child { border-left:0; padding-left:2px; }
-      .colony-hud-label { color:#d6b4a1; font-weight:700; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
-      .colony-hud-value { font-weight:750; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-      .colony-hud-warning { color:${LOW_AMBER}; font-weight:800; letter-spacing:.06em; margin-left:5px; }
-      .colony-hud-controls { position:absolute; display:flex; align-items:center; gap:6px; padding:5px 8px; pointer-events:auto; }
-      .colony-hud-controls button,.colony-hud-panel button { color:#f5e9e2; background:${RAISED}; border:1px solid #6e4b42; border-radius:6px; cursor:pointer; }
-      .colony-hud-controls button { min-width:32px; }
-      .colony-hud-controls button:hover,.colony-hud-panel button:hover { border-color:${ACCENT}; }
-      .colony-hud-controls button:focus-visible,.colony-hud-panel button:focus-visible { outline:2px solid #ffe9b8; outline-offset:1px; }
-      .colony-hud-controls button[aria-pressed=true],.colony-hud-panel button[aria-pressed=true] { color:#1b1110; background:${ACCENT}; border-color:${ACCENT}; }
-      .colony-hud-controls button:disabled,.colony-hud-panel button:disabled { opacity:.45; cursor:not-allowed; }
-      .colony-hud-left,.colony-hud-right,.colony-hud-group { display:flex; align-items:center; gap:5px; min-width:0; }
-      .colony-hud-left { flex:1 1 auto; }
-      .colony-hud-right { flex:0 0 auto; margin-left:auto; }
-      .colony-hud-name { max-width:210px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
-      .colony-hud-name.is-locked { color:${MUTED}; border-style:dashed!important; }
-      .colony-hud-terrain { color:${MUTED}; white-space:nowrap; }
-      .colony-hud-sol { font-weight:800; white-space:nowrap; }
-      .colony-hud-divider { width:1px; align-self:stretch; background:#6e4b42; margin:0 4px; }
-      .colony-hud-tabs { display:flex; gap:6px; }
-      .colony-hud-controls .colony-hud-tab { height:40px; min-width:92px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:0 14px 0 11px; font-size:15px; font-weight:800; letter-spacing:.02em; border-radius:8px; }
-      .colony-hud-tab-icon { display:inline-grid; place-items:center; width:20px; height:20px; color:${ACCENT}; }
-      .colony-hud-controls .colony-hud-tab[aria-pressed=true] { box-shadow:inset 0 -3px 0 #1b111055, 0 0 12px #f0886a66; }
-      .colony-hud-controls .colony-hud-tab[aria-pressed=true] .colony-hud-tab-icon { color:#1b1110; }
+      .colony-hud-root { position:absolute; inset:0; pointer-events:none; z-index:30; color:${theme.ink}; font-family:${fontBody}; font-size:17px; line-height:1.25; }
+      .colony-hud-root button { font:inherit; }
+      .colony-hud-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+      .colony-hud-panel,.colony-hud-bar,.colony-hud-zoom,.colony-hud-toast { box-sizing:border-box; background:${PANEL_BG}; border:1px solid ${theme.border}; border-radius:10px; box-shadow:0 4px 18px #140b0b55; }
+      .colony-hud-bar { position:absolute; display:flex; align-items:center; gap:8px; padding:0 8px; background:${PANEL_BG}f2; pointer-events:auto; }
+      .colony-hud-bar button,.colony-hud-zoom button,.colony-hud-panel button { color:${theme.ink}; background:${RAISED}; border:1px solid ${theme.border}; border-radius:6px; cursor:pointer; }
+      .colony-hud-bar button:hover,.colony-hud-zoom button:hover,.colony-hud-panel button:hover { border-color:${ACCENT}; }
+      .colony-hud-bar button:focus-visible,.colony-hud-zoom button:focus-visible,.colony-hud-panel button:focus-visible { outline:2px solid #ffe9b8; outline-offset:1px; }
+      .colony-hud-bar button[aria-pressed=true],.colony-hud-panel button[aria-pressed=true] { color:${SUNKEN}; background:${ACCENT}; border-color:${ACCENT}; }
+      .colony-hud-bar button:disabled,.colony-hud-zoom button:disabled,.colony-hud-panel button:disabled { opacity:.45; cursor:not-allowed; }
+      .colony-hud-clock { flex:0 0 auto; display:flex; align-items:center; gap:8px; height:100%; padding-right:10px; border-right:1px solid ${theme.divider}; min-width:0; }
+      .colony-hud-dial { position:relative; flex:0 0 42px; width:42px; height:42px; }
+      .colony-hud-dial svg { display:block; }
+      .colony-hud-dial-sol { position:absolute; inset:0; display:grid; place-items:center; font-size:17px; line-height:1; color:#fff; }
+      .colony-hud-clock-copy { display:flex; flex-direction:column; align-items:flex-start; min-width:0; }
+      .colony-hud-bar .colony-hud-name { max-width:160px; padding:0 2px; margin:-1px 0 0 -2px; background:none; border:1px solid transparent; font:700 23px/1.05 ${fontDisplay}; letter-spacing:${theme.displayTracking}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+      .colony-hud-bar .colony-hud-name.is-locked { color:${MUTED}; }
+      .colony-hud-bar .colony-hud-name.is-locked:hover { border-color:transparent; border-bottom:1px dashed ${theme.border}; }
+      .colony-hud-rescue { font-size:15px; line-height:1.1; color:${MUTED}; white-space:nowrap; }
+      .colony-hud-rescue b { font-weight:400; color:#fff; display:inline-block; min-width:1.4em; text-align:right; }
+      .colony-hud-chips { flex:1 1 auto; display:flex; gap:5px; min-width:0; }
+      .colony-hud-chip { flex:1 1 0; display:flex; align-items:center; gap:6px; min-width:0; height:44px; box-sizing:border-box; padding:2px 8px 2px 7px; background:${SUNKEN}; border:1px solid ${theme.divider}; border-radius:8px; }
+      .colony-hud-chip[data-chip=power],.colony-hud-chip[data-chip=food] { flex-grow:1.3; }
+      .colony-hud-chip-icon { flex:0 0 20px; display:grid; place-items:center; color:${ACCENT}; }
+      .colony-hud-chip-copy { min-width:0; line-height:1; white-space:nowrap; }
+      .colony-hud-chip-value { display:flex; align-items:baseline; gap:3px; }
+      .colony-hud-num { display:inline-block; text-align:right; font-size:21px; color:#fff; }
+      .colony-hud-num.is-small { font-size:15px; color:${MUTED}; }
+      .colony-hud-unit { font-size:15px; color:${MUTED}; }
+      .colony-hud-trend { display:block; min-height:15px; margin-top:2px; font-size:15px; color:#a99389; overflow:hidden; text-overflow:ellipsis; }
+      .colony-hud-chip.is-good .colony-hud-trend { color:${theme.mint}; }
+      .colony-hud-chip.is-urgent { border-color:${LOW_AMBER}; box-shadow:inset 0 0 0 1px ${LOW_AMBER}55; }
+      .colony-hud-chip.is-urgent .colony-hud-chip-icon,.colony-hud-chip.is-urgent .colony-hud-trend,.colony-hud-chip.is-urgent .colony-hud-num { color:${LOW_AMBER}; }
+      .colony-hud-speed { flex:0 0 auto; display:flex; gap:3px; }
+      .colony-hud-speed button { height:32px; min-width:30px; padding:0 6px; font-size:16px; display:inline-grid; place-items:center; }
+      .colony-hud-speed .colony-hud-step { padding:0 7px; }
+      .colony-hud-tabs { flex:0 0 auto; display:flex; gap:5px; height:100%; align-items:center; padding-left:8px; border-left:1px solid ${theme.divider}; }
+      .colony-hud-bar .colony-hud-tab { height:40px; min-width:76px; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:0 11px 0 9px; font:700 24px/1 ${fontDisplay}; letter-spacing:${theme.displayTracking}; border-radius:8px; }
+      .colony-hud-tab-icon { display:inline-grid; place-items:center; width:18px; height:18px; color:${ACCENT}; }
+      .colony-hud-tab-icon svg { width:18px; height:18px; }
+      .colony-hud-bar .colony-hud-tab[aria-pressed=true] { box-shadow:inset 0 -3px 0 #1b111055, 0 0 12px #f0886a66; }
+      .colony-hud-bar .colony-hud-tab[aria-pressed=true] .colony-hud-tab-icon { color:${SUNKEN}; }
+      .colony-hud-zoom { position:absolute; display:flex; align-items:center; gap:4px; padding:3px 4px; background:${PANEL_BG}e6; pointer-events:auto; }
+      .colony-hud-zoom button { width:28px; height:26px; padding:0; font-size:19px; line-height:1; display:grid; place-items:center; }
+      .colony-hud-zoom-value { display:inline-block; min-width:3em; text-align:center; font-size:15px; color:${MUTED}; }
       .colony-hud-panel { position:absolute; display:flex; flex-direction:column; pointer-events:auto; overflow:hidden; }
       .colony-hud-panel[hidden] { display:none; }
       .colony-hud-panel-head { padding:14px 16px 8px; border-bottom:1px solid #4a3330; }
-      .colony-hud-panel-title { margin:0; font-weight:800; line-height:1.1; }
+      .colony-hud-panel-title { margin:0; font:700 34px/1 ${fontDisplay}; letter-spacing:${theme.displayTracking}; }
       .colony-hud-subtitle { margin:5px 0 0; color:${MUTED}; }
-      .colony-hud-panel-close { position:absolute; top:10px; right:12px; padding:5px 10px; }
+      .colony-hud-panel-close { position:absolute; top:10px; right:12px; padding:3px 10px; font-size:16px!important; }
       .colony-hud-panel-content { min-height:0; overflow:auto; padding:10px 14px; flex:1 1 auto; }
       .colony-hud-categories { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:0 0 10px; }
       .colony-hud-categories button { min-height:32px; padding:4px 2px; }
@@ -123,11 +164,12 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-icon svg { width:50px; height:50px; overflow:visible; }
       .colony-hud-item-copy { min-width:0; }
       .colony-hud-item-name,.colony-hud-item-meta { display:block; overflow-wrap:anywhere; }
-      .colony-hud-item-name { font-weight:750; }
-      .colony-hud-item-meta { margin-top:3px; color:${MUTED}; line-height:1.2; }
+      .colony-hud-item-name { font-size:18px; line-height:1.1; color:#fff; }
+      .colony-hud-item-meta { margin-top:3px; color:${MUTED}; font-size:15px; line-height:1.15; }
       .colony-hud-footer { display:flex; justify-content:space-between; gap:8px; padding:10px 14px; border-top:1px solid #4a3330; color:${MUTED}; }
       .colony-hud-section { margin:0 0 14px; padding:10px; border:1px solid #4a3330; border-radius:8px; background:${SUNKEN}; }
-      .colony-hud-section-title { display:flex; justify-content:space-between; gap:8px; margin:0 0 8px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+      .colony-hud-section-title { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 8px; font:700 23px/1 ${fontDisplay}; letter-spacing:${theme.displayTracking}; color:${ACCENT}; }
+      .colony-hud-section-title > span + span { font:400 16px/1 ${fontBody}!important; letter-spacing:0!important; color:${MUTED}; }
       .colony-hud-segment { display:flex; gap:5px; }
       .colony-hud-segment button { flex:1; min-height:34px; }
       .colony-hud-load { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:8px 0; border-top:1px solid #4a3330; }
@@ -136,7 +178,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-danger { border-color:#8c4038!important; color:#ff9a8a!important; background:#351c1a!important; }
       .colony-hud-goal { margin:0 0 8px; padding:10px; border:1px solid #4a3330; border-radius:8px; background:${RAISED}; }
       .colony-hud-goal.is-done { border-color:#7faa83; }
-      .colony-hud-goal-head { display:flex; justify-content:space-between; gap:8px; font-weight:750; }
+      .colony-hud-goal-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+      .colony-hud-goal-head > span:first-child { font:700 23px/1 ${fontDisplay}; letter-spacing:${theme.displayTracking}; color:#fff; }
+      .colony-hud-goal-head > span:last-child { font-size:16px; color:${MUTED}; white-space:nowrap; }
       .colony-hud-progress { height:7px; margin:8px 0 5px; overflow:hidden; background:#120d0c; border-radius:9px; }
       .colony-hud-progress > span { display:block; height:100%; background:${ACCENT}; transform-origin:left; }
       .colony-hud-toast { position:absolute; pointer-events:none; max-width:600px; padding:10px 40px 10px 14px; color:#f5e9e2; background:#231615ed; }
@@ -146,40 +190,36 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       @keyframes colony-tab-pulse { 0%,100% { box-shadow:0 0 0 0 #f0b45a00; border-color:#6e4b42; }
         50% { box-shadow:0 0 0 4px #f0b45a88, 0 0 18px #f0b45acc; border-color:#ffd27a; color:#ffd27a; } }
       ${achievementCardCss}
-      @media (max-width: 920px) { .colony-hud-terrain,.colony-hud-zoom-label { display:none; } }
+      .colony-hud-root .colony-award-name { font-family:${fontDisplay}; font-size:34px; font-weight:700; letter-spacing:${theme.displayTracking}; }
+      .colony-hud-root .colony-award-kicker,.colony-hud-root .colony-award-sol { font-size:15px; font-weight:400; }
+      .colony-hud-root .colony-award-unlock { font-size:15px; font-weight:400; }
     `;
     document.head.append(styleTag);
   }
   root.className = 'colony-hud-root';
   root.replaceChildren();
 
-  const statsBar = document.createElement('header');
-  statsBar.className = 'colony-hud-stats';
-  statsBar.setAttribute('role', 'group');
-  statsBar.setAttribute('aria-label', 'Colony status');
-  const statNodes = new Map();
-  const statNames = ['RESCUE IN', 'MATERIALS', 'POWER', 'BATTERY', 'WATER', 'FOOD'];
-  for (const name of statNames) {
-    const cell = document.createElement('div');
-    cell.className = 'colony-hud-stat';
-    const label = document.createElement('div');
-    label.className = 'colony-hud-label';
-    const value = document.createElement('span');
-    value.className = 'colony-hud-value';
-    const tag = document.createElement('span');
-    tag.className = 'colony-hud-warning';
-    tag.setAttribute('aria-live', 'polite');
-    cell.append(label, value, tag);
-    statsBar.append(cell);
-    statNodes.set(name, { label, value, tag });
-  }
-  root.append(statsBar);
+  // One strip: sol dial + colony | resource chips | speed | panel tabs (docs/DESIGN_HUD_COMMS.md WP-T).
+  const bar = document.createElement('header');
+  bar.className = 'colony-hud-bar';
+  bar.setAttribute('aria-label', 'Colony status and controls');
 
-  const controls = document.createElement('div');
-  controls.className = 'colony-hud-controls';
-  controls.setAttribute('aria-label', 'Colony controls');
-  const left = document.createElement('div');
-  left.className = 'colony-hud-left';
+  const clock = document.createElement('div');
+  clock.className = 'colony-hud-clock';
+  const dial = document.createElement('div');
+  dial.className = 'colony-hud-dial';
+  dial.setAttribute('role', 'img');
+  dial.innerHTML = `<svg width="42" height="42" viewBox="0 0 42 42" aria-hidden="true">
+    <circle cx="21" cy="21" r="${DIAL_R}" fill="${SUNKEN}" stroke="${theme.divider}" stroke-width="4.5"/>
+    <circle data-progress cx="21" cy="21" r="${DIAL_R}" fill="none" stroke="${ACCENT}" stroke-width="4.5" stroke-linecap="round"
+      stroke-dasharray="0 ${DIAL_C.toFixed(2)}" transform="rotate(-90 21 21)"/></svg>`;
+  const dialArc = dial.querySelector('[data-progress]');
+  const dialSol = document.createElement('span');
+  dialSol.className = 'colony-hud-dial-sol';
+  dialSol.setAttribute('aria-hidden', 'true');
+  dial.append(dialSol);
+  const clockCopy = document.createElement('div');
+  clockCopy.className = 'colony-hud-clock-copy';
   const namingUnlocked = () => Boolean(sim.state.rescue && Object.hasOwn(sim.state.rescue.earned, 'halfway'));
   const halfwaySol = () => Math.ceil((sim.state.rescue?.arrivalSol ?? 0) / 2);
   const nameNode = makeButton('', () => {
@@ -189,27 +229,68 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     else current.notify(`Colony naming unlocks at Halfway Home (sol ${halfwaySol()}).`);
   }, { className: 'colony-hud-name' });
   nameNode.setAttribute('aria-label', 'Colony name. Rename when unlocked.');
-  left.append(nameNode);
-  const zoomOut = makeButton('−', () => { stepBoardZoom(game(), -1); game().refreshGrid(); refresh(); });
-  zoomOut.setAttribute('aria-label', 'Zoom out');
-  const zoomIn = makeButton('+', () => { stepBoardZoom(game(), 1); game().refreshGrid(); refresh(); });
-  zoomIn.setAttribute('aria-label', 'Zoom in');
-  const zoomLabel = document.createElement('span');
-  zoomLabel.className = 'colony-hud-zoom-label';
-  zoomLabel.textContent = 'Colony zoom';
-  const terrain = document.createElement('span');
-  terrain.className = 'colony-hud-terrain';
-  left.append(zoomOut, zoomIn, zoomLabel, terrain);
+  const rescueLine = document.createElement('div');
+  rescueLine.className = 'colony-hud-rescue';
+  clockCopy.append(nameNode, rescueLine);
+  clock.append(dial, clockCopy);
 
-  const right = document.createElement('div');
-  right.className = 'colony-hud-right';
-  const solLabel = document.createElement('span');
-  solLabel.className = 'colony-hud-sol';
+  const chips = document.createElement('div');
+  chips.className = 'colony-hud-chips';
+  chips.setAttribute('role', 'group');
+  chips.setAttribute('aria-label', 'Colony resources');
+  const chipNodes = new Map();
+  for (const [id, name, numberWidth] of [['materials', 'Materials', '1.9em'], ['power', 'Power', '1.35em'],
+    ['battery', 'Battery', '1.35em'], ['water', 'Water', '1.9em'], ['food', 'Food', '1.3em']]) {
+    const chip = document.createElement('div');
+    chip.className = 'colony-hud-chip';
+    chip.dataset.chip = id;
+    const icon = document.createElement('span');
+    icon.className = 'colony-hud-chip-icon';
+    icon.innerHTML = CHIP_ICONS[id];
+    const copy = document.createElement('span');
+    copy.className = 'colony-hud-chip-copy';
+    const srName = document.createElement('span');
+    srName.className = 'colony-hud-sr';
+    srName.textContent = `${name}: `;
+    const value = document.createElement('span');
+    value.className = 'colony-hud-chip-value';
+    const number = document.createElement('span');
+    number.className = 'colony-hud-num';
+    number.style.minWidth = numberWidth;
+    const unit = document.createElement('span');
+    unit.className = 'colony-hud-unit';
+    value.append(number, unit);
+    // Power shows generation / use: a second, smaller fixed-width number before the unit.
+    let second = null;
+    if (id === 'power') {
+      second = document.createElement('span');
+      second.className = 'colony-hud-num is-small';
+      second.style.minWidth = '1.3em';
+      const slash = document.createElement('span');
+      slash.className = 'colony-hud-unit';
+      slash.textContent = '/';
+      value.insertBefore(second, unit);
+      value.insertBefore(slash, second);
+    }
+    const trend = document.createElement('span');
+    trend.className = 'colony-hud-trend';
+    copy.append(srName, value, trend);
+    chip.append(icon, copy);
+    chips.append(chip);
+    chipNodes.set(id, { chip, number, second, unit, trend, charge: icon.querySelector('[data-charge]') });
+  }
+
   const speedGroup = document.createElement('div');
-  speedGroup.className = 'colony-hud-group';
+  speedGroup.className = 'colony-hud-speed';
+  speedGroup.setAttribute('role', 'group');
+  speedGroup.setAttribute('aria-label', 'Simulation speed');
   const speeds = new Map();
   for (const [speed, label] of [[0, 'Pause'], [1, '1×'], [2, '2×'], [4, '4×']]) {
-    const button = makeButton(label, () => { game().run({ type: 'setSpeed', speed }, false); refresh(); });
+    const button = makeButton(speed ? label : '', () => { game().run({ type: 'setSpeed', speed }, false); refresh(); });
+    if (!speed) {
+      button.innerHTML = PAUSE_ICON;
+      button.setAttribute('aria-label', 'Pause');
+    }
     button.title = speed ? `Set simulation speed to ${speed}×` : 'Pause the simulation';
     button.setAttribute('aria-pressed', 'false');
     speeds.set(speed, button);
@@ -223,9 +304,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     current.acc = 0;
     current.refreshGrid();
     current.drawSide();
-  }, { title: 'Advance one sol and remain paused' });
-  const divider = document.createElement('span');
-  divider.className = 'colony-hud-divider';
+  }, { title: 'Advance one sol and remain paused', className: 'colony-hud-step' });
+  speedGroup.append(stepButton);
+
   const tabs = document.createElement('div');
   tabs.className = 'colony-hud-tabs';
   tabs.setAttribute('role', 'tablist');
@@ -256,9 +337,22 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     panelTabs.get(ids[(index + delta + ids.length) % ids.length])?.focus();
     event.preventDefault();
   });
-  right.append(solLabel, speedGroup, stepButton, divider, tabs);
-  controls.append(left, right);
-  root.append(controls);
+  bar.append(clock, chips, speedGroup, tabs);
+  root.append(bar);
+
+  // Map zoom: a small control at the bottom-right of the visible map, above the weather bar.
+  const zoom = document.createElement('div');
+  zoom.className = 'colony-hud-zoom';
+  zoom.setAttribute('role', 'group');
+  zoom.setAttribute('aria-label', 'Map zoom');
+  const zoomOut = makeButton('−', () => { stepBoardZoom(game(), -1); game().refreshGrid(); refresh(); }, { title: 'Zoom out (−)' });
+  zoomOut.setAttribute('aria-label', 'Zoom out');
+  const zoomIn = makeButton('+', () => { stepBoardZoom(game(), 1); game().refreshGrid(); refresh(); }, { title: 'Zoom in (+)' });
+  zoomIn.setAttribute('aria-label', 'Zoom in');
+  const zoomValue = document.createElement('span');
+  zoomValue.className = 'colony-hud-zoom-value';
+  zoom.append(zoomOut, zoomValue, zoomIn);
+  root.append(zoom);
 
   const panel = document.createElement('aside');
   panel.id = 'colony-side-panel';
@@ -656,44 +750,96 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const sy = box.height / 720;
     Object.assign(root.style, { left: `${box.left - parentBox.left}px`, top: `${box.top - parentBox.top}px`,
       width: '1280px', height: '720px', right: 'auto', bottom: 'auto', transform: `scale(${sx},${sy})`, transformOrigin: 'top left' });
-    Object.assign(statsBar.style, { left: '8px', top: '8px', width: '1264px', height: '56px' });
-    Object.assign(controls.style, { left: '8px', top: '72px', width: '1264px', height: '52px' });
-    Object.assign(panel.style, { left: '812px', top: '132px', width: '460px', height: '516px' });
+    const { hudBar, sidePanel, zoomControl } = colonyLayout;
+    Object.assign(bar.style, { left: `${hudBar.x}px`, top: `${hudBar.y}px`, width: `${hudBar.width}px`, height: `${hudBar.height}px` });
+    Object.assign(panel.style, { left: `${sidePanel.x}px`, top: `${sidePanel.y}px`, width: `${sidePanel.width}px`,
+      height: `${sidePanel.bottom - sidePanel.y}px` });
+    // Keep the zoom control on the visible map: left of the side panel while it is open.
+    const zoomRight = panel.hidden ? zoomControl.right : sidePanel.x - zoomControl.gapToPanel;
+    Object.assign(zoom.style, { right: `${1280 - zoomRight}px`, top: `${zoomControl.top}px`, height: `${zoomControl.height}px` });
     Object.assign(toast.style, { left: '24px', top: '566px', maxWidth: `${Math.min(600, currentMapWidth() - 48)}px` });
   }
 
   function currentMapWidth() { return game().activePanel ? 1272 - Math.min(460, 1280 * .37) : 1272; }
 
+  let dialKey = '';
+  function refreshClock(snapshot) {
+    const current = game();
+    const tick = current.dataSet?.balance?.solMs ?? 1;
+    const fraction = Math.min(1, Math.max(0, (current.acc ?? 0) / tick));
+    const key = `${snapshot.sol}:${Math.round(fraction * 200)}`;
+    if (key === dialKey) return;
+    dialKey = key;
+    dialArc.setAttribute('stroke-dasharray', `${(fraction * DIAL_C).toFixed(2)} ${DIAL_C.toFixed(2)}`);
+    setText(dialSol, snapshot.sol);
+    const label = `Sol ${snapshot.sol}`;
+    if (dial.getAttribute('aria-label') !== label) dial.setAttribute('aria-label', label);
+  }
+
+  function setChip(id, { value, second, unit, trend = '', state = '', title = '' }) {
+    const node = chipNodes.get(id);
+    setText(node.number, value);
+    if (node.second) setText(node.second, second ?? '');
+    setText(node.unit, unit);
+    setText(node.trend, trend);
+    node.chip.classList.toggle('is-urgent', state === 'urgent');
+    node.chip.classList.toggle('is-good', state === 'good');
+    if (node.chip.title !== title) node.chip.title = title;
+  }
+
+  function refreshChips(snapshot) {
+    // Lane 1 adds snapshot.trends; until then, show only what the current snapshot supports.
+    const trends = snapshot.trends ?? {};
+    const materialsRate = formatRate(trends.materialsPerSol);
+    setChip('materials', { value: Math.floor(snapshot.credits).toLocaleString('en-US'), unit: 'kg', trend: materialsRate,
+      title: `Build materials${materialsRate ? ` · ${materialsRate}` : ''}` });
+
+    const { genW, useW } = snapshot.power;
+    const surplusW = trends.powerSurplusW ?? (genW - useW);
+    const short = useW > genW || surplusW < 0;
+    setChip('power', { value: (genW / 1000).toFixed(1), second: (useW / 1000).toFixed(1), unit: 'kW',
+      trend: short ? `short ${Math.abs(surplusW / 1000).toFixed(1)} kW` : `surplus ${(surplusW / 1000).toFixed(1)} kW`,
+      state: short ? 'urgent' : 'good', title: `Power · generating ${formatPower(genW)}, using ${formatPower(useW)}` });
+
+    const { currentWh, capacityWh } = snapshot.battery;
+    const hasBattery = capacityWh > 0;
+    const empty = hasBattery && currentWh <= 0;
+    const charge = hasBattery ? Math.min(1, Math.max(0, currentWh / capacityWh)) : 0;
+    setChip('battery', { value: hasBattery ? (currentWh / 1000).toFixed(1) : '—', unit: hasBattery ? 'kWh' : '',
+      trend: !hasBattery ? 'none yet' : empty ? 'empty' : `${Math.round(charge * 100)}% full`,
+      state: empty ? 'urgent' : '', title: hasBattery ? `Battery · ${(currentWh / 1000).toFixed(1)} of ${(capacityWh / 1000).toFixed(1)} kWh` : 'Battery · build one to store solar power' });
+    chipNodes.get('battery').charge?.setAttribute('width', (12 * charge).toFixed(1));
+
+    const waterRate = formatRate(trends.waterPerSol);
+    setChip('water', { value: Math.round(snapshot.waterL).toLocaleString('en-US'), unit: 'L', trend: waterRate,
+      title: `Water${waterRate ? ` · ${waterRate}` : ''}` });
+
+    const arrival = sim.state.rescue?.arrivalSol;
+    const runsOut = 'foodRunsOutSol' in trends ? trends.foodRunsOutSol : snapshot.sol + snapshot.foodSols;
+    const lasts = runsOut == null || (arrival != null && runsOut >= arrival);
+    setChip('food', { value: snapshot.foodSols, unit: snapshot.foodSols === 1 ? 'sol' : 'sols',
+      trend: lasts ? (arrival != null ? 'lasts to rescue' : '') : `runs out sol ${runsOut}`,
+      state: snapshot.foodLow ? 'urgent' : lasts ? 'good' : '',
+      title: `Food · ${snapshot.foodSols} sols of rations at the current ration level` });
+  }
+
   function refresh() {
     if (!game()?.sim) return;
     const snapshot = selectColonyUiState(sim, data(), foodPerCrew);
-    const values = {
-      'RESCUE IN': snapshot.rescueIn == null ? `${snapshot.sol} / ${sim.state.solLimit}` : `${snapshot.rescueIn} ${snapshot.rescueIn === 1 ? 'sol' : 'sols'}`,
-      MATERIALS: `${Math.floor(snapshot.credits).toLocaleString()} kg`,
-      POWER: `${(snapshot.power.genW / 1000).toFixed(1)} / ${(snapshot.power.useW / 1000).toFixed(1)} kW`,
-      BATTERY: snapshot.battery.capacityWh > 0 ? `${(snapshot.battery.currentWh / 1000).toFixed(1)} kWh` : '—',
-      WATER: `${Math.round(snapshot.waterL).toLocaleString()} L`,
-      FOOD: `${snapshot.foodSols} ${snapshot.foodSols === 1 ? 'sol' : 'sols'}`,
-    };
-    for (const [name, value] of Object.entries(values)) {
-      const node = statNodes.get(name);
-      setText(node.value, value);
-      const label = name === 'RESCUE IN' && snapshot.rescueIn == null ? 'MISSION' : name;
-      setText(node.label, label);
-      const warning = name === 'BATTERY' && snapshot.battery.capacityWh > 0 && snapshot.battery.currentWh <= 0 ? 'EMPTY'
-        : name === 'FOOD' && snapshot.foodLow ? 'LOW' : '';
-      setText(node.tag, warning);
-      node.tag.hidden = !warning;
-      node.value.style.color = warning ? LOW_AMBER : '';
-    }
+    refreshClock(snapshot);
+    refreshChips(snapshot);
     setText(nameNode, snapshot.colonyName || sim.state.site.name);
     nameNode.title = !sim.state.rescue ? '' : namingUnlocked() ? 'Rename colony'
       : `Colony naming unlocks at Halfway Home (sol ${halfwaySol()})`;
     nameNode.classList.toggle('is-locked', Boolean(sim.state.rescue) && !namingUnlocked());
-    terrain.textContent = `Terrain · ${snapshot.terrain}`;
-    solLabel.textContent = `SOL ${snapshot.sol} · ${String(snapshot.season ?? '').toUpperCase()}`;
+    const season = snapshot.season ? ` · ${snapshot.season[0].toUpperCase()}${snapshot.season.slice(1)}` : '';
+    const rescueHtml = snapshot.rescueIn == null
+      ? `Sol <b>${snapshot.sol}</b> of ${sim.state.solLimit}${season}`
+      : `Rescue in <b>${snapshot.rescueIn}</b> ${snapshot.rescueIn === 1 ? 'sol' : 'sols'}${season}`;
+    if (rescueLine.innerHTML !== rescueHtml) rescueLine.innerHTML = rescueHtml;
     zoomOut.disabled = game().boardZoom <= boardZoomRange.min + 1e-6;
     zoomIn.disabled = game().boardZoom >= boardZoomRange.max - 1e-6;
+    setText(zoomValue, `${Math.round((game().boardZoom ?? 1) * 100)}%`);
     speeds.forEach((button, speed) => {
       button.setAttribute('aria-pressed', String(snapshot.speed === speed));
       button.disabled = sim.state.status !== 'active';

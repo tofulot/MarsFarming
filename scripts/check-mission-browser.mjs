@@ -85,6 +85,33 @@ try {
   await active('Title');
   await pressButton('Title', 'Start survival');
   await active('UI');
+  // One top strip (sol dial, five resource chips, speed, tabs) inside 1280×720, in the bundled font pair.
+  const strip = await page.evaluate(() => {
+    const bar = document.querySelector('.colony-hud-bar');
+    const box = bar.getBoundingClientRect();
+    const canvas = document.querySelector('canvas').getBoundingClientRect();
+    const scale = canvas.height / 720;
+    const loaded = new Set([...document.fonts].filter(face => face.status === 'loaded').map(face => face.family.replace(/["']/g, '')));
+    return {
+      bottom: (box.bottom - canvas.top) / scale,
+      chips: bar.querySelectorAll('.colony-hud-chip').length,
+      escaped: [...bar.querySelectorAll('*')].filter(el => {
+        const r = el.getBoundingClientRect();
+        return r.width && (r.right > box.right + 1 || r.left < box.left - 1);
+      }).length,
+      clipped: [...bar.querySelectorAll('.colony-hud-chip-copy, .colony-hud-rescue')]
+        .filter(el => el.scrollWidth > el.clientWidth + 1).map(el => el.textContent),
+      tabs: ['base', 'ops', 'goals'].every(id => bar.querySelector(`#colony-tab-${id}[role="tab"]`)),
+      zoom: Boolean(document.querySelector('.colony-hud-zoom [aria-label="Zoom in"]')),
+      fonts: ['Amatic SC', 'Patrick Hand'].filter(family => loaded.has(family)),
+    };
+  });
+  assert.ok(strip.bottom <= 70, `top strip ends at ${strip.bottom}`);
+  assert.equal(strip.chips, 5);
+  assert.equal(strip.escaped, 0);
+  assert.deepEqual(strip.clipped, []);
+  assert.ok(strip.tabs && strip.zoom);
+  assert.deepEqual(strip.fonts, ['Amatic SC', 'Patrick Hand']);
   // The DOM forecast strip lists 15 forecast sols plus today; a cell opens a card with the colony effects.
   const forecastCells = '[data-weather-forecast] button[data-sol]';
   await page.waitForFunction((selector) => document.querySelectorAll(selector).length >= 16, forecastCells);
