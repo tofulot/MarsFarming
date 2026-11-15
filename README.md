@@ -25,7 +25,7 @@ Choose **Start survival** to land in Gale Crater, or **Choose landing site** to 
 
 ## Landing map data
 
-- Terrain is a custom rust-palette rendering derived from the [NASA Ames Marsoweb MOLA cylindrical shaded-relief product](https://marsoweb.nas.nasa.gov/globalData/datamaps.html). It is centered on 0° longitude. The relief colors are qualitative.
+- Terrain is a custom rust-palette rendering derived from the [NASA Ames Marsoweb MOLA cylindrical shaded-relief product](https://marsoweb.nas.nasa.gov/globalData/datamaps.html). It is centered on 0° longitude. The relief colors are qualitative. The colony backdrop samples the atlas around the selected landing site. Use the colony zoom controls to resize the playable tiles.
 - The hydrogen overlay and landing readout use the [NASA Mars Odyssey HEND epithermal neutron grid](https://pds-geosciences.wustl.edu/missions/odyssey/grsspecial.html) in 4° × 4° cells. The game interpolates the normalized flux for display and multiplies it by 0.26 for counts per second. Lower neutron flux can indicate more near-surface hydrogen. The drill uses a game-scaled version of that signal.
 - Solar potential shows modeled equinox noon sunlight relative to the equator. It uses the same clear-sky formula as the simulation. Dust and seasonal effects are handled on the surface.
 
