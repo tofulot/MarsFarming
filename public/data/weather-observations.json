@@ -1,0 +1,49 @@
+{
+  "_aiAssisted": "OpenAI Codex, manual transcription from cited NASA summaries",
+  "_checkedOn": "2026-11-14",
+  "label": "Archived NASA weather reference observations",
+  "note": "These short summaries have different temporal coverage. They are reference cards, not an annual weather series. Missing fields are omitted. Surface readings must not be relabeled as air temperatures.",
+  "observations": [
+    {
+      "id": "jezero-meda-first-pressure",
+      "siteId": "jezero",
+      "date": "2021-02-19",
+      "instrument": "MEDA",
+      "pressurePa": 718,
+      "coverage": "Initial measurement",
+      "sourceUrl": "https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/"
+    },
+    {
+      "id": "jezero-meda-first-temperature",
+      "siteId": "jezero",
+      "date": "2021-02-19",
+      "instrument": "MEDA",
+      "reportedSurfaceStartC": -20,
+      "reportedSurfaceEndC": -25.6,
+      "coverageMinutes": 30,
+      "approximate": true,
+      "sourceUrl": "https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/"
+    },
+    {
+      "id": "viking1-diurnal-range",
+      "siteId": "viking1",
+      "minC": -89,
+      "maxC": -31,
+      "coverage": "NASA fact sheet summary of Viking 1 diurnal range; no individual sol specified",
+      "sourceUrl": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html"
+    },
+    {
+      "id": "jezero-meda-sols-43-44",
+      "siteId": "jezero",
+      "missionSolFrom": 43,
+      "missionSolTo": 44,
+      "earthDateFrom": "2021-04-03",
+      "earthDateTo": "2021-04-04",
+      "reportedMinC": -83,
+      "reportedMaxC": -22,
+      "windGustMps": 10,
+      "coverage": "Combined MEDA report for sols 43\u201344, as summarized by NASA. Temperature sensor height unspecified in article. Wind gust is approximate.",
+      "sourceUrl": "https://www.nasa.gov/directorates/stmd/nasas-first-weather-report-from-jezero-crater-on-mars/"
+    }
+  ]
+}

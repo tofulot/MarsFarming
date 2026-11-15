@@ -1,0 +1,123 @@
+[
+  {
+    "id": "jezero",
+    "name": "Jezero Crater",
+    "lat": 18.44,
+    "lon": 77.45,
+    "mapX": 0.7151388888888889,
+    "mapY": 0.39755555555555555,
+    "iceFactor": 0.3,
+    "stars": {
+      "ice": 2,
+      "sun": 4,
+      "temp": 3,
+      "soil": 3
+    },
+    "why": "Balanced sunlight with limited shallow ice.",
+    "soilProfileId": "jezero_regolith",
+    "_src_coords": "S8",
+    "_game_iceFactor": true,
+    "_game_stars": true
+  },
+  {
+    "id": "gale",
+    "name": "Gale Crater",
+    "lat": -4.59,
+    "lon": 137.44,
+    "mapX": 0.8817777777777778,
+    "mapY": 0.5255,
+    "iceFactor": 0.22,
+    "stars": {
+      "ice": 1,
+      "sun": 5,
+      "temp": 5,
+      "soil": 2
+    },
+    "why": "Strong solar output. Water is harder to produce.",
+    "soilProfileId": "gale_rocknest",
+    "_src_coords": "S8",
+    "_game_iceFactor": true,
+    "_game_stars": true
+  },
+  {
+    "id": "elysium",
+    "name": "Elysium Planitia",
+    "lat": 4.5,
+    "lon": 135.62,
+    "mapX": 0.8767222222222222,
+    "mapY": 0.475,
+    "iceFactor": 0.25,
+    "stars": {
+      "ice": 1,
+      "sun": 5,
+      "temp": 4,
+      "soil": 3
+    },
+    "why": "Strong sunlight. Dust management matters here.",
+    "soilProfileId": "elysium_insight",
+    "_src_coords": "S8",
+    "_game_iceFactor": true,
+    "_game_stars": true
+  },
+  {
+    "id": "utopia",
+    "name": "Utopia Planitia",
+    "lat": 48.27,
+    "lon": 134.28,
+    "mapX": 0.8729999999999999,
+    "mapY": 0.2318333333333333,
+    "iceFactor": 0.72,
+    "stars": {
+      "ice": 4,
+      "sun": 3,
+      "temp": 2,
+      "soil": 3
+    },
+    "why": "Good ice access trades off against seasonal sunlight.",
+    "soilProfileId": "utopia_viking2",
+    "_src_coords": "S8",
+    "_game_iceFactor": true,
+    "_game_stars": true
+  },
+  {
+    "id": "arcadia",
+    "name": "Arcadia Planitia",
+    "lat": 43,
+    "lon": -155,
+    "mapX": 0.06944444444444445,
+    "mapY": 0.2611111111111111,
+    "iceFactor": 0.91,
+    "stars": {
+      "ice": 5,
+      "sun": 3,
+      "temp": 2,
+      "soil": 3
+    },
+    "why": "NASA orbiters identified promising shallow ice in this region.",
+    "soilProfileId": "arcadia_ice_margin",
+    "_src_coords": "S14",
+    "_game_iceFactor": true,
+    "_game_stars": true,
+    "_game_location": true
+  },
+  {
+    "id": "phoenix",
+    "name": "Vastitas Borealis",
+    "lat": 68.22,
+    "lon": -125.75,
+    "mapX": 0.15069444444444444,
+    "mapY": 0.12100000000000001,
+    "iceFactor": 1,
+    "stars": {
+      "ice": 5,
+      "sun": 1,
+      "temp": 1,
+      "soil": 1
+    },
+    "why": "Phoenix exposed shallow ice and detected perchlorate.",
+    "soilProfileId": "phoenix_hecht2009",
+    "_src_coords": "S10",
+    "_game_iceFactor": true,
+    "_game_stars": true
+  }
+]

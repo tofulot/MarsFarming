@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- AI-assisted (OpenAI Codex) -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red Harvest</title>
+<style>
+  html, body, #game { height: 100%; margin: 0; background: #100d0d; }
+  #error { color: #fff0d9; padding: 2rem; font: 1rem system-ui; }
+  .colony-name-dialog { color: #fff2dd; background: #251b22; border: 1px solid #ff805a; padding: 24px; font: 16px system-ui, sans-serif; }
+  .colony-name-dialog::backdrop { background: #100d0dcc; }
+  .colony-name-dialog h2 { margin-top: 0; }
+  .colony-name-dialog input { display: block; margin-top: 6px; padding: 8px; font: inherit; }
+  .colony-name-dialog button { padding: 6px 12px; margin-right: 6px; font: inherit; }
+  .colony-name-dialog p { color: #ffad91; }
+</style>
+</head>
+<body>
+<main id="game" aria-label="Red Harvest Mars greenhouse game">
+<p id="error" role="status">Loading Red Harvest…</p>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

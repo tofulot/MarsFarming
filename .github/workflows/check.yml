@@ -1,0 +1,21 @@
+# AI-assisted (OpenAI Codex)
+name: Game checks
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'red-harvest/**'
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run test:browser

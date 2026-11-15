@@ -1,0 +1,44 @@
+[
+  {
+    "id": "growth",
+    "text": "The NASA life-support baseline assigns lettuce a 28-day growth period.",
+    "source": "S9",
+    "url": "https://ntrs.nasa.gov/citations/20210024855"
+  },
+  {
+    "id": "season",
+    "text": "Mars reaches northern autumn at solar longitude 180°. This begins dust storm season.",
+    "source": "S7",
+    "url": "https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new"
+  },
+  {
+    "id": "ice",
+    "text": "NASA’s orbital data identified areas on Mars with ice less than 30 centimeters underground.",
+    "source": "S14",
+    "url": "https://www.jpl.nasa.gov/news/nasas-treasure-map-for-water-ice-on-mars/"
+  },
+  {
+    "id": "mutation-dose",
+    "text": "Curiosity measured about 0.67 mSv/day at Gale. Dose raises allele-flip chance in crosses. Alleles themselves are game rules.",
+    "source": "S11",
+    "url": "https://www.swri.org/newsroom/press-releases/swri-scientists-publish-first-radiation-measurements-the-surface-of-mars"
+  },
+  {
+    "id": "crew-food",
+    "text": "NASA’s life-support baseline budgets about 0.8 kg dry food solids per crew member per day.",
+    "source": "S9",
+    "url": "https://ntrs.nasa.gov/citations/20210024855"
+  },
+  {
+    "id": "phoenix-perchlorate",
+    "text": "Phoenix measured about 0.4–0.6 wt% perchlorate in Vastitas Borealis soil, with alkaline pH near 7.7.",
+    "source": "S10",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/19574385/"
+  },
+  {
+    "id": "gale-rocknest",
+    "text": "Curiosity found perchlorate salts in the Rocknest scoop at Gale Crater.",
+    "source": "S28",
+    "url": "https://earthsciences.gsfc.nasa.gov/sed/content/uploadFiles/publication_files/Glavin_et_al-2013-Journal_of_Geophysical_Research__Planets.pdf"
+  }
+]
