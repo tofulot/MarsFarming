@@ -1,4 +1,4 @@
-import { colonyBoardAtZoom } from './colony/layout.js';
+import { boardTransform, visibleTiles } from './colony/layout.js';
 import { button, colors, panel, text } from './controls.js';
 
 export function surfaceFeatureAt(state, cell) {
@@ -42,21 +42,38 @@ export function drawSurfaceDetails(scene, feature) {
 export function drawSurfaceObjects(scene) {
   const { rocks, rocket } = scene.sim.state;
   if (!rocks.length && !rocket) return;
-  const { x: left, y: top, tile, row } = colonyBoardAtZoom(scene.boardZoom);
+  const transform = boardTransform(scene);
+  const { x: left, y: top, tile, row } = transform;
+  const view = visibleTiles(transform, scene.sim.state.grid);
+  const visible = ({ x, y }) => x >= view.x0 && x <= view.x1 && y >= view.y0 && y <= view.y1;
   const graphic = scene.add.graphics().setDepth(7);
-  const scale = scene.boardZoom ?? 1;
+  if (scene.boardMask) graphic.setMask(scene.boardMask);
+  const scale = transform.zoom;
   const position = ({ x, y }) => [left + (x + 0.5) * tile, top + (y + 0.5) * row];
   for (const rock of rocks) {
-    if (!rock.remaining) continue;
+    if (!rock.remaining || !visible(rock)) continue;
     const [x, y] = position(rock);
     const metal = rock.material === 'metal';
     graphic.save().translateCanvas(x, y).scaleCanvas(scale, scale);
-    graphic.fillStyle(0x3b2721, 0.7).fillEllipse(2, 6, 26, 12);
-    graphic.fillStyle(metal ? 0x6b7277 : 0x9a6346).fillTriangle(-12, 6, -3, -9, 13, 6);
-    graphic.lineStyle(2, metal ? 0xe2b591 : 0xd09f72).lineBetween(-11, 5, -3, -8);
+    // Irregular boulder, stable per tile; lit from the upper left like the ground.
+    const points = [];
+    for (let i = 0; i < 7; i++) {
+      const angle = Math.PI * 2 * i / 7;
+      const wobble = 0.78 + 0.22 * Math.abs(Math.sin(rock.x * 12.9898 + rock.y * 78.233 + i * 3.7));
+      points.push({ x: Math.cos(angle) * 14 * wobble, y: Math.sin(angle) * 9 * wobble - 2 });
+    }
+    graphic.fillStyle(0x2a1a15, 0.55).fillEllipse(3, 7, 32, 12);
+    graphic.fillStyle(metal ? 0x5b6266 : 0x8a563d).fillPoints(points, true);
+    graphic.fillStyle(metal ? 0x899297 : 0xb67a57).fillPoints(points.map(({ x: px, y: py }) => ({
+      x: px * 0.72 - 3, y: py * 0.62 - 3 })), true);
+    graphic.fillStyle(metal ? 0x3c4246 : 0x5e3626, 0.8).fillTriangle(points[0].x, points[0].y, points[1].x, points[1].y, points[2].x, points[2].y);
+    if (metal) {
+      graphic.fillStyle(0xe8d2b8, 0.95).fillCircle(-4, -6, 1.6).fillCircle(3, -3, 1.2).fillCircle(-8, -1, 1);
+      graphic.lineStyle(1.5, 0xd7b48f, 0.9).lineBetween(-6, -7, 1, -4);
+    }
     graphic.restore();
   }
-  if (rocket && rocket.status !== 'scrapped') {
+  if (rocket && rocket.status !== 'scrapped' && visible(rocket)) {
     const [x, y] = position(rocket);
     graphic.save().translateCanvas(x, y).scaleCanvas(scale, scale);
     graphic.fillStyle(0x291d19, 0.75).fillEllipse(0, 8, 32, 10);

@@ -95,7 +95,7 @@ test('two auto-harvesters collect each adjacent mature crop only once', () => {
 
 test('Survival planting charges food only on success and supply drops unlock seeds on schedule', () => {
   const sim = new Simulation(quietData, { siteId: 'gale', difficulty: 'easy', rescue: true });
-  const location = { x: 0, y: 0 };
+  const location = { x: 15, y: 7 }; // inside the clear ring around the starter base
   assert.ok(sim.command({ type: 'build', id: 'plot', ...location }).ok);
   const plant = { type: 'plant', id: 'radish', ...location };
   const startingFood = sim.state.res.foodKg;
@@ -298,7 +298,7 @@ test('the dust climatology varies across longitude and season and wraps at the m
 test('a stranded farmer can fund upgrades with harvests and survive until rescue', () => {
   const sim = new Simulation(quietData, { rescue: true, siteId: 'gale' });
   const build = (id, x, y) => sim.command({ type: 'build', id, x, y });
-  const plots = [{ x: 0, y: 0 }, { x: 0, y: 1 }];
+  const plots = [{ x: 15, y: 7 }, { x: 15, y: 8 }]; // inside the clear ring around the base
   const plant = (plot, id = 'radish') => sim.command({ type: 'plant', id, ...plot });
   const harvest = (plot) => sim.command({ type: 'harvest', ...plot });
   const greenhouse = data.buildings.find(({ id }) => id === 'plot');
@@ -318,21 +318,21 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.equal(sim.command({ type: 'setSpeed', speed: 16 }).ok, false);
   assert.equal(sim.state.speed, 4);
   assert.equal(sim.command({ type: 'nameColony', name: 'Ares' }).ok, false);
-  assert.match(build('iceDrill', 2, 0).reason, /Botanist/);
-  assert.ok(build('plot', 0, 0).ok);
+  assert.match(build('iceDrill', 17, 7).reason, /Botanist/);
+  assert.ok(build('plot', 15, 7).ok);
   assert.equal(sim.purchasePrice(greenhouse), 46);
-  assert.equal(build('plot', 0, 0).ok, false);
+  assert.equal(build('plot', 15, 7).ok, false);
   assert.equal(sim.purchasePrice(greenhouse), 46);
-  assert.ok(build('plot', 0, 1).ok);
+  assert.ok(build('plot', 15, 8).ok);
   assert.equal(sim.purchasePrice(greenhouse), 53);
-  assert.ok(build('washer', 1, 0).ok);
+  assert.ok(build('washer', 16, 7).ok);
   assert.equal(sim.state.res.credits, 24);
   assert.deepEqual(spending, [40, 46, 70]);
 
-  assert.ok(sim.command({ type: 'wash', x: 1, y: 0 }).ok);
+  assert.ok(sim.command({ type: 'wash', x: 16, y: 7 }).ok);
   sim.step();
   assert.match(plant(plots[0], 'potato').reason, /Second Harvest/);
-  const firstPlot = sim.state.buildings.find(({ x, y }) => x === 0 && y === 0);
+  const firstPlot = sim.state.buildings.find(({ x, y }) => x === 15 && y === 7);
   // Gale Rocknest fertility after wash scales yield (NASA-analog soil game values).
   assert.deepEqual(sim.harvestPreview(firstPlot, 'radish'), { kg: 4.464, credits: 22, unsafe: false });
   assert.deepEqual(sim.harvestPreview(firstPlot, 'radish', 0.5), { kg: 2.232, credits: 11, unsafe: false });
@@ -353,8 +353,8 @@ test('a stranded farmer can fund upgrades with harvests and survive until rescue
   assert.ok(harvest(plots[1]).ok);
   assert.equal(sim.state.res.credits, 24 + 38 + 70 + 55);
   assert.equal(sim.state.rescue.earned.repeatHarvest, 9);
-  assert.ok(build('iceDrill', 2, 0).ok);
-  assert.ok(build('solar', 3, 0).ok);
+  assert.ok(build('iceDrill', 17, 7).ok);
+  assert.ok(build('solar', 18, 7).ok);
   for (const plot of plots) assert.ok(plant(plot).ok);
 
   while (sim.state.status === 'active') {
@@ -396,10 +396,10 @@ test('running out of rations can end survival before the rescue deadline', () =>
 test('ice-rich sites produce more water per powered drill', () => {
   for (const [siteId, expected] of [['gale', 13.2], ['utopia', 46.0512]]) {
     const sim = new Simulation(quietData, { rescue: true, siteId, difficulty: 'easy' });
-    assert.ok(sim.command({ type: 'build', id: 'plot', x: 0, y: 0 }).ok);
-    assert.ok(sim.command({ type: 'plant', id: 'radish', x: 0, y: 0 }).ok);
-    assert.ok(sim.command({ type: 'build', id: 'iceDrill', x: 1, y: 0 }).ok);
-    assert.ok(sim.command({ type: 'demolish', x: 0, y: 0 }).ok);
+    assert.ok(sim.command({ type: 'build', id: 'plot', x: 15, y: 7 }).ok);
+    assert.ok(sim.command({ type: 'plant', id: 'radish', x: 15, y: 7 }).ok);
+    assert.ok(sim.command({ type: 'build', id: 'iceDrill', x: 16, y: 7 }).ok);
+    assert.ok(sim.command({ type: 'demolish', x: 15, y: 7 }).ok);
     sim.step();
     assert.ok(Math.abs(sim.state.water.production - expected) < 1e-9);
   }

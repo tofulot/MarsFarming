@@ -81,7 +81,7 @@ export class Simulation {
     };
     for (const { id, x, y } of data.balance.starter) this.#place(id, x, y);
     if (packed) this.#unpack(manifest);
-    if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface);
+    if (state.rescue && data.balance.rescue.surface) placeSurfaceMaterials(state, data.balance.rescue.surface, { relief: options.relief });
     if (state.rescue) {
       if (state.buildings.some(({ id }) => id === 'plot')) earnAdvancement(this.#ctx, 'greenhouse');
       if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');
@@ -117,7 +117,9 @@ export class Simulation {
         if (!state.buildings.some((unit) => unit.x === x && unit.y === y)) open.push({ x, y });
       }
     }
-    open.sort((a, b) => Math.abs(a.x - 7) + Math.abs(a.y - 5) - Math.abs(b.x - 7) - Math.abs(b.y - 5));
+    const hab = state.buildings.find(({ id }) => id === 'hab') ?? { x: state.grid.w >> 1, y: state.grid.h >> 1 };
+    const distance = ({ x, y }) => Math.abs(x - hab.x) + Math.abs(y - hab.y);
+    open.sort((a, b) => distance(a) - distance(b));
     for (const [id, count] of Object.entries(manifest)) {
       if (!this.#ctx.buildings.has(id)) continue;
       for (let i = 0; i < count; i++) {

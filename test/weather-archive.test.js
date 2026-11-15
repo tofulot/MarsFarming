@@ -201,11 +201,11 @@ test('the Gale quick-start can harvest and complete its full 120-sol rescue with
   const quiet = { ...data, events: [] };
   for (const { year } of index.dust.years) {
     const sim = new Simulation(quiet, { seed: seedFor(year), siteId: 'gale', rescue: true });
-    const plots = [{ x: 0, y: 0 }, { x: 1, y: 0 }];
+    const plots = [{ x: 15, y: 7 }, { x: 16, y: 7 }]; // inside the clear ring around the base
     const build = (id, x, y) => assert.ok(sim.command({ type: 'build', id, x, y }).ok, `${year}: ${id}`);
     const plant = (plot) => assert.ok(sim.command({ type: 'plant', id: 'radish', ...plot }).ok, `${year}: plant`);
     for (const { x, y } of plots) build('plot', x, y);
-    build('washer', 0, 1);
+    build('washer', 15, 8);
     sim.step();
     for (const plot of plots) plant(plot);
     while (sim.state.status === 'active') {
@@ -215,8 +215,8 @@ test('the Gale quick-start can harvest and complete its full 120-sol rescue with
         if (sim.command({ type: 'harvest', ...plot }).ok) plant(plot);
       }
       if (sim.state.rescue.earned.repeatHarvest === sim.state.sol) {
-        build('iceDrill', 2, 0);
-        build('solar', 3, 0);
+        build('iceDrill', 17, 7);
+        build('solar', 18, 7);
       }
     }
     const firstHarvest = sim.state.rescue.earned.harvest;

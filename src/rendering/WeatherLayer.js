@@ -1,5 +1,5 @@
 import { mulberry32 } from '../sim/rng.js';
-import { colonyBoardAtZoom } from '../ui/colony/layout.js';
+import { boardTransform, playArea } from '../ui/colony/layout.js';
 
 const dustStrength = { dustLocal: 0.38, dustRegional: 0.67, dustGlobal: 1 };
 const wrap = (value) => ((value % 1) + 1) % 1;
@@ -72,12 +72,16 @@ export class WeatherLayer {
     this.driftNorth += north * elapsed;
     const { seconds, driftEast, driftNorth } = this;
 
-    const { x, y, tile, row } = colonyBoardAtZoom(scene.boardZoom);
+    const { x, y, tile, row } = boardTransform(scene);
     const width = tile * scene.sim.state.grid.w;
     const height = row * scene.sim.state.grid.h;
-    if (this.lastZoom !== scene.boardZoom) {
-      clip.clear().fillStyle(0xffffff).fillRect(x, y, width, height);
+    const view = `${scene.boardZoom}|${x}|${y}`;
+    if (this.lastView !== view) {
+      const left = Math.max(x, playArea.left), top = Math.max(y, playArea.top);
+      clip.clear().fillStyle(0xffffff).fillRect(left, top,
+        Math.min(x + width, playArea.right) - left, Math.min(y + height, playArea.bottom) - top);
       this.lastZoom = scene.boardZoom;
+      this.lastView = view;
     }
     graphics.clear();
 

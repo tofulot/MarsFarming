@@ -1,6 +1,7 @@
 import { selectColonyUiState } from './selectors.js';
 import { shopCategories } from './catalog.js';
 import { surfaceFeatureAt } from '../surfaceActions.js';
+import { boardZoomRange, stepBoardZoom } from './layout.js';
 
 const LOW_AMBER = '#ffb05a';
 const PANEL_BG = '#231615';
@@ -158,9 +159,9 @@ export function createResourceHud(scene, sim, foodPerCrew) {
   }, { className: 'colony-hud-name' });
   nameNode.setAttribute('aria-label', 'Colony name. Rename when unlocked.');
   left.append(nameNode);
-  const zoomOut = makeButton('−', () => { game().boardZoom = Math.max(0.75, game().boardZoom - 0.1); game().refreshGrid(); refresh(); });
+  const zoomOut = makeButton('−', () => { stepBoardZoom(game(), -1); game().refreshGrid(); refresh(); });
   zoomOut.setAttribute('aria-label', 'Zoom out');
-  const zoomIn = makeButton('+', () => { game().boardZoom = Math.min(1.06, game().boardZoom + 0.1); game().refreshGrid(); refresh(); });
+  const zoomIn = makeButton('+', () => { stepBoardZoom(game(), 1); game().refreshGrid(); refresh(); });
   zoomIn.setAttribute('aria-label', 'Zoom in');
   const zoomLabel = document.createElement('span');
   zoomLabel.className = 'colony-hud-zoom-label';
@@ -651,8 +652,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       ? 'Colony naming unlocks with Botanist' : 'Rename colony';
     terrain.textContent = `Terrain · ${snapshot.terrain}`;
     solLabel.textContent = `SOL ${snapshot.sol} · ${String(snapshot.season ?? '').toUpperCase()}`;
-    zoomOut.disabled = game().boardZoom <= .75;
-    zoomIn.disabled = game().boardZoom >= 1.06;
+    zoomOut.disabled = game().boardZoom <= boardZoomRange.min + 1e-6;
+    zoomIn.disabled = game().boardZoom >= boardZoomRange.max - 1e-6;
     speeds.forEach((button, speed) => {
       button.setAttribute('aria-pressed', String(snapshot.speed === speed));
       button.disabled = sim.state.status !== 'active';
