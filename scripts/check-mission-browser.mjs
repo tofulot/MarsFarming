@@ -81,9 +81,26 @@ try {
     }, [scene, text]);
   };
 
+  // The intro cutscene plays between every "land" button and the colony.
+  const throughIntro = async ({ skip }) => {
+    await active('Cutscene');
+    await page.waitForFunction(() => {
+      const video = document.querySelector('.intro-cutscene video');
+      return video && !video.paused && video.currentTime > 0.3;
+    }, undefined, { timeout: 10000 });
+    if (skip === 'key') await page.keyboard.press('Escape');
+    if (skip === 'button') await page.getByRole('button', { name: 'Skip intro' }).click();
+    await page.waitForFunction(() => window.missionTestGame.scene.isActive('UI'), undefined, { timeout: skip ? 10000 : 20000 });
+    assert.equal(await page.locator('.intro-cutscene').count(), 0);
+    // The first achievement waits for the fade from black.
+    await page.waitForFunction(() => !document.getElementById('red-harvest-veil'), undefined, { timeout: 10000 });
+    await page.waitForSelector('.colony-award', { timeout: 10000 });
+  };
+
   await page.goto(`${origin}${config.base}?demo=1`);
   await active('Title');
   await pressButton('Title', 'Start survival');
+  await throughIntro({ skip: false });
   await active('UI');
   // One top strip (sol dial, five resource chips, speed, tabs) inside 1280×720, in the bundled font pair.
   const strip = await page.evaluate(() => {
@@ -181,6 +198,7 @@ try {
   await pressButton('Map', 'Back');
   await active('Title');
   await pressButton('Title', 'Start survival');
+  await throughIntro({ skip: 'key' });
   await active('UI');
   assert.equal(await page.evaluate(() => window.missionTestGame.scene.getScene('Colony').sim.state.sol), 0);
 
@@ -212,6 +230,7 @@ try {
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Map').children.list.some(({ text }) =>
     text?.includes('storm sols in a 3-sol window')));
   await pressButton('Map', 'Land and establish base →');
+  await throughIntro({ skip: 'button' });
   await active('UI');
   const outlook = await page.evaluate(() => {
     const { sim } = window.missionTestGame.scene.getScene('Colony');
@@ -241,7 +260,7 @@ try {
   await page.waitForFunction(() => window.missionTestGame.scene.getScene('Colony').selected != null);
 
   assert.deepEqual(errors, []);
-  console.log('Rescue, colony naming, crop journal, re-fly, abandon confirmation, archived weather, zoom, and sol transitions verified.');
+  console.log('Intro cutscene (played, key skip, button skip), rescue, colony naming, crop journal, re-fly, abandon confirmation, archived weather, zoom, and sol transitions verified.');
 } finally {
   await browser?.close();
   await rm(output, { recursive: true, force: true });

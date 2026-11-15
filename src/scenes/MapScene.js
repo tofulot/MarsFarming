@@ -6,6 +6,7 @@ import { button, colors, label, panel, text, targetBackground } from '../ui/cont
 import { clearSolarFactor, landingCalendarSol, landingLongitudes } from '../sim/insolation.js';
 import { landingSite, normalizedNeutronFlux } from '../sim/marsMap.js';
 import { resolveSoilProfile } from '../sim/systems/soil.js';
+import { startMission } from '../ui/startMission.js';
 
 const map = { x: 76, y: 173, w: 864, h: 432 };
 const hydrogen = [[32, 52, 78], [37, 130, 163], [95, 231, 244]];
@@ -299,7 +300,7 @@ export class MapScene extends Phaser.Scene {
     }
     const action = button(this, 964, 645, 260, 40, 'Land and establish base →', this.site ? () => {
       const seed = options.demo ? this.dataSet.balance.demoSeed : Math.floor(Math.random() * 2 ** 32);
-      this.scene.start('Colony', { ...options, seed, site: this.site, landingLs: landingLongitudes[this.dustSeason] });
+      startMission(this, { ...options, seed, site: this.site, landingLs: landingLongitudes[this.dustSeason] });
     } : null, { selected: Boolean(this.site), size: 16 });
     group.addMultiple([action.box, action.copy]);
   }

@@ -16,6 +16,8 @@ npm run build
 
 Open the URL Vite prints. Use **↑/↓** (or W/S) and **Enter** on the title menu, or click. Add `?demo=1` to the URL for a repeatable event sequence for a chosen site. In the colony, **1** starts a dust storm, **2** starts a solar particle event, **F** advances 30 sols, **]** switches to 4×, and **R** opens the report. Demo keys are ignored while you type in a dialog.
 
+After you land, a 7-second intro shows your rocket burning in and crashing; click, or press Escape, Space or Enter, to skip it. Add `?intro=0` to the URL to turn it off while testing. The clip is pre-rendered from the Remotion project in `cutscene/` (see its README): code-drawn pixel art and a procedurally synthesised fire sound, written with AI assistance, with no generated images or audio samples.
+
 Choose **Start survival** to land in Gale Crater, or **Choose landing site** to compare terrain, ice, solar potential, and weather on the map. You have 120 sols until rescue, 11 sols of rations, and 180 kg of build materials. The colony starts paused.
 
 **Build materials (kg)** are the one currency. You earn them by mining rock deposits (select a rock, then **Mine deposit**), scrapping the crashed rocket once its fire is out, harvesting crops (inedible biomass recovered as feedstock, a game value), and earning achievements. Every shop price is in kg.

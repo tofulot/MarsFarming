@@ -1,0 +1,39 @@
+{
+  "name": "red-harvest-cutscene",
+  "version": "1.0.0",
+  "description": "Remotion project for the Red Harvest intro cutscene",
+  "repository": {},
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.543",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.543"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.543",
+    "@types/react": "19.3.0",
+    "@types/web": "0.0.166",
+    "eslint": "10.12.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "remotion studio",
+    "build": "remotion bundle",
+    "upgrade": "remotion upgrade",
+    "lint": "eslint src && tsc",
+    "render:intro": "remotion render IntroCrash ../public/assets/cutscene/intro.mp4 --codec=h264 --crf=20",
+    "render:intro:webm": "remotion render IntroCrash ../public/assets/cutscene/intro.webm --codec=vp9 --crf=30",
+    "stills": "remotion render IntroCrash out/frames --frames=30,75,110,128,150,175 --image-format=png",
+    "sfx": "node scripts/make-fire-sfx.mjs",
+    "render:game": "npm run render:intro:webm && npm run render:intro"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}

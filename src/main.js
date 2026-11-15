@@ -11,6 +11,7 @@ import { MapScene } from './scenes/MapScene.js';
 import { ColonyScene } from './scenes/ColonyScene.js';
 import { UIScene } from './scenes/UIScene.js';
 import { ReportScene } from './scenes/ReportScene.js';
+import { CutsceneScene } from './scenes/CutsceneScene.js';
 
 // Static CSS (index.html dialogs) reads the same stacks through custom properties.
 document.documentElement.style.setProperty('--font-display', fontDisplay);
@@ -24,5 +25,5 @@ new Phaser.Game({
   backgroundColor: '#150d0c', // matches colors.background in src/ui/controls.js
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [BootScene, TitleScene, MapScene, ColonyScene, UIScene, ReportScene],
+  scene: [BootScene, TitleScene, MapScene, CutsceneScene, ColonyScene, UIScene, ReportScene],
 });

@@ -2,6 +2,20 @@
 // Quiet, text-led title: drifting procedural regolith, heavy vignette, short keyboard-first menu.
 import Phaser from 'phaser';
 import { colors, targetBackground, text } from '../ui/controls.js';
+import { introEnabled, startMission } from '../ui/startMission.js';
+import { introSources } from './CutsceneScene.js';
+
+// Warm the cache for the intro clip while the player reads the title screen.
+function prefetchIntro() {
+  if (!introEnabled() || document.querySelector('link[data-intro-prefetch]')) return;
+  const probe = document.createElement('video');
+  const { src } = introSources().find(({ type }) => probe.canPlayType(type)) ?? introSources()[1];
+  const link = document.createElement('link');
+  link.rel = 'prefetch';
+  link.href = src;
+  link.dataset.introPrefetch = '';
+  document.head.append(link);
+}
 
 // Power-of-two size: WebGL tiles it directly instead of resampling (which caused banding).
 const GROUND = { key: 'title-ground', w: 512, h: 512, scale: 2 };
@@ -143,6 +157,7 @@ export class TitleScene extends Phaser.Scene {
     this.add.image(0, 0, VIGNETTE).setOrigin(0);
 
     const data = this.registry.get('missionData');
+    prefetchIntro();
     const demo = new URLSearchParams(location.search).get('demo') === '1';
     const options = { demo, difficulty: 'medium', rescue: true };
     const arrival = data?.balance?.rescue?.arrivalSol;
@@ -155,7 +170,7 @@ export class TitleScene extends Phaser.Scene {
         hint: `Land at Gale Crater${arrival ? `. Rescue arrives in ${arrival} sols.` : '.'}`,
         go: () => {
           const seed = demo ? data.balance.demoSeed : Math.floor(Math.random() * 2 ** 32);
-          this.scene.start('Colony', { ...options, siteId: 'gale', seed });
+          startMission(this, { ...options, siteId: 'gale', seed });
         } },
       { label: 'Choose landing site', hint: 'Compare ice, sunlight and dust across Mars before you land.',
         go: () => this.scene.start('Map', options) },

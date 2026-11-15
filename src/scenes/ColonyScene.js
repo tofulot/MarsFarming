@@ -17,6 +17,7 @@ import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.j
 import { boardTransform, boardZoomRange, panBoard, stepBoardZoom } from '../ui/colony/layout.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 import { usesCommsPanel } from '../ui/colony/CommsPanel.js';
+import { liftVeil } from '../ui/veil.js';
 
 const washerMessages = {
   queued: '1 sol remaining · Requires power and water',
@@ -69,7 +70,9 @@ export class ColonyScene extends Phaser.Scene {
     });
     const pendingAwards = advancements.filter(({ id }) => rescue && Object.hasOwn(rescue.earned, id))
       .map((award) => ({ ...award, sol: rescue.earned[award.id] }));
+    // Coming from the intro cutscene: once the HUD has painted, fade in from black, then show the first achievement.
     const announceAward = playColonyAchievementToasts(this, pendingAwards, {
+      startHeld: Boolean(options.fromCutscene),
       onDone: (award) => { if (award.id === 'halfway') this.promptColonyName(); },
     });
     this.sim.on('advancement', (award) => {
@@ -133,6 +136,13 @@ export class ColonyScene extends Phaser.Scene {
     this.refreshGrid();
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
+    if (options.fromCutscene) {
+      // UIScene calls this after mounting the HUD; wait two frames so it has painted under the veil.
+      this.onHudReady = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (this.finished) return;
+        announceAward.release(liftVeil() + 250);
+      }));
+    }
     this.bindBoardKeys();
     if (options.demo) {
       // Demo hotkeys must not fire while the player types in a dialog or text field.

@@ -116,8 +116,10 @@ export const achievementCardCss = `
 // DOM card shown inside the colony HUD root so no HUD panel can cover it.
 // Awards are queued until the HUD has mounted (UIScene launches after ColonyScene.create)
 // and while a modal dialog is open. Timers are wall-clock so they match the CSS animations.
-export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
+export function playColonyAchievementToasts(scene, queue, { onDone, startHeld = false } = {}) {
   let playing = false;
+  // Hold cards until release(ms) is called, e.g. while the colony fades in from the intro cutscene.
+  let held = startHeld;
   let waiting = false;
   let disposed = false;
   const timers = new Set();
@@ -147,7 +149,7 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
   }
 
   function showNext() {
-    if (disposed || playing || !queue.length) return;
+    if (disposed || held || playing || !queue.length) return;
     const root = scene.hud?.root;
     if (!root?.isConnected || document.querySelector('dialog[open]')) {
       if (!waiting) {
@@ -204,9 +206,11 @@ export function playColonyAchievementToasts(scene, queue, { onDone } = {}) {
 
   showNext();
   // urgent awards jump the queue and play right after the card on screen.
-  return (award, { urgent = false } = {}) => {
+  const announce = (award, { urgent = false } = {}) => {
     if (urgent) queue.splice(playing ? 1 : 0, 0, award);
     else queue.push(award);
     showNext();
   };
+  announce.release = (delayMs = 0) => later(delayMs, () => { held = false; showNext(); });
+  return announce;
 }

@@ -8,6 +8,8 @@ export class UIScene extends Phaser.Scene {
     this.hud = createResourceHud(this, sim, foodPerCrew);
     game.hud = this.hud;
     game.drawSide();
+    game.onHudReady?.();
+    game.onHudReady = null;
     const updatePanel = () => {
       this.hud.refresh();
       if (game.activePanel === 'goals' || game.activePanel === 'ops') this.hud.renderPanel();
