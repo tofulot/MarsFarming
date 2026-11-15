@@ -1,4 +1,4 @@
-import { colonyBoardAtZoom } from './colony/layout.js';
+import { boardTransform, visibleTiles } from './colony/layout.js';
 import { button, colors, panel, text } from './controls.js';
 
 export function surfaceFeatureAt(state, cell) {
@@ -38,12 +38,16 @@ export function drawSurfaceDetails(scene, feature) {
 export function drawSurfaceObjects(scene) {
   const { rocks, rocket } = scene.sim.state;
   if (!rocks.length && !rocket) return;
-  const { x: left, y: top, tile, row } = colonyBoardAtZoom(scene.boardZoom);
+  const transform = boardTransform(scene);
+  const { x: left, y: top, tile, row } = transform;
+  const view = visibleTiles(transform, scene.sim.state.grid);
+  const visible = ({ x, y }) => x >= view.x0 && x <= view.x1 && y >= view.y0 && y <= view.y1;
   const graphic = scene.add.graphics().setDepth(7);
-  const scale = scene.boardZoom ?? 1;
+  if (scene.boardMask) graphic.setMask(scene.boardMask);
+  const scale = transform.zoom;
   const position = ({ x, y }) => [left + (x + 0.5) * tile, top + (y + 0.5) * row];
   for (const rock of rocks) {
-    if (!rock.remaining) continue;
+    if (!rock.remaining || !visible(rock)) continue;
     const [x, y] = position(rock);
     const metal = rock.material === 'metal';
     graphic.save().translateCanvas(x, y).scaleCanvas(scale, scale);
@@ -52,7 +56,7 @@ export function drawSurfaceObjects(scene) {
     graphic.lineStyle(2, metal ? 0xe2b591 : 0xd09f72).lineBetween(-11, 5, -3, -8);
     graphic.restore();
   }
-  if (rocket && rocket.status !== 'scrapped') {
+  if (rocket && rocket.status !== 'scrapped' && visible(rocket)) {
     const [x, y] = position(rocket);
     graphic.save().translateCanvas(x, y).scaleCanvas(scale, scale);
     graphic.fillStyle(0x291d19, 0.75).fillEllipse(0, 8, 32, 10);

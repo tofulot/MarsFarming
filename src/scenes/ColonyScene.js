@@ -13,7 +13,7 @@ import { soilStatusLine } from '../sim/systems/soil.js';
 import { lineagePhenotype } from '../sim/systems/mutations.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
 import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.js';
-import { colonyBoardAtZoom } from '../ui/colony/layout.js';
+import { boardTransform, boardZoomRange, panBoard, stepBoardZoom } from '../ui/colony/layout.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 
 const washerMessages = {
@@ -38,7 +38,8 @@ export class ColonyScene extends Phaser.Scene {
     this.sim = new Simulation(this.dataSet, options);
     this.sim.command({ type: 'setSpeed', speed: 0 });
     this.acc = 0;
-    this.boardZoom = 1;
+    this.boardZoom = boardZoomRange.initial;
+    this.boardPan = { x: 0, y: 0 };
     this.selected = null;
     this.shopCategory = shopCategories[0];
     this.timerPage = 0;
@@ -83,7 +84,7 @@ export class ColonyScene extends Phaser.Scene {
     attachMutationSparks(this, this.sim, (plotUid) => {
       const plot = this.sim.state.buildings.find(({ uid }) => uid === plotUid);
       if (!plot) return null;
-      const { x: left, y: top, tile, row } = colonyBoardAtZoom(this.boardZoom);
+      const { x: left, y: top, tile, row } = boardTransform(this);
       return { x: left + plot.x * tile + tile / 2, y: top + plot.y * row + row / 2 };
     });
     this.sim.on('mission:end', (state) => {
@@ -96,6 +97,7 @@ export class ColonyScene extends Phaser.Scene {
     this.refreshGrid();
     this.drawSide();
     this.scene.launch('UI', { sim: this.sim, foodPerCrew: this.dataSet.balance.foodPerCrew });
+    this.bindBoardKeys();
     if (options.demo) {
       this.input.keyboard.on('keydown-ONE', () => this.run({ type: 'triggerEvent', id: 'dustRegional' }, false));
       this.input.keyboard.on('keydown-TWO', () => this.run({ type: 'triggerEvent', id: 'spe' }, false));
@@ -114,9 +116,57 @@ export class ColonyScene extends Phaser.Scene {
       this.acc -= tick;
       this.sim.step();
     }
+    this.panWithKeys(delta);
     const progress = Math.min(1, this.acc / tick);
     this.presentation?.update(time, progress);
     if (this.runningWasherBar) this.runningWasherBar.scaleX = this.acc / tick;
+  }
+
+  /** WASD / arrow keys pan the board; + / - zoom. Ignored while typing or while a dialog is open. */
+  bindBoardKeys() {
+    const keys = { w: [0, -1], arrowup: [0, -1], s: [0, 1], arrowdown: [0, 1],
+      a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
+    this.panKeys = new Set();
+    const typing = (event) => event.ctrlKey || event.metaKey || event.altKey
+      || document.querySelector('dialog[open]')
+      || event.target?.closest?.('input, textarea, select, [contenteditable="true"]');
+    const down = (event) => {
+      const key = event.key.toLowerCase();
+      if (typing(event) || this.finished) return;
+      if (keys[key]) {
+        this.panKeys.add(key);
+        if (key.startsWith('arrow')) event.preventDefault();
+      } else if (key === '=' || key === '+' || key === '-' || key === '_') {
+        stepBoardZoom(this, key === '-' || key === '_' ? -1 : 1);
+        this.refreshGrid();
+        this.hud?.refresh();
+      }
+    };
+    const up = (event) => this.panKeys.delete(event.key.toLowerCase());
+    const clear = () => this.panKeys.clear();
+    this.panVector = (key) => keys[key];
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', clear);
+    this.events.once('shutdown', () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', clear);
+    });
+  }
+
+  panWithKeys(delta) {
+    if (!this.panKeys?.size) return;
+    let dx = 0, dy = 0;
+    for (const key of this.panKeys) {
+      const [x, y] = this.panVector(key);
+      dx += x;
+      dy += y;
+    }
+    if (!dx && !dy) return;
+    const speed = 12 / (this.boardZoom ?? 1) * Math.min(delta, 50) / 1000;
+    panBoard(this, dx * speed, dy * speed);
+    this.refreshGrid();
   }
 
   notify(copy) {

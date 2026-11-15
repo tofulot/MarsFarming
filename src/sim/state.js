@@ -1,11 +1,14 @@
-// AI-assisted (OpenAI Codex)
+// AI-assisted (OpenAI Codex; world grid size by Claude Code)
+/** World grid in tiles. 35×19 fills the colony play area at the minimum board zoom. */
+export const WORLD_GRID = Object.freeze({ w: 35, h: 19 });
+
 export function createState(data, options, launch) {
   const { seed, difficulty, objectiveId, siteId, landerId, manifest } = options;
   const mode = data.difficulty[difficulty];
   return {
     seed, difficulty, objectiveId, siteId, landerId, manifest: { ...manifest },
     sol: 0, Ls: 0, seasonIdx: 0, solLimit: Math.ceil(data.seasons.yearSols), speed: 1,
-    status: 'active', endReason: '', grid: { w: 16, h: 12 },
+    status: 'active', endReason: '', grid: { ...WORLD_GRID },
     res: { credits: mode.budget - launch.cost, sp: 0, data: 0, waterL: mode.startWater,
       foodKg: mode.startFood, pantry: { rations: mode.startFood },
       batteryWh: 0, massUsed: launch.massKg, spares: manifest.spares ?? 0,
