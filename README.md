@@ -56,3 +56,9 @@ See [Weather data and API](docs/weather.md) for source coverage, game tuning, an
 The [original playbook](Junior%20Astronaut%20Mars%20Farm%20README.md) describes the full project and source IDs. The NASA baseline crop data comes from the [Life Support Baseline Values and Assumptions Document](https://ntrs.nasa.gov/citations/20210024855). The seasonal calendar uses the [LMD solar longitude table](https://www-mars.lmd.jussieu.fr/mars/time/solar_longitude.new). Prices and resource tuning are game values.
 
 OpenAI Codex assisted with the project scaffold, simulation, scenes, starter data encoded from the playbook, and tests.
+
+## Credits
+
+- Fonts are bundled from npm (no CDN), and both are licensed under the [SIL Open Font License 1.1](https://openfontlicense.org/):
+  - [Amatic SC](https://github.com/googlefonts/AmaticSC) by Vernon Adams and The Amatic SC Project Authors (display face: titles, tab labels, headings), via [`@fontsource/amatic-sc`](https://fontsource.org/fonts/amatic-sc).
+  - [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand) by Patrick Wagesreiter (body text and all numbers), via [`@fontsource/patrick-hand`](https://fontsource.org/fonts/patrick-hand).

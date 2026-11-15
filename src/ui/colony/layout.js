@@ -1,11 +1,17 @@
-// AI-assisted (Claude Code: board transform, zoom and pan)
+// AI-assisted (Claude Code: board transform, zoom and pan; one-strip HUD constants)
 // Shared presentation coordinates. Simulation grid coordinates remain independent.
 export const colonyLayout = Object.freeze({
   width: 1280, height: 720,
   board: { x: 32, y: 60, tile: 48, row: 36 },
   dock: { x: 20, y: 548, width: 1240, height: 112 },
   forecast: { x: 20, y: 672, width: 1240, height: 32 },
-  hud: { x: 1000, y: 20, width: 260 }
+  hud: { x: 1000, y: 20, width: 260 },
+  /** The single top strip (DOM, ResourceHud): sol dial, resource chips, speed, panel tabs. */
+  hudBar: { x: 8, y: 8, width: 1264, height: 56 },
+  /** DOM side panel (Base / Ops / Goals): right edge, from below the strip to above the weather bar. */
+  sidePanel: { x: 812, y: 72, width: 460, bottom: 648 },
+  /** Map zoom control: bottom-right of the visible map, above the terrain credit and weather bar. */
+  zoomControl: { right: 1264, top: 610, height: 34, gapToPanel: 8 },
 });
 export const colonyTheme = Object.freeze({
   panel: 0x3b231f, line: 0xb47762, light: 0xd7aa8b,
@@ -13,11 +19,12 @@ export const colonyTheme = Object.freeze({
 });
 
 /**
- * Canvas region the DOM HUD does not cover (design pixels). The control bars cover y 0–128 and the
- * forecast strip y ~660–720. Retune these if the HUD changes size.
+ * Canvas region the DOM HUD does not cover (design pixels). The top strip covers y 8–64 (HUD_BOTTOM
+ * leaves room for its shadow) and the forecast strip y ~660–720. Retune these if the HUD changes size.
  */
+export const HUD_BOTTOM = colonyLayout.hudBar.y + colonyLayout.hudBar.height + 6;
 export const PLAY_AREA_LEFT = 12;
-export const PLAY_AREA_TOP = 128;
+export const PLAY_AREA_TOP = HUD_BOTTOM + 2;
 export const PLAY_AREA_RIGHT = 1268;
 export const PLAY_AREA_BOTTOM = 656;
 export const playArea = Object.freeze({
@@ -26,8 +33,11 @@ export const playArea = Object.freeze({
   centerX: (PLAY_AREA_LEFT + PLAY_AREA_RIGHT) / 2, centerY: (PLAY_AREA_TOP + PLAY_AREA_BOTTOM) / 2,
 });
 
-/** At the minimum zoom a 35×19 world (36×27 px tiles) fills the 1256×528 play area. */
-export const boardZoomRange = Object.freeze({ min: 0.75, max: 1.5, step: 0.125, initial: 1 });
+/**
+ * At the minimum zoom the 35×19 world (39×29.25 px tiles) fills the 1256×584 play area top to bottom;
+ * its width (1365 px) pans a little. 13/16 is the smallest zoom that leaves no empty band above the grid.
+ */
+export const boardZoomRange = Object.freeze({ min: 0.8125, max: 1.5, step: 0.125, initial: 1 });
 /** Grid centre used when no scene is supplied (matches balance.json starter hab). */
 const defaultCentre = Object.freeze({ x: 17.5, y: 9.5 });
 

@@ -1,9 +1,17 @@
-// AI-assisted (OpenAI Codex)
+// AI-assisted (OpenAI Codex; Claude Code font loading)
 import Phaser from 'phaser';
 import achievementChime from '../assets/achievement.wav';
 import { hasDustClimatology } from '../weather/dustClimatology.js';
 import { gameEvents } from '../weather/redHarvest.js';
 import { decompressWeatherArchive, readWeatherArchive } from '../weather/archive.js';
+import { fontFaces } from '../ui/theme.js';
+
+/** Resolve once the UI faces are ready, or after timeoutMs so a slow font never blocks the game. */
+function loadFonts(timeoutMs = 3000) {
+  if (typeof document === 'undefined' || !document.fonts?.load) return Promise.resolve();
+  const faces = Promise.all(fontFaces.map((face) => document.fonts.load(face))).catch(() => {});
+  return Promise.race([faces, new Promise((resolve) => setTimeout(resolve, timeoutMs))]);
+}
 
 const keys = ['sites', 'crops', 'buildings', 'demo-events', 'seasons', 'difficulty', 'landers',
   'objectives', 'facts', 'balance', 'mutations', 'soils', 'weather', 'weather-observations'];
@@ -12,6 +20,8 @@ export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
   preload() {
+    // Start fetching the faces alongside the data so Title's text is measured with the real fonts.
+    this.fontsReady = loadFonts();
     this.load.audio('achievement-chime', achievementChime);
     const path = `${import.meta.env.BASE_URL}data/`;
     this.load.image('mars-terrain', `${path}mars/terrain.jpg`);
@@ -61,6 +71,7 @@ export class BootScene extends Phaser.Scene {
     data.events = gameEvents(data.weather, hasEventData ? events : data['demo-events']);
     message.remove();
     this.registry.set('missionData', data);
+    await this.fontsReady;
     this.scene.start('Title');
   }
 }
