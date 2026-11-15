@@ -7,7 +7,7 @@ import { landingSite } from './marsMap.js';
 import { mulberry32 } from './rng.js';
 import { createState } from './state.js';
 import { seasonSystem } from './systems/season.js';
-import { eventSystem, forecastDustEvents, startEvent } from './systems/events.js';
+import { eventSystem, initializeWeatherSchedule, startEvent } from './systems/events.js';
 import { powerSystem } from './systems/power.js';
 import { queueSoilWashing, waterSupply, waterSystem } from './systems/water.js';
 import {
@@ -79,6 +79,7 @@ export class Simulation {
       if (state.buildings.some(({ id }) => id === 'battery')) earnAdvancement(this.#ctx, 'power');
     }
     seasonSystem(state, data, site);
+    initializeWeatherSchedule(this.#ctx);
     state.weather = this.getWeather();
     state.outsideTempC = state.weather.outsideTempC;
     state.power.clearSolarFactor = state.weather.clearSolarFactor;
@@ -164,8 +165,11 @@ export class Simulation {
   forecastWeather(sols = 7) {
     if (!Number.isSafeInteger(sols) || sols < 0) throw new RangeError('sols must be a nonnegative integer');
     const { sol } = this.state;
-    const storms = forecastDustEvents(this.#ctx, sol + 1, sol + sols);
-    return this.weather.forecast(gameWeatherInput(this.#ctx, storms), { sols });
+    const schedule = this.state.events.weatherSchedule ?? {};
+    const futureWeather = Object.entries(schedule)
+      .filter(([scheduledSol]) => Number(scheduledSol) > sol && Number(scheduledSol) <= sol + sols)
+      .flatMap(([, events]) => events);
+    return this.weather.forecast(gameWeatherInput(this.#ctx, futureWeather), { sols });
   }
   on(event, fn) { return this.#bus.on(event, fn); }
   off(event, fn) { this.#bus.off(event, fn); }

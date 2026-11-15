@@ -14,6 +14,8 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('achievement-chime', achievementChime);
     const path = `${import.meta.env.BASE_URL}data/`;
     this.load.image('mars-terrain', `${path}mars/terrain.jpg`);
+    this.load.svg('weather-sun', `${import.meta.env.BASE_URL}assets/weather/sun.svg`, { width: 24, height: 24 });
+    this.load.svg('weather-sandstorm', `${import.meta.env.BASE_URL}assets/weather/sandstorm.svg`, { width: 24, height: 24 });
     this.load.json('dust-climatology', `${path}mars/dust-climatology.json`);
     this.load.json('neutron-flux', `${path}mars/neutron-flux.json`);
     for (const key of keys) this.load.json(key, `${path}${key}.json`);
