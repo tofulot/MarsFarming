@@ -6,7 +6,7 @@ export class UIScene extends Phaser.Scene {
   constructor() { super('UI'); }
   create({ sim, foodPerCrew }) {
     const hud = createResourceHud(this, sim, foodPerCrew);
-    const unsubscribe = ['sol', 'purchase', 'harvest', 'advancement'].map(event => sim.on(event, hud.refresh));
+    const unsubscribe = ['sol', 'purchase', 'harvest', 'advancement', 'crop:plant'].map(event => sim.on(event, hud.refresh));
     this.events.once('shutdown', () => {
       unsubscribe.forEach(stop => stop());
     });

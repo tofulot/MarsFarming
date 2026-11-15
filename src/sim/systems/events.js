@@ -43,7 +43,7 @@ export function startEvent(ctx, id, until) {
   const active = { ...event, startedSol: state.sol,
     until: until ?? state.sol + min + Math.floor(random() * (max - min + 1)) };
   if (event.effects.equipmentFailure) {
-    const machines = state.buildings.filter((b) => !['hab', 'berm'].includes(b.id) &&
+    const machines = state.buildings.filter((b) => !['hab', 'berm'].includes(b.id) && !ctx.buildings.get(b.id)?.decorative &&
       !state.events.active.some((other) => other.targetUid === b.uid));
     if (!machines.length) return false;
     active.targetUid = machines[Math.floor(random() * machines.length)].uid;

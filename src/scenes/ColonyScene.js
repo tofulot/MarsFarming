@@ -29,6 +29,7 @@ export class ColonyScene extends Phaser.Scene {
     this.sim = new Simulation(this.dataSet, options);
     this.sim.command({ type: 'setSpeed', speed: 0 });
     this.acc = 0;
+    this.boardZoom = 1;
     this.selected = null;
     this.shopCategory = shopCategories[0];
     this.timerPage = 0;
@@ -71,6 +72,14 @@ export class ColonyScene extends Phaser.Scene {
     this.solProgress = progressBar(this, null, 360, 28, 100, 4, 0);
     this.solProgress.setDepth(25);
     this.solStatus = text(this, 472, 20, 'Paused', 12, { color: '#ecd0a7' }).setDepth(25);
+    const zoom = (amount) => {
+      this.boardZoom = Math.max(0.75, Math.min(1.06, this.boardZoom + amount));
+      this.refreshGrid();
+    };
+    button(this, 650, 15, 39, 24, '−', () => zoom(-0.1), { size: 15 });
+    button(this, 696, 15, 39, 24, '+', () => zoom(0.1), { size: 15 });
+    text(this, 746, 20, 'Colony zoom', 11, { color: colors.muted });
+    text(this, 844, 20, 'Terrain · NASA MOLA', 11, { color: colors.muted });
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
     this.feedback = text(this, 32, 523, this.message, 12, { color: '#f5dfbd', wordWrap: { width: 1200 } }).setDepth(25);

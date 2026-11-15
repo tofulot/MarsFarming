@@ -10,3 +10,8 @@ export const colonyTheme = Object.freeze({
   panel: 0x3b231f, line: 0xb47762, light: 0xd7aa8b,
   ink: '#f5dfbd', muted: '#cba58c', mint: 0xa7cba1, accent: 0xd69562
 });
+
+export function colonyBoardAtZoom(zoom = 1) {
+  const { x, y, tile, row } = colonyLayout.board;
+  return { x, y, tile: tile * zoom, row: row * zoom };
+}

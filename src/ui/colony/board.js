@@ -1,4 +1,5 @@
-import { colonyLayout } from './layout.js';
+import { drawBuildingSprite } from '../../rendering/buildingSprites.js';
+import { colonyBoardAtZoom } from './layout.js';
 
 /** Individual building silhouettes are presentation-only; IDs come from building data. */
 function building(scene, group, unit, x, y, size, model) {
@@ -28,7 +29,7 @@ function building(scene, group, unit, x, y, size, model) {
         graphic.lineBetween(sx, y + 9, sx + 3, y + 15);
       }
     }
-  } else {
+  } else if (!drawBuildingSprite(graphic, unit.id, x, y, size, unit.online)) {
     graphic.fillStyle(color).fillRoundedRect(x + 7, y + 4, size - 14, size - 10, unit.id === 'hab' ? 10 : 4);
     graphic.fillStyle(0x78968d).fillRect(x + 11, y + 9, size - 22, 6);
     graphic.lineStyle(2, 0x6d6757).lineBetween(x + 10, y + size - 9, x + size - 10, y + size - 9);
@@ -45,7 +46,7 @@ function building(scene, group, unit, x, y, size, model) {
 
 export function drawColonyBoard(scene) {
   scene.tileLayer.clear(true, true);
-  const { x: left, y: top, tile, row } = colonyLayout.board;
+  const { x: left, y: top, tile, row } = colonyBoardAtZoom(scene.boardZoom);
   const { buildings, crops, grid } = scene.sim.state;
   const definitions = new Map(scene.dataSet.buildings.map(item => [item.id, item]));
   const plants = [];
@@ -63,7 +64,8 @@ export function drawColonyBoard(scene) {
       scene.tileLayer.add(hit);
       if (unit) building(scene, scene.tileLayer, unit, px + (tile - row) / 2, py, row - 1, definitions.get(unit.id));
       if (crop) {
-        plants.push({ key: `crop-${crop.uid}`, id: crop.cropId, x: px + tile / 2, y: py + row - 7, size: 26, growth: crop.growth });
+        plants.push({ key: `crop-${crop.uid}`, id: crop.cropId, x: px + tile / 2, y: py + row - 7,
+          size: 26 * (scene.boardZoom ?? 1), growth: crop.growth });
         scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, tile - 10, 4, 0x37251c, 0.9).setOrigin(0).setDepth(18));
         scene.tileLayer.add(scene.add.rectangle(px + 5, py + row - 4, (tile - 10) * crop.growth, 4,
           crop.growth >= 1 ? 0x9ed27c : 0xe0b36e).setOrigin(0).setDepth(19));

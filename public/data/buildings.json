@@ -138,6 +138,20 @@
     "_game": true
   },
   {
+    "id": "rockProp",
+    "name": "Basalt Boulder",
+    "sprite": "BLD",
+    "cost": 5,
+    "massKg": 0,
+    "powerW": 0,
+    "waterLPerSol": 0,
+    "why": "Place a decorative boulder on an empty tile.",
+    "materialCost": { "regolith": 1 },
+    "decorative": true,
+    "unlockSP": 0,
+    "_game": true
+  },
+  {
     "id": "berm",
     "name": "Shield Berm",
     "sprite": "BRM",
