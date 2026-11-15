@@ -1,15 +1,48 @@
 import { boardTransform, visibleTiles } from './colony/layout.js';
 import { button, colors, panel, text } from './controls.js';
+import { crateAt } from '../sim/systems/supply.js';
 
 export function surfaceFeatureAt(state, cell) {
   if (!cell) return null;
   const matchesCell = ({ x, y }) => x === cell.x && y === cell.y;
   if (state.rocket?.status !== 'scrapped' && state.rocket && matchesCell(state.rocket)) return state.rocket;
+  const crate = crateAt(state, cell.x, cell.y);
+  if (crate) return crate;
   return state.rocks.find((rock) => rock.remaining > 0 && matchesCell(rock)) ?? null;
 }
 
+/** Supply crate (docs/DESIGN_HUD_COMMS.md): contents and a Collect button that runs collectCrate. */
+function drawCrateDetails(scene, crate) {
+  // Same box as ColonyScene building details, so the shared Close button lines up.
+  const box = scene.detailsLayout ?? { x: 800, y: 188, width: 460, height: 410 };
+  const left = box.x + 18;
+  const add = (item) => scene.sideLayer.add(item);
+  const crops = scene.dataSet?.crops ?? [];
+  const packetKg = scene.dataSet?.balance?.rescue?.comms?.packetKg ?? {};
+  add(panel(scene, box.x, box.y, box.width, box.height, 0x3b231f).setInteractive());
+  add(text(scene, left, box.y + 14, 'Supply crate', 24, { fontStyle: 'bold' }));
+  const landed = crate.landedSol != null ? `Landed on sol ${crate.landedSol}. ` : '';
+  add(text(scene, left, box.y + 54, `${landed}Seeds from your Comms Dish order.`, 15,
+    { color: colors.muted, wordWrap: { width: box.width - 36 } }));
+  add(text(scene, left, box.y + 92, 'Contents', 18, { fontStyle: 'bold' }));
+  const items = crate.items ?? [];
+  items.forEach((id, i) => {
+    const crop = crops.find((entry) => entry.id === id);
+    const mass = packetKg[id] != null ? ` · ${packetKg[id].toFixed(2)} kg packet` : '';
+    add(text(scene, left + 14, box.y + 122 + i * 26, `${crop?.emoji ? `${crop.emoji}  ` : ''}${crop?.name ?? id}${mass}`, 16));
+  });
+  const y = box.y + 134 + Math.max(1, items.length) * 26;
+  add(text(scene, left, y, 'Collecting adds them to your seed vault for good.', 14, { color: colors.muted }));
+  const { box: frame, copy } = button(scene, left, y + 30, 220, 42, 'Collect crate', () => scene.run({ type: 'collectCrate' }, false));
+  scene.sideLayer.addMultiple([frame, copy]);
+}
+
 export function drawSurfaceDetails(scene, feature) {
-  const { rocket, res, sol } = scene.sim.state;
+  const { rocket, res, sol, comms } = scene.sim.state;
+  if (feature && feature === comms?.crate) {
+    drawCrateDetails(scene, feature);
+    return;
+  }
   const wreck = feature === rocket;
   const title = wreck ? 'Crashed rocket' : feature.material === 'metal' ? 'Metal deposit' : 'Regolith deposit';
   const add = (item) => scene.sideLayer.add(item);
