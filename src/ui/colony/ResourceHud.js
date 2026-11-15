@@ -30,6 +30,30 @@ function makeButton(label, onClick, { className = '', title = '', disabled = fal
   return node;
 }
 
+function createRadishSeedIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Radish with leafy green tops');
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="radish-skin" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fa7181"/><stop offset=".58" stop-color="#d73553"/><stop offset="1" stop-color="#9f1f3b"/>
+      </linearGradient>
+      <linearGradient id="radish-tip" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#fff5dc"/><stop offset="1" stop-color="#dfcaa9"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="33" cy="56" rx="13" ry="3" fill="#100b0a" opacity=".38"/>
+    <path d="M29 27C19 21 17 12 20 7c7 2 12 9 13 19C32 14 39 6 46 7c2 9-3 17-12 22 8-6 16-5 21-1-4 8-12 10-23 6Z" fill="#4f7835"/>
+    <path d="M32 40c-6-8-14-10-20-7 1 8 8 13 18 12M34 38c5-9 13-12 20-9-1 8-8 13-18 14" fill="none" stroke="#82a84d" stroke-width="3" stroke-linecap="round"/>
+    <path d="M19 29c1-8 8-13 16-12 9 0 14 6 13 14-1 8-8 14-16 21-8-7-14-14-13-23Z" fill="url(#radish-skin)"/>
+    <path d="M19 34c7 4 21 5 29-1-2 8-9 14-16 20-7-6-12-11-13-19Z" fill="url(#radish-tip)"/>
+    <path d="M25 24c3-4 8-5 12-4" fill="none" stroke="#ffb2ad" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
+    <path d="M31 51c0 3 1 5 1 6" fill="none" stroke="#d7c19c" stroke-width="2" stroke-linecap="round"/>`;
+  return svg;
+}
+
 // Tab glyphs drawn as inline SVG so they render the same without emoji fonts.
 const TAB_ICONS = {
   base: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 19h18"/><path d="M5 19v-5a7 7 0 0 1 14 0v5"/><path d="M10 19v-4h4v4"/><path d="M12 7V4"/></svg>',
@@ -96,6 +120,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
       .colony-hud-item { min-height:70px; padding:7px; display:grid; grid-template-columns:56px minmax(0,1fr); gap:9px; text-align:left; align-items:center; background:${RAISED}!important; }
       .colony-hud-item.is-locked { background:${SUNKEN}!important; color:#9b857c!important; }
       .colony-hud-icon { width:56px; height:56px; box-sizing:border-box; display:grid; place-items:center; border:1px dashed #806158; border-radius:8px; font-size:30px; line-height:1; background:#1b111066; }
+      .colony-hud-icon svg { width:50px; height:50px; overflow:visible; }
       .colony-hud-item-copy { min-width:0; }
       .colony-hud-item-name,.colony-hud-item-meta { display:block; overflow-wrap:anywhere; }
       .colony-hud-item-name { font-weight:750; }
@@ -297,7 +322,8 @@ export function createResourceHud(scene, sim, foodPerCrew) {
     const iconNode = document.createElement('span');
     iconNode.className = 'colony-hud-icon';
     iconNode.setAttribute('aria-hidden', 'true');
-    iconNode.textContent = icon;
+    if (icon instanceof Node) iconNode.append(icon);
+    else iconNode.textContent = icon;
     const copy = document.createElement('span');
     copy.className = 'colony-hud-item-copy';
     const titleNode = document.createElement('span');
@@ -334,7 +360,7 @@ export function createResourceHud(scene, sim, foodPerCrew) {
         // Use the simulation's traits so rescue-mode growth overrides (e.g. radish 8 sols) are shown.
         const growth = cropSolsRemaining(current.sim.cropTraits(crop.id) ?? crop, { id: 'plot' }, definitions.balance);
         const selected = current.seedTool === crop.id;
-        const icon = crop.emoji ?? '🌱';
+        const icon = crop.id === 'radish' ? createRadishSeedIcon() : (crop.emoji ?? '🌱');
         const meta = requirement ? `LOCKED · ${requirement}`
           : `${growth} sols · ${foodCost.toFixed(1)} kg food`;
         grid.append(card(crop, { locked: Boolean(requirement), selected, icon, meta,
