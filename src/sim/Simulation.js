@@ -11,7 +11,8 @@ import { eventSystem, forecastDustEvents, startEvent } from './systems/events.js
 import { powerSystem } from './systems/power.js';
 import { queueSoilWashing, waterSupply, waterSystem } from './systems/water.js';
 import {
-  cropSolsRemaining, cropSystem, expectedFoodPerSol, harvestCrop, harvestPreview, queueCrossDiscovery,
+  cropSolsRemaining, cropSystem, cropsOnPlot, crossMinGrowth, expectedFoodPerSol, harvestCrop,
+  harvestPreview, nextOpenSlot, queueCrossDiscovery,
 } from './systems/crops.js';
 import {
   crossGenotypes, describeGenetics, emptyStress, formatGenotype, lineageForPlant, storeCrossChild,
@@ -20,7 +21,7 @@ import { createPlotSoil, fertilizeAdjacentPlots } from './systems/soil.js';
 import { crewSystem } from './systems/crew.js';
 import { economySystem } from './systems/economy.js';
 import { rewardSystem } from './systems/rewards.js';
-import { placeSurfaceMaterials } from './systems/surfaceMaterials.js';
+import { placeSurfaceMaterials, respawnSurfaceMaterials } from './systems/surfaceMaterials.js';
 
 const ok = (reason) => ({ ok: true, reason });
 const fail = (reason) => ({ ok: false, reason });
@@ -214,6 +215,9 @@ export class Simulation {
     powerSystem(this.#ctx);
     waterSystem(this.#ctx);
     fertilizeAdjacentPlots(this.#ctx);
+    if (state.rescue && data.balance.rescue.surface) {
+      respawnSurfaceMaterials(state, data.balance.rescue.surface, this.#ctx.random);
+    }
     if (state.rescue) {
       if (state.buildings.some(({ id, online }) => id === 'iceDrill' && online)) earnAdvancement(this.#ctx, 'water');
       if (state.buildings.some(({ id, treated }) => id === 'plot' && treated)) earnAdvancement(this.#ctx, 'soil');
@@ -221,9 +225,8 @@ export class Simulation {
     cropSystem(this.#ctx);
     for (const plot of state.buildings) {
       if (!this.#ctx.near(plot, 'autoHarvester', (unit) => unit.online)) continue;
-      if (state.crops.some(({ plotUid, growth }) => plotUid === plot.uid && growth >= 1)) {
-        this.command({ type: 'harvest', uid: plot.uid });
-      }
+      const mature = state.crops.filter(({ plotUid, growth }) => plotUid === plot.uid && growth >= 1);
+      for (const ready of mature) this.command({ type: 'harvest', uid: plot.uid, cropUid: ready.uid });
     }
     crewSystem(this.#ctx);
     economySystem(this.#ctx);
@@ -250,7 +253,10 @@ export class Simulation {
     if (state.status !== 'active') return fail('This mission has ended.');
     const { type, id, x, y } = cmd;
     const unit = state.buildings.find((entry) => cmd.uid != null ? entry.uid === cmd.uid : entry.x === x && entry.y === y);
-    const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
+    const plotCrops = unit ? cropsOnPlot(state, unit.uid) : [];
+    const crop = cmd.cropUid != null
+      ? state.crops.find(({ uid }) => uid === cmd.cropUid)
+      : plotCrops.find((entry) => entry.growth >= 1) ?? plotCrops[0];
     switch (type) {
       case 'build': {
         const model = buildings.get(id);
@@ -311,7 +317,12 @@ export class Simulation {
       }
       case 'plant': {
         const traits = crops.get(id);
-        if (!unit || !buildings.get(unit.id).plot || crop) return fail('Choose an empty greenhouse or hydroponic bay.');
+        if (!unit || !buildings.get(unit.id).plot) return fail('Choose a greenhouse or hydroponic bay.');
+        const slot = Number.isInteger(cmd.slot) ? cmd.slot : nextOpenSlot(state, unit.uid, data.balance);
+        if (slot == null || slot < 0 || slot >= (data.balance.plotSlots ?? 9)) {
+          return fail('This bay is full (9 plant slots). Harvest or cross to free a slot.');
+        }
+        if (plotCrops.some((entry) => (entry.slot ?? 0) === slot)) return fail('That plant slot is already occupied.');
         if (!traits) return fail('This crop is unavailable.');
         const requirement = this.unlockRequirement(traits);
         if (requirement) return fail(`Requires ${requirement}.`);
@@ -321,7 +332,7 @@ export class Simulation {
         state.res.foodKg = Math.max(0, state.res.foodKg - foodCost);
         const lineage = data.mutations ? lineageForPlant(state, id, data.mutations) : null;
         state.crops.push({
-          uid: ++this.#uid, plotUid: unit.uid, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
+          uid: ++this.#uid, plotUid: unit.uid, slot, cropId: id, plantedSol: state.sol, health: 1, growth: 0,
           ...(lineage ? { lineageId: lineage.id, stress: emptyStress() } : {}),
         });
         if (state.rescue) {
@@ -330,12 +341,13 @@ export class Simulation {
           earnAdvancement(this.#ctx, 'botanist');
         }
         const sols = cropSolsRemaining(traits, unit, data.balance);
-        this.#record(`Planted ${traits.name}.`, `Requires ${sols} healthy sols to mature.`);
+        this.#record(`Planted ${traits.name} in slot ${slot + 1}.`, `Requires ${sols} healthy sols to mature.`);
         this.#bus.emit('crop:plant', state);
-        return ok(`Planted ${traits.name}.`);
+        return ok(`Planted ${traits.name} (slot ${slot + 1}).`);
       }
       case 'harvest': {
-        if (!crop || crop.growth < 1) return fail('The plot has no mature crop.');
+        if (!unit || !crop || crop.plotUid !== unit.uid) return fail('Choose a crop in this bay.');
+        if (crop.growth < 1) return fail('That plant is not mature yet.');
         const result = harvestCrop(this.#ctx, crop, unit);
         earnAdvancement(this.#ctx, 'harvest');
         if (state.rescue) {
@@ -353,9 +365,13 @@ export class Simulation {
         if (!data.mutations) return fail('Breeding is unavailable.');
         const mother = state.crops.find(({ uid }) => uid === cmd.motherUid);
         const father = state.crops.find(({ uid }) => uid === (cmd.fatherUid ?? cmd.motherUid));
-        if (!mother || !father) return fail('Select two mature crops of the same kind.');
-        if (mother.growth < 1 || father.growth < 1) return fail('Both parents must be mature.');
+        if (!mother || !father) return fail('Select two plants of the same crop in one bay.');
+        const minGrowth = crossMinGrowth(data.balance);
+        if (mother.growth < minGrowth || father.growth < minGrowth) {
+          return fail(`Parents need at least ${Math.round(minGrowth * 100)}% growth to cross.`);
+        }
         if (mother.cropId !== father.cropId) return fail('Crosses require the same crop.');
+        if (mother.plotUid !== father.plotUid) return fail('Crossbreed only within the same bay (9 slots).');
         const motherPlot = state.buildings.find(({ uid }) => uid === mother.plotUid);
         const traits = crops.get(mother.cropId);
         const motherLine = state.lineages[mother.lineageId];

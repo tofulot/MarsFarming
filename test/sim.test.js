@@ -106,8 +106,15 @@ test('Survival planting charges food only on success and supply drops unlock see
   sim.state.res.foodKg = startingFood;
   assert.ok(sim.command(plant).ok);
   assert.equal(sim.state.res.foodKg, startingFood - cost);
+  // Same bay still has open slots — fill them, then reject overflow.
+  let food = sim.state.res.foodKg;
+  for (let slot = 1; slot < 9; slot++) {
+    assert.ok(sim.command({ ...plant, slot }).ok);
+    food -= cost;
+  }
+  assert.equal(sim.state.res.foodKg, food);
   assert.equal(sim.command(plant).ok, false);
-  assert.equal(sim.state.res.foodKg, startingFood - cost);
+  assert.equal(sim.state.res.foodKg, food);
 
   sim.state.rescue.earned.repeatHarvest = 9;
   const crop = sim.cropTraits('tomato');

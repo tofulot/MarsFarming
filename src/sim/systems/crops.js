@@ -41,7 +41,33 @@ function harvestYield(ctx, crop, plot) {
     : soilYieldMultiplier(plot, data, fertilized);
   if (!plot.treated) return 0;
   const fullYieldKg = traits.harvestKg ?? traits.yieldDry_g_m2_d * traits.growthDays * data.balance.plotAreaM2 / 1000;
-  return fullYieldKg * pheno.yield * crop.health * multiplier;
+  // Share the bay's historic single-plant yield across occupied slots so a full
+  // 9-pack matches one old harvest; a lone seedling still feeds like before.
+  const occupants = Math.max(1, state.crops.filter(({ plotUid }) => plotUid === plot.uid).length);
+  const slotScale = 1 / occupants;
+  return fullYieldKg * slotScale * pheno.yield * crop.health * multiplier;
+}
+
+export function plotSlotCount(balance) {
+  return balance?.plotSlots ?? 9;
+}
+
+export function crossMinGrowth(balance) {
+  return balance?.crossMinGrowth ?? 0.28;
+}
+
+export function cropsOnPlot(state, plotUid) {
+  return state.crops.filter((crop) => crop.plotUid === plotUid)
+    .sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+}
+
+export function nextOpenSlot(state, plotUid, balance) {
+  const used = new Set(cropsOnPlot(state, plotUid).map((crop) => crop.slot ?? 0));
+  const slots = plotSlotCount(balance);
+  for (let slot = 0; slot < slots; slot++) {
+    if (!used.has(slot)) return slot;
+  }
+  return null;
 }
 
 export function harvestPreview(ctx, crop, plot) {
