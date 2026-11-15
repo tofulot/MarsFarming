@@ -4,13 +4,15 @@ import { ColonyPresentation } from '../ui/colony/ColonyPresentation.js';
 import { drawColonyBoard } from '../ui/colony/board.js';
 import { shopCategories } from '../ui/colony/catalog.js';
 import { playAchievementToasts } from '../ui/achievementToasts.js';
+import { drawSurfaceDetails, drawSurfaceObjects, formatMaterials, surfaceFeatureAt } from '../ui/surfaceActions.js';
 import { drawAdvancementTree, openColonyNameDialog } from '../ui/advancementTree.js';
 import { advancements, nextAdvancement } from '../sim/advancements.js';
-import { drawColonyWeather } from '../ui/colonyWeather.js';
 import { Simulation } from '../sim/Simulation.js';
 import { cropSolsRemaining } from '../sim/systems/crops.js';
 import { lineagePhenotype } from '../sim/systems/mutations.js';
 import { irrigationMakeup, waterOutput } from '../sim/systems/water.js';
+import { attachMutationSparks, drawGeneticsChips } from '../ui/colony/genetics.js';
+import { colonyBoardAtZoom } from '../ui/colony/layout.js';
 import { button, colors, panel, progressBar, targetBackground, text } from '../ui/controls.js';
 
 const washerMessages = {
@@ -30,15 +32,14 @@ export class ColonyScene extends Phaser.Scene {
     this.sim = new Simulation(this.dataSet, options);
     this.sim.command({ type: 'setSpeed', speed: 0 });
     this.acc = 0;
+    this.boardZoom = 1;
     this.selected = null;
     this.shopCategory = shopCategories[0];
     this.timerPage = 0;
     this.showTimers = false;
-    this.showWeather = false;
     this.showAdvancements = false;
     this.showShopDetails = false;
     this.seedTool = null;
-    this.dockTab = 'seeds';
     this.achievementSelection = null;
     this.tool = null;
     this.breedMotherUid = null;
@@ -58,6 +59,10 @@ export class ColonyScene extends Phaser.Scene {
     this.sim.on('sol', () => { this.refreshGrid(); this.drawSide(); });
     this.sim.on('event:start', (event) => this.notify(`${event.name} · ${event.until - event.startedSol} sols. ${event.fact ?? ''}`));
     this.sim.on('wash:complete', ({ plots }) => this.notify(`Soil treatment complete. ${plots} ${plots === 1 ? 'plot is' : 'plots are'} ready to plant.`));
+    this.sim.on('supply:seeds', ({ crops: names }) => {
+      this.notify(`Supply drop arrived · New seeds: ${names.join(', ')}.`);
+      this.drawSide();
+    });
     this.sim.on('power:shortage', () => {
       if (!this.sim.state.events.active.length) this.notify('Power shortage. Add solar arrays or preserve battery charge.');
     });
@@ -68,6 +73,12 @@ export class ColonyScene extends Phaser.Scene {
         ? `Solar flare mutation in ${name}: ${loci}`
         : `Allele flip in ${name}: ${loci}`);
     });
+    attachMutationSparks(this, this.sim, (plotUid) => {
+      const plot = this.sim.state.buildings.find(({ uid }) => uid === plotUid);
+      if (!plot) return null;
+      const { x: left, y: top, tile, row } = colonyBoardAtZoom(this.boardZoom);
+      return { x: left + plot.x * tile + tile / 2, y: top + plot.y * row + row / 2 };
+    });
     this.sim.on('mission:end', (state) => {
       this.finished = true;
       this.scene.start('Report', { state, options, pendingAwards: pendingAwards.slice() });
@@ -77,6 +88,14 @@ export class ColonyScene extends Phaser.Scene {
     this.solProgress = progressBar(this, null, 360, 28, 100, 4, 0);
     this.solProgress.setDepth(25);
     this.solStatus = text(this, 472, 20, 'Paused', 12, { color: '#ecd0a7' }).setDepth(25);
+    const zoom = (amount) => {
+      this.boardZoom = Math.max(0.75, Math.min(1.06, this.boardZoom + amount));
+      this.refreshGrid();
+    };
+    button(this, 650, 15, 39, 24, '−', () => zoom(-0.1), { size: 15 });
+    button(this, 696, 15, 39, 24, '+', () => zoom(0.1), { size: 15 });
+    text(this, 746, 20, 'Colony zoom', 11, { color: colors.muted });
+    text(this, 844, 20, 'Terrain · NASA MOLA', 11, { color: colors.muted });
     this.tileLayer = this.add.group();
     this.sideLayer = this.add.group();
     this.feedback = text(this, 32, 523, this.message, 12, { color: '#f5dfbd', wordWrap: { width: 1200 } }).setDepth(25);
@@ -123,10 +142,16 @@ export class ColonyScene extends Phaser.Scene {
 
   select(x, y) {
     this.showTimers = false;
-    this.showWeather = false;
     this.showAdvancements = false;
     this.selected = { x, y };
     this.showShopDetails = false;
+    if (surfaceFeatureAt(this.sim.state, this.selected)) {
+      this.seedTool = null;
+      this.tool = null;
+      this.refreshGrid();
+      this.drawSide();
+      return;
+    }
     if (this.seedTool) {
       const unit = this.sim.state.buildings.find(item => item.x === x && item.y === y);
       if (unit) {
@@ -150,6 +175,7 @@ export class ColonyScene extends Phaser.Scene {
 
   refreshGrid() {
     drawColonyBoard(this);
+    drawSurfaceObjects(this);
   }
 
   drawSide() {
@@ -170,21 +196,18 @@ export class ColonyScene extends Phaser.Scene {
     };
     const state = this.sim.state;
     const cell = this.selected;
+    const feature = surfaceFeatureAt(state, cell);
+    if (feature) {
+      drawSurfaceDetails(this, feature);
+      return;
+    }
     const unit = cell && state.buildings.find((entry) => entry.x === cell.x && entry.y === cell.y);
     const info = unit && this.dataSet.buildings.find(({ id }) => id === unit.id);
     const crop = unit && state.crops.find(({ plotUid }) => plotUid === unit.uid);
-    if (!unit && !this.showWeather && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
+    if (!unit && !this.showTimers && !this.showAdvancements && !this.showShopDetails) return;
     add(panel(this, 675, 154, 550, 449, 0x3b231f).setInteractive());
-    const activeTimers = state.events.active.length + Number(state.res.data > 0);
-    say(695, 169, this.showAdvancements ? 'Achievement tree' : this.showWeather ? 'Predicted weather' : this.showTimers ? 'Mission timers' : info?.name ?? 'Base shop', 24, { fontStyle: 'bold' });
-    action(950, 166, 116, 31, this.showWeather ? 'Back to base' : 'Weather', () => {
-      this.showWeather = !this.showWeather;
-      this.showAdvancements = false;
-      this.showTimers = false;
-      this.drawSide();
-    }, { selected: this.showWeather, size: 14 });
-    action(1078, 166, 130, 31, this.showTimers ? 'Back to base' : `Timers${activeTimers ? ` · ${activeTimers}` : ''}`,
-      () => { this.showTimers = !this.showTimers; this.showWeather = false; this.showAdvancements = false; this.drawSide(); }, { selected: this.showTimers, size: 14 });
+    const title = this.showAdvancements ? 'Achievement tree' : this.showTimers ? 'Operations' : info?.name ?? 'Base shop';
+    say(695, 169, title, 24, { fontStyle: 'bold' });
     if (this.showAdvancements) {
       const selected = this.achievementSelection ?? nextAdvancement(state.rescue)?.id ?? 'rescue';
       drawAdvancementTree(this, this.sideLayer, state.rescue, selected, (id) => {
@@ -201,9 +224,6 @@ export class ColonyScene extends Phaser.Scene {
           return result;
         });
       } : null, { size: 14 });
-      action(979, 548, 214, 36, 'Back to base', () => { this.showAdvancements = false; this.drawSide(); });
-    } else if (this.showWeather) {
-      drawColonyWeather(this, this.sideLayer, this.sim);
     } else if (this.showTimers) {
       const timers = state.events.active.map((event) => {
         const total = event.until - event.startedSol;
@@ -233,10 +253,21 @@ export class ColonyScene extends Phaser.Scene {
         progressBar(this, this.sideLayer, 695, y + 44, 496, 6, timer.fraction);
       });
       if (pages > 1) {
-        action(695, 535, 52, 35, '←', this.timerPage > 0 ? () => { this.timerPage--; this.drawSide(); } : null);
-        say(762, 543, `${this.timerPage + 1}/${pages}`, 15);
-        action(811, 535, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
+        action(695, 493, 52, 35, '←', this.timerPage > 0 ? () => { this.timerPage--; this.drawSide(); } : null);
+        say(762, 501, `${this.timerPage + 1}/${pages}`, 15);
+        action(811, 493, 52, 35, '→', this.timerPage < pages - 1 ? () => { this.timerPage++; this.drawSide(); } : null);
       }
+      const { res, power } = state;
+      add(this.add.rectangle(695, 536, 513, 1, colors.line).setOrigin(0));
+      const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
+      const sparePrice = this.sim.purchasePrice(spares);
+      const waterFirst = power.priority[0] === 'iceDrill';
+      action(695, 546, 244, 34, `Buy spare part · ${sparePrice} cr`,
+        res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
+      say(695, 583, `${res.spares} in storage`, 13, { color: colors.muted });
+      action(949, 546, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
+        () => this.run({ type: 'setPriority', priority: waterFirst
+          ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
     } else if (info) {
       const irrigation = state.rescue && info.plot
         ? irrigationMakeup(-info.waterLPerSol, this.dataSet.balance, state.rescue) : null;
@@ -256,23 +287,16 @@ export class ColonyScene extends Phaser.Scene {
         const remaining = cropSolsRemaining(traits, unit, this.dataSet.balance, crop.growth, pheno.growth);
         const status = !remaining ? 'Ready to harvest' : `${remaining} growing sols remaining`;
         say(695, 318, status, 14, { color: colors.muted, wordWrap: { width: 500 } });
-        if (genetics.length) {
-          genetics.forEach((locus, i) => {
-            const x = 695 + i * 82;
-            say(x, 338, locus.label, 15, {
-              color: locus.flipped ? '#ffd27a' : (locus.dominant ? '#9bd8ae' : '#c9b8c4'),
-              fontStyle: 'bold',
-            });
-            say(x, 354, locus.id.slice(0, 5), 11, { color: colors.muted });
-          });
-        }
-        progressBar(this, this.sideLayer, 695, 378, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
-        if (remaining) say(695, 390, !unit.online ? 'Growth stalled last sol · No power' :
+        const geneticsBottom = genetics.length
+          ? drawGeneticsChips(this, this.sideLayer, genetics, { x: 695, y: 338, maxWidth: 500 })
+          : 338;
+        progressBar(this, this.sideLayer, 695, geneticsBottom + 10, 496, 8, crop.growth, remaining ? colors.accent : colors.mint);
+        if (remaining) say(695, geneticsBottom + 22, !unit.online ? 'Growth stalled last sol · No power' :
           unit.watered ? 'Water supplied last sol' :
             state.sol === crop.plantedSol ? 'Growth begins next sol' : 'Growth stalled last sol · No water',
         13, { color: colors.muted });
         const mature = crop.growth === 1;
-        const actionY = remaining ? 418 : 400;
+        const actionY = remaining ? geneticsBottom + 50 : geneticsBottom + 32;
         action(695, actionY, 180, 38, 'Harvest', mature ? () => doForUnit('harvest') : null);
         if (this.breedMotherUid == null) {
           action(890, actionY, 150, 38, 'Set mother', mature ? () => {
@@ -316,9 +340,11 @@ export class ColonyScene extends Phaser.Scene {
           : null;
         say(695, 279, unit.treated
           ? (soilLine ? `Washed · ${soilLine}` : 'Choose a crop')
-          : (soilLine ? `Toxic · ${soilLine}` : 'Untreated soil. Run a Soil Washer batch.'),
+          : (soilLine
+            ? `Toxic · ${soilLine}`
+            : 'Untreated soil. A powered Soil Washer will treat it automatically.'),
         14, { color: colors.muted, wordWrap: { width: 500 } });
-        say(695, 318, unit.treated ? 'Choose a crop' : 'Run a Soil Washer batch before planting.', 16);
+        say(695, 318, unit.treated ? 'Choose a crop' : 'Wait for auto-wash or queue a Soil Washer batch.', 16);
         const vaulted = Object.entries(state.seedVault ?? {});
         if (unit.treated && vaulted.length) {
           say(695, 338, `Seed vault: ${vaulted.map(([cropId]) => cropId).join(', ')} ★`, 13, { color: colors.muted });
@@ -326,11 +352,13 @@ export class ColonyScene extends Phaser.Scene {
         this.dataSet.crops.slice(0, 8).forEach(({ id }, i) => {
           const item = this.sim.cropTraits(id);
           const requirement = this.sim.unlockRequirement(item);
+          const foodCost = this.sim.plantingFoodCost(id);
+          const affordable = state.res.foodKg + 1e-9 >= foodCost;
           const vaultMark = state.seedVault[id] ? ' ★' : '';
           action(695 + i % 2 * 252, 358 + Math.floor(i / 2) * 48, 238, 40,
             requirement ? `${item.name}\nRequires ${requirement}`
-              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols${vaultMark}`,
-            unit.treated && !requirement ? () => doForUnit('plant', id) : null, { size: 14 });
+              : `${item.name} · ${cropSolsRemaining(item, unit, this.dataSet.balance)} sols · ${foodCost.toFixed(1)} kg food${vaultMark}`,
+            unit.treated && !requirement && affordable ? () => doForUnit('plant', id) : null, { size: 14 });
         });
       }
       if (unit.id === 'washer') {
@@ -340,7 +368,6 @@ export class ColonyScene extends Phaser.Scene {
         const fill = progressBar(this, this.sideLayer, 695, 311, 496, 8, Number(status === 'complete'),
           status === 'complete' ? colors.mint : colors.accent);
         if (status === 'queued' && unit.online) this.runningWasherBar = fill;
-        action(695, 342, 240, 40, unit.pending ? 'Treatment queued' : 'Treat soil · 1 sol', unit.pending ? null : () => doForUnit('wash'));
       }
       if (unit.id === 'solar') action(695, 303, 240, 43, `Clean panels · ${Math.round(unit.dust * 100)}% dust`, () => doForUnit('clean'));
       const failure = state.events.active.find(({ targetUid }) => targetUid === unit.uid);
@@ -358,7 +385,7 @@ export class ColonyScene extends Phaser.Scene {
   }
 
   drawBaseShop(cell) {
-    const { res, power, site, rescue } = this.sim.state;
+    const { res, site, rescue } = this.sim.state;
     const group = this.sideLayer;
     const say = (...args) => {
       const label = text(this, ...args);
@@ -389,8 +416,11 @@ export class ColonyScene extends Phaser.Scene {
       const requirement = this.sim.unlockRequirement(item);
       const price = this.sim.purchasePrice(item);
       const shortfall = price - res.credits;
+      const materials = rescue ? item.materialCost : null;
+      const lacksMaterials = Object.entries(materials ?? {})
+        .some(([material, amount]) => res.materials[material] < amount);
       const active = this.tool === id;
-      const canBuild = !requirement && shortfall <= 0;
+      const canBuild = !requirement && shortfall <= 0 && !lacksMaterials;
       const y = 280 + i * 56;
       const fill = canBuild ? 0x382830 : 0x211a20;
       const row = panel(this, 695, y, 513, 50, fill);
@@ -414,24 +444,14 @@ export class ColonyScene extends Phaser.Scene {
         ? `Produces ${waterOutput(item, site, this.dataSet.balance, rescue).toFixed(1)} L per sol here when powered.`
         : item.why;
       say(708, y + 28, description, 12, { color: colors.muted });
-      say(1195, y + 6, `${price.toLocaleString('en-US')} cr`, 16, {
+      const priceLabel = [`${price.toLocaleString('en-US')} cr`, formatMaterials(materials)].filter(Boolean).join(' + ');
+      say(1195, y + 6, priceLabel, 16, {
         color: canBuild ? colors.ink : colors.muted, fontStyle: 'bold',
       }).setOrigin(1, 0);
       const status = requirement ? `Requires ${requirement}`
         : shortfall > 0 ? `Need ${shortfall} more cr`
-          : active ? 'Ready to place' : '';
+          : lacksMaterials ? 'Mine more materials' : active ? 'Ready to place' : '';
       if (status) say(1195, y + 28, status, 12, { color: active ? '#9bd8ae' : '#ffc7a8' }).setOrigin(1, 0);
     });
-
-    group.add(this.add.rectangle(695, 515, 513, 1, colors.line).setOrigin(0));
-    const spares = this.dataSet.balance.kit.find(({ id }) => id === 'spares');
-    const sparePrice = this.sim.purchasePrice(spares);
-    const waterFirst = power.priority[0] === 'iceDrill';
-    action(695, 529, 244, 34, `Buy spare part · ${sparePrice} cr`,
-      res.credits >= sparePrice ? () => this.run({ type: 'buySpares' }) : null, { size: 14 });
-    say(695, 572, `${res.spares} in storage`, 13, { color: colors.muted });
-    action(949, 529, 259, 34, `Power order · ${waterFirst ? 'Water first' : 'Farm first'}`,
-      () => this.run({ type: 'setPriority', priority: waterFirst
-        ? ['plot', 'hydroponic', 'iceDrill'] : ['iceDrill', 'recycler', 'plot', 'hydroponic'] }), { size: 14 });
   }
 }
